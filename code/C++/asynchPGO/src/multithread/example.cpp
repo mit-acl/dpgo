@@ -36,10 +36,9 @@ int main(int argc, char** argv)
     cout << "G size: " << G.rows() << "," << G.cols() << endl;
     QuadraticProblem* problem = new QuadraticProblem(n,d,r,ConLapT,G);
 
-    RGDMaster master;
-    master.setProblem(problem);
+    RGDMaster master(problem);
     
-    // master.solve(10);
+    master.solve(10);
 
     exit(0);
 }

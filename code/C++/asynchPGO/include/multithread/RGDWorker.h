@@ -14,6 +14,8 @@ namespace AsynchPGO{
 
     void run();
 
+    void increment();
+
     void requestFinish();
 
     bool isFinished();

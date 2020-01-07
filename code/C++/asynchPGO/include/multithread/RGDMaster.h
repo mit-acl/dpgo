@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <thread>
+#include <mutex>
 #include <Eigen/Dense>
 #include "QuadraticProblem.h"
 #include "multithread/RGDWorker.h"
@@ -17,16 +18,17 @@ namespace AsynchPGO{
   class RGDMaster{
 
   public:
-    RGDMaster(){}
-
-    void setProblem(QuadraticProblem* p){
-      problem = p;
-    }
+    RGDMaster(QuadraticProblem* p);
 
     void solve(int num_threads);
 
     // tutorial
     void increment();
+
+    
+    vector<mutex> mUpdateMutexes;
+
+    
 
 
   private:
@@ -34,6 +36,8 @@ namespace AsynchPGO{
   	vector<RGDWorker*> workers;
 
     QuadraticProblem* problem = nullptr;
+
+    void initialize();
   	
     // tutorial
   	int count;

@@ -18,7 +18,8 @@ namespace AsynchPGO{
 
 	void RGDWorker::run(){
 		while(true){
-			master->increment();
+
+			increment();
 
 			if(mFinishRequested) break;
 			
@@ -36,5 +37,14 @@ namespace AsynchPGO{
 
 	bool RGDWorker::isFinished(){
 		return mFinished;
+	}
+
+	void RGDWorker::increment(){
+		// this lock will automatically destruct once it goes outside of scope
+		unique_lock<mutex> lock(master->mUpdateMutexes[0]);
+
+		cout << "Worker " << id << " updates!" << endl;
+
+		master->increment();		
 	}
 }

@@ -7,7 +7,17 @@ using namespace std;
 
 namespace AsynchPGO{
 
-	
+	RGDMaster::RGDMaster(QuadraticProblem* p){
+		problem = p;
+		initialize();
+	}
+
+	void RGDMaster::initialize(){
+		assert(problem != nullptr);
+		vector<mutex> list(problem->num_poses());
+		mUpdateMutexes.swap(list);		
+	}
+
 	void RGDMaster::solve(int num_threads){
 		assert(num_threads > 0);
 
@@ -24,7 +34,7 @@ namespace AsynchPGO{
 		}
 
 		while(true){
-			cout << "Count: " << count << endl;
+			// cout << "Count: " << count << endl;
 
 			if (count > 1000){
 				// stop all workers
