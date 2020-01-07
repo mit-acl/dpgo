@@ -1,3 +1,7 @@
+# Ignore C++ build directory
+code/C++/build
+
+# Ignore temp files
 *.m~
 *.bib~
 *.gitignore~
