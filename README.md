@@ -6,6 +6,13 @@ Asynchronous Pose-Graph Optimization
 TODO.
 
 ## C++ 
+
+Install dependencies.
+
+```
+sudo apt-get install libsuitesparse-dev
+```
+
 Inside the C++ directory, execute the following commands.
 
 ```
