@@ -2,7 +2,7 @@
 
 # PROJECT CONFIGURATION
 cmake_minimum_required(VERSION 2.8)
-set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build, options are: None Debug Release RelWithDebInfo MinSizeRel.")
+set(CMAKE_BUILD_TYPE Debug CACHE STRING "Choose the type of build, options are: None Debug Release RelWithDebInfo MinSizeRel.")
 
 project(SESync C CXX)
 

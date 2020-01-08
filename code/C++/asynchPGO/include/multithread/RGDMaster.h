@@ -1,5 +1,5 @@
-#ifndef SOLVERMASTER_H
-#define SOLVERMASTER_H
+#ifndef RGDMASTER_H
+#define RGDMASTER_H
 
 #include <vector>
 #include <thread>
@@ -18,29 +18,23 @@ namespace AsynchPGO{
   class RGDMaster{
 
   public:
-    RGDMaster(QuadraticProblem* p);
+    RGDMaster(QuadraticProblem* p, Matrix Y0);
 
-    void solve(int num_threads);
-
-    // tutorial
-    void increment();
-
+    void solve(unsigned num_threads);
     
     vector<mutex> mUpdateMutexes;
-
-    
-
 
   private:
   	vector<thread*> threads;
   	vector<RGDWorker*> workers;
-
     QuadraticProblem* problem = nullptr;
+    vector<vector<unsigned>> adjList;
+
+
+    // current iterate
+    Matrix Y;
 
     void initialize();
-  	
-    // tutorial
-  	int count;
 
   };
 

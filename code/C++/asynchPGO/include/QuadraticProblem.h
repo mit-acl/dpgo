@@ -24,7 +24,9 @@ namespace AsynchPGO{
 
   		unsigned int relaxation_rank() const { return r; }
 
-
+  		SparseMatrix Q;
+		SparseMatrix G;
+  		
 	private:
 		/** Number of poses */
 		unsigned int n = 0;
@@ -40,8 +42,7 @@ namespace AsynchPGO{
 		    Q is the quadratic part with dimension (d+1)n-by-(d+1)n
 		    G is the linear part with dimension r-by-(d+1)n
 		*/
-		SparseMatrix Q;
-		SparseMatrix G;
+		
 
 	};
 

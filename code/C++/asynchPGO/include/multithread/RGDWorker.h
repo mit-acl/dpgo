@@ -1,5 +1,5 @@
-#ifndef SOLVERWORKER_H
-#define SOLVERWORKER_H
+#ifndef RGDWORKER_H
+#define RGDWORKER_H
 
 #include "multithread/RGDMaster.h"
 
@@ -12,6 +12,10 @@ namespace AsynchPGO{
   public:
     RGDWorker(RGDMaster* pMaster, unsigned pId);
 
+    void setUpdateIndices(vector<unsigned>& pUpdateIndices){
+      updateIndices = pUpdateIndices;
+    }
+
     void run();
 
     void increment();
@@ -23,6 +27,7 @@ namespace AsynchPGO{
   private:
 
   	unsigned id;
+    vector<unsigned> updateIndices;
   	RGDMaster* master;
   	bool mFinishRequested;
   	bool mFinished;

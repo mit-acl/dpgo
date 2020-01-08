@@ -25,20 +25,36 @@ int main(int argc, char** argv)
     d = (!measurements.empty() ? measurements[0].t.size() : 0);
     n = ConLapT.rows()/(d+1);
     r = 5;
+
     // Input pose-graph optimization problem is not anchored (global symmetry)
     // Hence there is no linear term in the cost function
     SparseMatrix G(r,(d+1)*n);
     G.setZero();
-    cout << "Number of poses: " << n
-    << ". Dimension: " << d
-    << ". Relaxation rank: " << r << endl;
-    cout << "Q size: " << ConLapT.rows() << "," << ConLapT.cols() << endl;
-    cout << "G size: " << G.rows() << "," << G.cols() << endl;
     QuadraticProblem* problem = new QuadraticProblem(n,d,r,ConLapT,G);
 
-    RGDMaster master(problem);
+    // Initialization
+    Matrix Y;
+    SparseMatrix B1, B2, B3; // The measurement matrices B1, B2, B3 defined in
+                             // equations (69) of the tech report
+    construct_B_matrices(measurements, B1, B2, B3);
+    Matrix Rinit = chordal_initialization(problem->dimension(), B3);
+    // Recover translation component as well for Cartan-Sync
+    Matrix tinit = recover_translations(B1, B2, Rinit);
+    Y.resize(r, n*(d+1));
+    Y.setZero();
+    for (size_t i=0; i<n; i++)
+    {
+        Y.block(0,i*(d+1),  d,d) = Rinit.block(0,i*d,d,d);
+        Y.block(0,i*(d+1)+d,d,1) = tinit.block(0,i,d,1);
+    }
+    cout << "Constructed chordal initialization. " << endl;
+
+
+    /** Call asynchronous PGO solver
+    */
+    RGDMaster master(problem, Y);
     
-    master.solve(10);
+    master.solve(4);
 
     exit(0);
 }
