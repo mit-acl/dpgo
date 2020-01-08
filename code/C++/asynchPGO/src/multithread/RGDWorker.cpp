@@ -1,5 +1,6 @@
 #include <iostream>
 #include <unistd.h>
+#include <random>
 #include "multithread/RGDWorker.h"
 
 
@@ -17,7 +18,26 @@ namespace AsynchPGO{
 	}
 
 	void RGDWorker::run(){
+		std::random_device rd;  //Will be used to obtain a seed for the random number engine
+	    std::mt19937 rng(rd()); //Standard mersenne_twister_engine seeded with rd()
+	    std::uniform_int_distribution<> distribution(0, updateIndices.size()-1);
+
 		while(true){
+
+			// randomly select an index
+			unsigned i = updateIndices[distribution(rng)];
+
+			Matrix Yi, Gi, YiNext;
+			readComponent(i, Yi);
+
+			Gi.resize(Yi.rows(), Yi.cols());
+			YiNext.resize(Yi.rows(), Yi.cols());
+
+			computeEuclideanGradient(i, Gi);
+
+			gradientUpdate(Yi, Gi, YiNext);
+
+			writeComponent(i, YiNext);
 
 			if(mFinishRequested) break;
 			
@@ -36,4 +56,39 @@ namespace AsynchPGO{
 	bool RGDWorker::isFinished(){
 		return mFinished;
 	}
+
+	void RGDWorker::readComponent(unsigned i, Matrix& Yi){
+		// obtain lock
+		lock_guard<mutex> lock(master->mUpdateMutexes[i]);
+		master->readComponent(i, Yi);
+	}
+
+    void RGDWorker::writeComponent(unsigned i, Matrix& Yi){
+    	// obtain lock
+		lock_guard<mutex> lock(master->mUpdateMutexes[i]);
+		master->writeComponent(i, Yi);
+    }
+
+    void RGDWorker::computeEuclideanGradient(unsigned i, Matrix &Gi){
+    	Gi.setZero();
+    	// iterate over neighbors of i
+    	for(unsigned k = 0; k < master->adjList[i].size(); ++k){
+    		unsigned j = master->adjList[i][k];
+    		Matrix Yj, Qji;
+    		master->readComponent(j, Yj);
+    		master->readDataMatrixBlock(j, i, Qji);
+    		Gi = Gi + Yj * Qji;
+    	}
+    }
+
+    void RGDWorker::gradientUpdate(Matrix& Yi, Matrix& Gi, Matrix& YiNext){
+    	YiNext.setZero();
+    	unsigned r = Yi.rows();
+    	unsigned d = Yi.cols() - 1;
+    	CartanSyncManifold manifold(r,d,1);
+    	CartanSyncVariable x(r,d,1);
+    	// x.RandInManifold();
+    	Mat2CartanProd(Yi, x);
+    	YiNext = Yi;
+    }
 }

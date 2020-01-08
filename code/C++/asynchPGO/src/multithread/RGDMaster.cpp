@@ -46,6 +46,8 @@ namespace AsynchPGO{
 			return;
 		}
 
+		numWrites = 0;
+
 		unsigned n = problem->num_poses();
 		unsigned numPosesPerWorker = n / num_threads;
 		assert(numPosesPerWorker != 0);
@@ -53,6 +55,10 @@ namespace AsynchPGO{
 			cout << "Idle workers detected. Try decrease the number of workers." << endl;
 			return;
 		}
+
+		// compute initial cost
+		float initialCost = (Y * problem->Q * Y.transpose()).trace();
+		cout << "Initial cost:  " << initialCost << endl;
 
 		for(unsigned i = 0; i < num_threads; ++i){
 			// initialize a new worker
@@ -76,6 +82,8 @@ namespace AsynchPGO{
 			threads.push_back(worker_thread);
 		}
 
+		sleep(5);
+
 		while(true){
 
 			if (true){
@@ -94,7 +102,37 @@ namespace AsynchPGO{
 			threads[i]->join();
 		}
 
+		float finalCost = (Y * problem->Q * Y.transpose()).trace();
+
 		cout << "Master finished." << endl;
+		cout << "Initial cost:  " << initialCost << ". Final cost: " << finalCost << ". Number of writes: " << numWrites << "." << endl;
 
 	}
+
+	void RGDMaster::readComponent(unsigned i, Matrix& Yi){
+		unsigned d = problem->dimension();
+		unsigned r = problem->relaxation_rank();
+
+		unsigned start = (d+1) * i;
+
+		Yi = Y.block(0, start, r, d+1);
+	}
+
+    void RGDMaster::writeComponent(unsigned i, Matrix& Yi){
+    	unsigned d = problem->dimension();
+		unsigned r = problem->relaxation_rank();
+
+		unsigned start = (d+1) * i;
+
+		Y.block(0, start, r, d+1) = Yi;
+		numWrites++;
+    }
+
+    void RGDMaster::readDataMatrixBlock(unsigned i, unsigned j, Matrix& Qij){
+    	unsigned d = problem->dimension();
+    	unsigned rowStart = (d+1) * i;
+    	unsigned colStart = (d+1) * j;
+
+    	Qij = Matrix(problem->Q.block(rowStart, colStart, d+1, d+1));
+    }
 }

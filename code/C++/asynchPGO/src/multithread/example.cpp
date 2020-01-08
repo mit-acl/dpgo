@@ -1,7 +1,6 @@
 #include <iostream>
 #include "SESync.h"
 #include "SESync_utils.h"
-#include "CartanSyncProblem.h"
 #include "QuadraticProblem.h"
 #include "multithread/RGDMaster.h"
 

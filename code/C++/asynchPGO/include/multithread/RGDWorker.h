@@ -2,6 +2,7 @@
 #define RGDWORKER_H
 
 #include "multithread/RGDMaster.h"
+#include "SESync_utils.h"
 
 /*Define the namespace*/
 namespace AsynchPGO{
@@ -18,13 +19,19 @@ namespace AsynchPGO{
 
     void run();
 
-    void increment();
-
     void requestFinish();
 
     bool isFinished();
   
   private:
+
+    void readComponent(unsigned i, Matrix& Yi);
+
+    void writeComponent(unsigned i, Matrix& Yi);
+
+    void computeEuclideanGradient(unsigned i, Matrix& Gi);
+
+    void gradientUpdate(Matrix& Yi, Matrix& Gi, Matrix& YiNext);
 
   	unsigned id;
     vector<unsigned> updateIndices;
