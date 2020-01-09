@@ -41,7 +41,7 @@ namespace AsynchPGO{
 			if(mFinishRequested) break;
 			
 			// use usleep for microsecond
-			usleep(1000); 
+		sleep(1); 
 		}
 
 		mFinished = true;
@@ -94,14 +94,20 @@ namespace AsynchPGO{
     	// Compute Riemannian gradient
     	manifold.Projection(&x, &euclideanGradient, &riemannianGradient);
 
+    	Matrix RG;
+    	CartanProd2Mat(riemannianGradient, RG);
+    	cout << RG.norm() << endl;
+
+    	YiNext = Yi;
+
     	// Compute descent direction
-    	CartanSyncVector eta(r,d,1);
-    	manifold.ScaleTimesVector(&x, -0.0000001, &riemannianGradient, &eta);
+    	// CartanSyncVector eta(r,d,1);
+    	// manifold.ScaleTimesVector(&x, -0.0000001, &riemannianGradient, &eta);
 
     	// Update
-    	CartanSyncVariable xNext(r,d,1);
-    	manifold.Retraction(&x, &eta, &xNext);
+    	// CartanSyncVariable xNext(r,d,1);
+    	// manifold.Retraction(&x, &eta, &xNext);
 
-    	CartanProd2Mat(xNext, YiNext);
+    	// CartanProd2Mat(xNext, YiNext);
     }
 }

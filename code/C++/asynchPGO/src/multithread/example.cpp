@@ -32,11 +32,19 @@ int main(int argc, char** argv)
     QuadraticProblem* problem = new QuadraticProblem(n,d,r,ConLapT,G);
 
     // Initialization
-    Matrix Y;
-    CartanSyncVariable Yinit(r,problem->dimension(),problem->num_poses());
-    Yinit.RandInManifold();
-    Y.resize(r, problem->dimension() * problem->num_poses());
-    CartanProd2Mat(Yinit, Y);
+    // Matrix Y;
+    // CartanSyncVariable Yinit(r,problem->dimension(),problem->num_poses());
+    // Yinit.RandInManifold();
+    // Y.resize(r, problem->dimension() * problem->num_poses());
+    // CartanProd2Mat(Yinit, Y);
+
+    SESyncOpts opts;
+    opts.verbose = true; // Print output to stdout
+    opts.eig_comp_tol = 1e-6; // 1e-10
+    opts.min_eig_num_tol = 1e-3; // this is the value used in Matlab version
+
+    /** call actual solver */
+    SESyncResult results = SESync::SESync(measurements, AlgType::CartanSync, opts);
 
     // SparseMatrix B1, B2, B3; // The measurement matrices B1, B2, B3 defined in
     //                          // equations (69) of the tech report
@@ -56,9 +64,11 @@ int main(int argc, char** argv)
 
     /** Call asynchronous PGO solver
     */
+    Matrix Y = results.Yopt;
+    cout << Y.rows() << "," << Y.cols() << endl;
     RGDMaster master(problem, Y);
     
-    master.solve(4);
+    master.solve(1);
 
     exit(0);
 }

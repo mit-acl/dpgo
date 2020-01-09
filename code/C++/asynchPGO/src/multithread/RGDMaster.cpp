@@ -82,12 +82,14 @@ namespace AsynchPGO{
 			threads.push_back(worker_thread);
 		}
 
-		while(true){
+		sleep(5);
+
+		while(false){
 
 			float cost = (Y * problem->Q * Y.transpose()).trace();
 			cout << "Cost = " << cost << endl;
 
-			if (false){
+			if (true){
 				// stop all workers
 				for(unsigned i = 0; i < workers.size(); ++i){
 					workers[i]->requestFinish();
