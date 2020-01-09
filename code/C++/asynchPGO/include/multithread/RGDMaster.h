@@ -8,6 +8,7 @@
 #include "QuadraticProblem.h"
 #include "CartanSyncVariable.h"
 #include "CartanSyncManifold.h"
+#include "CartanSyncVector.h"
 #include "multithread/RGDWorker.h"
 
 using namespace std;

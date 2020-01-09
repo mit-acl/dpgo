@@ -1,6 +1,7 @@
 #include <iostream>
 #include <unistd.h>
 #include <random>
+#include <Eigen/SVD>
 #include "multithread/RGDWorker.h"
 
 
@@ -31,8 +32,6 @@ namespace AsynchPGO{
 			readComponent(i, Yi);
 
 			Gi.resize(Yi.rows(), Yi.cols());
-			YiNext.resize(Yi.rows(), Yi.cols());
-
 			computeEuclideanGradient(i, Gi);
 
 			gradientUpdate(Yi, Gi, YiNext);
@@ -42,7 +41,7 @@ namespace AsynchPGO{
 			if(mFinishRequested) break;
 			
 			// use usleep for microsecond
-			sleep(1); 
+			usleep(1000); 
 		}
 
 		mFinished = true;
@@ -87,8 +86,22 @@ namespace AsynchPGO{
     	unsigned d = Yi.cols() - 1;
     	CartanSyncManifold manifold(r,d,1);
     	CartanSyncVariable x(r,d,1);
-    	// x.RandInManifold();
+    	CartanSyncVector euclideanGradient(r,d,1);
+    	CartanSyncVector riemannianGradient(r,d,1);
     	Mat2CartanProd(Yi, x);
-    	YiNext = Yi;
+    	Mat2CartanProd(Gi, euclideanGradient);
+    	
+    	// Compute Riemannian gradient
+    	manifold.Projection(&x, &euclideanGradient, &riemannianGradient);
+
+    	// Compute descent direction
+    	CartanSyncVector eta(r,d,1);
+    	manifold.ScaleTimesVector(&x, -0.0000001, &riemannianGradient, &eta);
+
+    	// Update
+    	CartanSyncVariable xNext(r,d,1);
+    	manifold.Retraction(&x, &eta, &xNext);
+
+    	CartanProd2Mat(xNext, YiNext);
     }
 }

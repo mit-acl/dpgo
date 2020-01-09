@@ -78,6 +78,7 @@ set(SESYNC_INCLUDES ${SESync_INCLUDE_DIR} ${EIGEN3_INCLUDE_DIR} ${SPQR_INCLUDES}
 set(SESync_HDRS
 ${SESync_INCLUDE_DIR}/CartanSyncManifold.h
 ${SESync_INCLUDE_DIR}/CartanSyncVariable.h
+${SESync_INCLUDE_DIR}/CartanSyncVector.h
 ${SESync_INCLUDE_DIR}/RelativePoseMeasurement.h
 ${SESync_INCLUDE_DIR}/SESync_types.h
 ${SESync_INCLUDE_DIR}/SESync_utils.h
@@ -90,6 +91,7 @@ ${SESync_INCLUDE_DIR}/SESync.h
 set(SESync_SRCS
 ${SESync_SOURCE_DIR}/CartanSyncManifold.cpp
 ${SESync_SOURCE_DIR}/CartanSyncVariable.cpp
+${SESync_SOURCE_DIR}/CartanSyncVector.cpp
 ${SESync_SOURCE_DIR}/SESync_utils.cpp
 ${SESync_SOURCE_DIR}/StiefelSyncProblem.cpp
 ${SESync_SOURCE_DIR}/CartanSyncProblem.cpp
