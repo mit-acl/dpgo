@@ -41,7 +41,7 @@ namespace AsynchPGO{
 			if(mFinishRequested) break;
 			
 			// use usleep for microsecond
-		sleep(1); 
+			usleep(1000); 
 		}
 
 		mFinished = true;
@@ -78,6 +78,12 @@ namespace AsynchPGO{
     		master->readDataMatrixBlock(j, i, Qji);
     		Gi = Gi + Yj * Qji;
     	}
+    	// for(unsigned j = 0; j < master->problem->num_poses(); ++j){
+    	// 	Matrix Yj, Qji;
+    	// 	master->readComponent(j, Yj);
+    	// 	master->readDataMatrixBlock(j, i, Qji);
+    	// 	Gi = Gi + Yj * Qji;
+    	// }
     }
 
     void RGDWorker::gradientUpdate(Matrix& Yi, Matrix& Gi, Matrix& YiNext){
@@ -94,20 +100,19 @@ namespace AsynchPGO{
     	// Compute Riemannian gradient
     	manifold.Projection(&x, &euclideanGradient, &riemannianGradient);
 
-    	Matrix RG;
-    	CartanProd2Mat(riemannianGradient, RG);
-    	cout << RG.norm() << endl;
-
-    	YiNext = Yi;
+    	// Debug
+    	// Matrix RG;
+    	// CartanProd2Mat(riemannianGradient, RG);
+    	// cout << RG.norm() << endl;
 
     	// Compute descent direction
-    	// CartanSyncVector eta(r,d,1);
-    	// manifold.ScaleTimesVector(&x, -0.0000001, &riemannianGradient, &eta);
+    	CartanSyncVector eta(r,d,1);
+    	manifold.ScaleTimesVector(&x, -0.00001, &riemannianGradient, &eta);
 
     	// Update
-    	// CartanSyncVariable xNext(r,d,1);
-    	// manifold.Retraction(&x, &eta, &xNext);
+    	CartanSyncVariable xNext(r,d,1);
+    	manifold.Retraction(&x, &eta, &xNext);
 
-    	// CartanProd2Mat(xNext, YiNext);
+    	CartanProd2Mat(xNext, YiNext);
     }
 }

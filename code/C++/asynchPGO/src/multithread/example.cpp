@@ -32,7 +32,7 @@ int main(int argc, char** argv)
     QuadraticProblem* problem = new QuadraticProblem(n,d,r,ConLapT,G);
 
     // Initialization
-    // Matrix Y;
+    Matrix Y;
     // CartanSyncVariable Yinit(r,problem->dimension(),problem->num_poses());
     // Yinit.RandInManifold();
     // Y.resize(r, problem->dimension() * problem->num_poses());
@@ -46,29 +46,25 @@ int main(int argc, char** argv)
     /** call actual solver */
     SESyncResult results = SESync::SESync(measurements, AlgType::CartanSync, opts);
 
-    // SparseMatrix B1, B2, B3; // The measurement matrices B1, B2, B3 defined in
-    //                          // equations (69) of the tech report
-    // construct_B_matrices(measurements, B1, B2, B3);
-    // Matrix Rinit = chordal_initialization(problem->dimension(), B3);
-    // // Recover translation component as well for Cartan-Sync
-    // Matrix tinit = recover_translations(B1, B2, Rinit);
-    // Y.resize(r, n*(d+1));
-    // Y.setZero();
-    // for (size_t i=0; i<n; i++)
-    // {
-    //     Y.block(0,i*(d+1),  d,d) = Rinit.block(0,i*d,d,d);
-    //     Y.block(0,i*(d+1)+d,d,1) = tinit.block(0,i,d,1);
-    // }
-    // cout << "Constructed chordal initialization. " << endl;
+    SparseMatrix B1, B2, B3; 
+    construct_B_matrices(measurements, B1, B2, B3);
+    Matrix Rinit = chordal_initialization(problem->dimension(), B3);
+    Matrix tinit = recover_translations(B1, B2, Rinit);
+    Y.resize(r, n*(d+1));
+    Y.setZero();
+    for (size_t i=0; i<n; i++)
+    {
+        Y.block(0,i*(d+1),  d,d) = Rinit.block(0,i*d,d,d);
+        Y.block(0,i*(d+1)+d,d,1) = tinit.block(0,i,d,1);
+    }
 
 
     /** Call asynchronous PGO solver
     */
-    Matrix Y = results.Yopt;
-    cout << Y.rows() << "," << Y.cols() << endl;
+    // Y = results.Yopt;
     RGDMaster master(problem, Y);
     
-    master.solve(1);
+    master.solve(8);
 
     exit(0);
 }

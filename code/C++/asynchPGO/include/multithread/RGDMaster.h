@@ -31,6 +31,8 @@ namespace AsynchPGO{
 
     void readDataMatrixBlock(unsigned i, unsigned j, Matrix& Qij);
 
+    QuadraticProblem* problem = nullptr;
+
     vector<mutex> mUpdateMutexes;
 
     vector<vector<unsigned>> adjList;
@@ -38,7 +40,6 @@ namespace AsynchPGO{
   private:
   	vector<thread*> threads;
   	vector<RGDWorker*> workers;
-    QuadraticProblem* problem = nullptr;
 
 
     // current iterate

@@ -28,14 +28,22 @@ namespace AsynchPGO{
 			vector<unsigned> empty_list;
 			adjList.push_back(empty_list);
 			for(unsigned j = 0; j < n; ++j){
-				if (i == j) continue;
 				unsigned rowStart = (d+1) * i;
 				unsigned colStart = (d+1) * j;
-				if(problem->Q.block(rowStart, colStart, d+1, d+1).norm() > 0.0001){
+				if(problem->Q.block(rowStart, colStart, d+1, d+1).norm() > 0.1){
 					adjList[i].push_back(j);
 				}
 			}
 		}
+
+		// print adjacency list
+		// for(unsigned i = 0; i < n; ++i){
+		// 	cout << i << ": ";
+		// 	for(unsigned k =0; k < adjList[i].size();++k){
+		// 		cout << adjList[i][k] << "," ;
+		// 	}
+		// 	cout << endl;
+		// }
 
 	}
 
@@ -82,14 +90,14 @@ namespace AsynchPGO{
 			threads.push_back(worker_thread);
 		}
 
-		sleep(5);
+		// sleep(5);
 
-		while(false){
+		while(true){
 
 			float cost = (Y * problem->Q * Y.transpose()).trace();
-			cout << "Cost = " << cost << endl;
+			cout << cost << endl;
 
-			if (true){
+			if (false){
 				// stop all workers
 				for(unsigned i = 0; i < workers.size(); ++i){
 					workers[i]->requestFinish();
