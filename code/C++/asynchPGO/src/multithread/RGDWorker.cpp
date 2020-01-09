@@ -78,12 +78,6 @@ namespace AsynchPGO{
     		master->readDataMatrixBlock(j, i, Qji);
     		Gi = Gi + Yj * Qji;
     	}
-    	// for(unsigned j = 0; j < master->problem->num_poses(); ++j){
-    	// 	Matrix Yj, Qji;
-    	// 	master->readComponent(j, Yj);
-    	// 	master->readDataMatrixBlock(j, i, Qji);
-    	// 	Gi = Gi + Yj * Qji;
-    	// }
     }
 
     void RGDWorker::gradientUpdate(Matrix& Yi, Matrix& Gi, Matrix& YiNext){
@@ -107,7 +101,7 @@ namespace AsynchPGO{
 
     	// Compute descent direction
     	CartanSyncVector eta(r,d,1);
-    	manifold.ScaleTimesVector(&x, -0.00001, &riemannianGradient, &eta);
+    	manifold.ScaleTimesVector(&x, -0.001, &riemannianGradient, &eta);
 
     	// Update
     	CartanSyncVariable xNext(r,d,1);

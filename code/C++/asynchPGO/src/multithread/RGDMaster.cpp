@@ -36,15 +36,6 @@ namespace AsynchPGO{
 			}
 		}
 
-		// print adjacency list
-		// for(unsigned i = 0; i < n; ++i){
-		// 	cout << i << ": ";
-		// 	for(unsigned k =0; k < adjList[i].size();++k){
-		// 		cout << adjList[i][k] << "," ;
-		// 	}
-		// 	cout << endl;
-		// }
-
 	}
 
 	void RGDMaster::solve(unsigned num_threads){
@@ -89,8 +80,6 @@ namespace AsynchPGO{
 			thread* worker_thread = new thread(&AsynchPGO::RGDWorker::run, worker);
 			threads.push_back(worker_thread);
 		}
-
-		// sleep(5);
 
 		while(true){
 

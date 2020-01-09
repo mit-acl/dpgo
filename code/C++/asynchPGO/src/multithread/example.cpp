@@ -31,21 +31,23 @@ int main(int argc, char** argv)
     G.setZero();
     QuadraticProblem* problem = new QuadraticProblem(n,d,r,ConLapT,G);
 
-    // Initialization
     Matrix Y;
+
+    /** call SESync solver */
+    SESyncOpts opts;
+    opts.verbose = true; // Print output to stdout
+    opts.eig_comp_tol = 1e-6; // 1e-10
+    opts.min_eig_num_tol = 1e-3; // this is the value used in Matlab version
+    SESyncResult results = SESync::SESync(measurements, AlgType::CartanSync, opts);
+    // Y = results.Yopt;
+
+    // Random initialization
     // CartanSyncVariable Yinit(r,problem->dimension(),problem->num_poses());
     // Yinit.RandInManifold();
     // Y.resize(r, problem->dimension() * problem->num_poses());
     // CartanProd2Mat(Yinit, Y);
 
-    SESyncOpts opts;
-    opts.verbose = true; // Print output to stdout
-    opts.eig_comp_tol = 1e-6; // 1e-10
-    opts.min_eig_num_tol = 1e-3; // this is the value used in Matlab version
-
-    /** call actual solver */
-    SESyncResult results = SESync::SESync(measurements, AlgType::CartanSync, opts);
-
+    // Chordal initialization
     SparseMatrix B1, B2, B3; 
     construct_B_matrices(measurements, B1, B2, B3);
     Matrix Rinit = chordal_initialization(problem->dimension(), B3);
@@ -61,7 +63,6 @@ int main(int argc, char** argv)
 
     /** Call asynchronous PGO solver
     */
-    // Y = results.Yopt;
     RGDMaster master(problem, Y);
     
     master.solve(8);
