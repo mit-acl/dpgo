@@ -10,13 +10,20 @@ namespace AsynchPGO{
 	RGDMaster::RGDMaster(QuadraticProblem* p, Matrix Y0){
 		problem = p;
 		Y = Y0;
+		d = problem->dimension();
+		r = problem->relaxation_rank();
+		n = problem->num_poses();
+		
+		manifold = new CartanSyncManifold(r,d,n);
+		x = new CartanSyncVariable(r,d,n);
+		euclideanGradient = new CartanSyncVector(r,d,n);
+		riemannianGradient = new CartanSyncVector(r,d,n);
+
 		initialize();
 	}
 
 	void RGDMaster::initialize(){
 		assert(problem != nullptr);
-		unsigned n = problem->num_poses();
-		unsigned d = problem->dimension();
 
 		// create mutexes
 		vector<mutex> list(n);
@@ -46,18 +53,12 @@ namespace AsynchPGO{
 		}
 
 		numWrites = 0;
-
-		unsigned n = problem->num_poses();
 		unsigned numPosesPerWorker = n / num_threads;
 		assert(numPosesPerWorker != 0);
 		if(numPosesPerWorker == 0){
 			cout << "Idle workers detected. Try decrease the number of workers." << endl;
 			return;
 		}
-
-		// compute initial cost
-		float initialCost = (Y * problem->Q * Y.transpose()).trace();
-		cout << "Initial cost:  " << initialCost << endl;
 
 		for(unsigned i = 0; i < num_threads; ++i){
 			// initialize a new worker
@@ -82,11 +83,9 @@ namespace AsynchPGO{
 		}
 
 		while(true){
+			cout << "Cost = " << computeCost() << "; GradNorm = " << computeGradNorm() << endl;
 
-			// float cost = (Y * problem->Q * Y.transpose()).trace();
-			// cout << cost << endl;
-
-			if (false){
+			if (computeGradNorm() < 0.1){
 				// stop all workers
 				for(unsigned i = 0; i < workers.size(); ++i){
 					workers[i]->requestFinish();
@@ -102,16 +101,11 @@ namespace AsynchPGO{
 			threads[i]->join();
 		}
 
-		float finalCost = (Y * problem->Q * Y.transpose()).trace();
-
-		cout << "Master finished." << endl;
-		cout << "Initial cost:  " << initialCost << ". Final cost: " << finalCost << ". Number of writes: " << numWrites << "." << endl;
+		cout << "Master finished. Total number of writes: " << numWrites << endl;
 
 	}
 
 	void RGDMaster::readComponent(unsigned i, Matrix& Yi){
-		unsigned d = problem->dimension();
-		unsigned r = problem->relaxation_rank();
 
 		unsigned start = (d+1) * i;
 
@@ -119,8 +113,6 @@ namespace AsynchPGO{
 	}
 
     void RGDMaster::writeComponent(unsigned i, Matrix& Yi){
-    	unsigned d = problem->dimension();
-		unsigned r = problem->relaxation_rank();
 
 		unsigned start = (d+1) * i;
 
@@ -129,10 +121,28 @@ namespace AsynchPGO{
     }
 
     void RGDMaster::readDataMatrixBlock(unsigned i, unsigned j, Matrix& Qij){
-    	unsigned d = problem->dimension();
     	unsigned rowStart = (d+1) * i;
     	unsigned colStart = (d+1) * j;
 
     	Qij = Matrix(problem->Q.block(rowStart, colStart, d+1, d+1));
     }
+
+    float RGDMaster::computeCost(){
+    	return (Y * problem->Q * Y.transpose()).trace();
+    }
+
+    float RGDMaster::computeGradNorm(){
+    	Mat2CartanProd(Y, *x);
+
+    	// compute Euclidean gradient
+    	Matrix G = 2 * Y * problem->Q;
+    	Mat2CartanProd(G, *euclideanGradient);
+
+    	// compute Riemannian gradient
+    	manifold->Projection(x, euclideanGradient, riemannianGradient);
+    	Matrix RG;
+    	CartanProd2Mat(*riemannianGradient, RG);
+    	return RG.norm();
+    }
+
 }

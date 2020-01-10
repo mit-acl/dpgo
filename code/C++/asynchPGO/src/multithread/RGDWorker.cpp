@@ -1,9 +1,9 @@
 #include <iostream>
-#include <unistd.h>
+#include <chrono>
 #include <random>
+#include <unistd.h>
 #include <Eigen/SVD>
 #include "multithread/RGDWorker.h"
-
 
 using namespace std;
 using namespace SESync;
@@ -37,6 +37,12 @@ namespace AsynchPGO{
 	    std::mt19937 rng(rd()); //Standard mersenne_twister_engine seeded with rd()
 	    std::uniform_int_distribution<> distribution(0, updateIndices.size()-1);
 
+	    double sleepMs = 0.5; // in milliseconds!
+
+	    auto startTime = std::chrono::high_resolution_clock::now();
+	    double numWrites = 0.0;
+
+
 		while(true){
 
 			// randomly select an index
@@ -50,16 +56,22 @@ namespace AsynchPGO{
 
 			gradientUpdate(Yi, Gi, YiNext);
 
-			// writeComponent(i, YiNext);
+			writeComponent(i, YiNext);
+
+			numWrites+=1.0;
 
 			if(mFinishRequested) break;
 			
 			// use usleep for microsecond
-			usleep(1000); 
+			usleep((int) sleepMs * 1000); 
 		}
 
+		auto counter = std::chrono::high_resolution_clock::now() - startTime;
+		double elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(counter).count();
+
 		mFinished = true;
-		cout << "Worker " << id << " finished." << endl;
+		cout << "Worker " << id << " finished. Average runtime per iteration (sleep included): " \
+			<< elapsedMs/numWrites  << " milliseconds." << endl;
 	}
 
 	void RGDWorker::requestFinish(){
@@ -109,13 +121,8 @@ namespace AsynchPGO{
     	// Compute Riemannian gradient
     	manifold->Projection(x, euclideanGradient, riemannianGradient);
 
-    	// Debug
-    	// Matrix RG;
-    	// CartanProd2Mat(riemannianGradient, RG);
-    	// cout << RG.norm() << endl;
-
     	// Compute descent direction
-    	manifold->ScaleTimesVector(x, -0.001, riemannianGradient, descentVector);
+    	manifold->ScaleTimesVector(x, -0.00001, riemannianGradient, descentVector);
 
     	// Update
     	manifold->Retraction(x, descentVector, xNext);

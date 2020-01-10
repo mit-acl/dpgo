@@ -41,13 +41,26 @@ namespace AsynchPGO{
   	vector<thread*> threads;
   	vector<RGDWorker*> workers;
 
+    unsigned d,r,n;
 
     // current iterate
     Matrix Y;
-
+    // number of writes performed by ALL workers
     unsigned numWrites;
+    
+    // ROPTLIB
+    CartanSyncManifold* manifold;
+    CartanSyncVariable* x;
+    CartanSyncVector* euclideanGradient;
+    CartanSyncVector* riemannianGradient;
 
+    
     void initialize();
+
+    float computeCost();
+
+    float computeGradNorm();
+
 
   };
 
