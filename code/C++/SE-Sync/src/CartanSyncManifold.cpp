@@ -23,6 +23,8 @@ namespace SESync{
     // StiefelMani->ChooseStieParamsSet4();
   }
 
+  CartanManifold::~CartanManifold(void){}
+
   CartanSyncManifold::CartanSyncManifold(integer r, integer d, integer n) :
     ProductManifold(1, new CartanManifold(r,d), n)
   {

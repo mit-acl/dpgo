@@ -3,6 +3,9 @@
 
 #include "multithread/RGDMaster.h"
 #include "SESync_utils.h"
+#include "CartanSyncVariable.h"
+#include "CartanSyncManifold.h"
+#include "CartanSyncVector.h"
 
 /*Define the namespace*/
 namespace AsynchPGO{
@@ -34,10 +37,19 @@ namespace AsynchPGO{
     void gradientUpdate(Matrix& Yi, Matrix& Gi, Matrix& YiNext);
 
   	unsigned id;
+    unsigned d, r;
     vector<unsigned> updateIndices;
   	RGDMaster* master;
   	bool mFinishRequested;
   	bool mFinished;
+
+    // ROPTLIB
+    CartanSyncManifold* manifold;
+    CartanSyncVariable* x;
+    CartanSyncVariable* xNext;
+    CartanSyncVector* euclideanGradient;
+    CartanSyncVector* riemannianGradient;
+    CartanSyncVector* descentVector;
 
   };
 

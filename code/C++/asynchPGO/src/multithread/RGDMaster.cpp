@@ -83,8 +83,8 @@ namespace AsynchPGO{
 
 		while(true){
 
-			float cost = (Y * problem->Q * Y.transpose()).trace();
-			cout << cost << endl;
+			// float cost = (Y * problem->Q * Y.transpose()).trace();
+			// cout << cost << endl;
 
 			if (false){
 				// stop all workers

@@ -1,14 +1,7 @@
 
 #include "CartanSyncVector.h"
-
-// TODO: Remove dependencies on Cartan2... methods here
 #include "SESync_utils.h"
-
 #include "SESync_types.h"
-
-// For the ROPTLIB types stored internally
-#include "Stiefel.h"
-#include "Euclidean.h"
   
 namespace SESync{
 
@@ -16,10 +9,14 @@ namespace SESync{
     ProductElement(2,
                     new ROPTLIB::StieVector(r, d),1,
                     new ROPTLIB::EucVector(r),1)
-  { }
+  {}
+
+  CartanVector::~CartanVector(void)
+  {
+  }
 
   CartanSyncVector::CartanSyncVector(integer r, integer d, integer n) :
-    ProductElement(1, new CartanVector(r,d), n), r(r), d(d), n(n)
+    ProductElement(1, new CartanVector(r,d), n)
   {
   }
 
@@ -27,9 +24,9 @@ namespace SESync{
   {
   }
 
-  CartanSyncVector *CartanSyncVector::ConstructEmpty() const
-  {
-    return new CartanSyncVector(r,d,n);
-  }
+  // CartanSyncVector *CartanSyncVector::ConstructEmpty() const
+  // {
+  //   return new CartanSyncVector(r,d,n);
+  // }
 
 } /*end of SESync namespace*/

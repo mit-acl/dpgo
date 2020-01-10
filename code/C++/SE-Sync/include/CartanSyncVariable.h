@@ -18,6 +18,7 @@ namespace SESync{
   class CartanVariable : public ROPTLIB::ProductElement{
   public:
     CartanVariable(integer r, integer d);
+    virtual ~CartanVariable();
   };
 
   class CartanSyncVariable : public ROPTLIB::ProductElement{

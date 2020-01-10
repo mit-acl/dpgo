@@ -20,6 +20,8 @@ namespace SESync{
                     new ROPTLIB::EucVariable(r),1)
   { }
 
+  CartanVariable::~CartanVariable(void){}
+
   CartanSyncVariable::CartanSyncVariable(integer r, integer d, integer n) :
     ProductElement(1, new CartanVariable(r,d), n), r(r), d(d), n(n)
   {

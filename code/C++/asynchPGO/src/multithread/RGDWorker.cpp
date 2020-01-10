@@ -6,6 +6,8 @@
 
 
 using namespace std;
+using namespace SESync;
+
 
 namespace AsynchPGO{
 
@@ -15,7 +17,19 @@ namespace AsynchPGO{
 		mFinishRequested = false;
 		mFinished = false;
 
+		d = master->problem->dimension();
+		r = master->problem->relaxation_rank();
+
+		manifold = new CartanSyncManifold(r,d,1);
+		x = new CartanSyncVariable(r,d,1);
+		xNext = new CartanSyncVariable(r,d,1);
+		euclideanGradient = new CartanSyncVector(r,d,1);
+		riemannianGradient = new CartanSyncVector(r,d,1);
+		descentVector = new CartanSyncVector(r,d,1);
+
 		cout << "Worker " << id << " initialized. "<< endl;
+
+		
 	}
 
 	void RGDWorker::run(){
@@ -36,7 +50,7 @@ namespace AsynchPGO{
 
 			gradientUpdate(Yi, Gi, YiNext);
 
-			writeComponent(i, YiNext);
+			// writeComponent(i, YiNext);
 
 			if(mFinishRequested) break;
 			
@@ -82,17 +96,18 @@ namespace AsynchPGO{
 
     void RGDWorker::gradientUpdate(Matrix& Yi, Matrix& Gi, Matrix& YiNext){
     	YiNext.setZero();
-    	unsigned r = Yi.rows();
-    	unsigned d = Yi.cols() - 1;
-    	CartanSyncManifold manifold(r,d,1);
-    	CartanSyncVariable x(r,d,1);
-    	CartanSyncVector euclideanGradient(r,d,1);
-    	CartanSyncVector riemannianGradient(r,d,1);
-    	Mat2CartanProd(Yi, x);
-    	Mat2CartanProd(Gi, euclideanGradient);
+    	
+    	// This does not have memory leak
+    	// ROPTLIB::StieVector sv(r,d);
+    	// ROPTLIB::EucVector ev(r);
+    	// ROPTLIB::ProductElement elem(2,&sv,1,&ev,1);
+
+    	// This does have memory leak
+    	Mat2CartanProd(Yi, *x);
+    	Mat2CartanProd(Gi, *euclideanGradient);
     	
     	// Compute Riemannian gradient
-    	manifold.Projection(&x, &euclideanGradient, &riemannianGradient);
+    	manifold->Projection(x, euclideanGradient, riemannianGradient);
 
     	// Debug
     	// Matrix RG;
@@ -100,13 +115,10 @@ namespace AsynchPGO{
     	// cout << RG.norm() << endl;
 
     	// Compute descent direction
-    	CartanSyncVector eta(r,d,1);
-    	manifold.ScaleTimesVector(&x, -0.001, &riemannianGradient, &eta);
+    	manifold->ScaleTimesVector(x, -0.001, riemannianGradient, descentVector);
 
     	// Update
-    	CartanSyncVariable xNext(r,d,1);
-    	manifold.Retraction(&x, &eta, &xNext);
-
-    	CartanProd2Mat(xNext, YiNext);
+    	manifold->Retraction(x, descentVector, xNext);
+    	CartanProd2Mat(*xNext, YiNext);
     }
 }

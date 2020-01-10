@@ -19,6 +19,9 @@ namespace SESync{
   class CartanManifold : public ROPTLIB::ProductManifold{
   public:
     CartanManifold(integer r, integer d);
+
+    virtual ~CartanManifold();
+
   };
 
   class CartanSyncManifold : public ROPTLIB::ProductManifold{

@@ -11,6 +11,9 @@ SmartSpace --> ProductElement --> CartanSyncVector
 
 #include "Manifolds/ProductElement.h"
 #include "SESync_types.h"
+// For the ROPTLIB types stored internally
+#include "Stiefel.h"
+#include "Euclidean.h"
 
 /*Define the namespace*/
 namespace SESync{
@@ -18,6 +21,7 @@ namespace SESync{
   class CartanVector : public ROPTLIB::ProductElement{
   public:
     CartanVector(integer r, integer d);
+    virtual ~CartanVector();
   };
 
   class CartanSyncVector : public ROPTLIB::ProductElement{
@@ -26,17 +30,17 @@ namespace SESync{
 
     virtual ~CartanSyncVector();
 
-    CartanSyncVector* ConstructEmpty(void) const;
+    // CartanSyncVector* ConstructEmpty(void) const;
 
   public:
     /** The maximum rank of the lifted domain */
-    unsigned int r = 0;
+    // unsigned int r = 0;
 
     /** Dimensionality of the Euclidean space */
-    unsigned int d = 0;
+    // unsigned int d = 0;
 
     /** Number of poses */
-    unsigned int n = 0;
+    // unsigned int n = 0;
 
   };
 } /*end of SESync namespace*/
