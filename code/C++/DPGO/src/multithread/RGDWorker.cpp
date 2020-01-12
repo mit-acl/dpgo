@@ -2,7 +2,6 @@
 #include <chrono>
 #include <random>
 #include <unistd.h>
-#include <Eigen/SVD>
 #include "multithread/RGDWorker.h"
 
 using namespace std;
@@ -115,6 +114,10 @@ namespace DPGO{
     void RGDWorker::gradientUpdate(Matrix& Yi, Matrix& Gi, Matrix& YiNext){
     	YiNext.setZero();
     	
+    	LiftedSEManifold M(r,d,1);
+    	LiftedSEVariable Var(r,d,1);
+    	LiftedSEVector Vec(r,d,1);
+
     	// This does not have memory leak
     	// ROPTLIB::StieVector sv(r,d);
     	// ROPTLIB::EucVector ev(r);

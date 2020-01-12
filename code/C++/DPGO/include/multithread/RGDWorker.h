@@ -6,6 +6,10 @@
 #include "CartanSyncVariable.h"
 #include "CartanSyncManifold.h"
 #include "CartanSyncVector.h"
+#include "manifold/LiftedSEManifold.h"
+#include "manifold/LiftedSEVariable.h"
+#include "manifold/LiftedSEVector.h"
+
 
 /*Define the namespace*/
 namespace DPGO{

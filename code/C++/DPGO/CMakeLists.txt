@@ -20,5 +20,8 @@ add_executable(multithread
 	src/multithread/example.cpp
 	src/multithread/RGDMaster.cpp
 	src/multithread/RGDWorker.cpp
-	src/QuadraticProblem.cpp)
+	src/QuadraticProblem.cpp
+	src/manifold/LiftedSEManifold.cpp
+	src/manifold/LiftedSEVariable.cpp
+	src/manifold/LiftedSEVector.cpp)
 target_link_libraries(multithread ${CMAKE_THREAD_LIBS_INIT} SESync)

@@ -5,7 +5,7 @@
 #include <Eigen/Dense>
 #include "SESync.h"
 #include "SESync_utils.h"
-#include "SESync_types.h"
+#include "DPGO_types.h"
 
 using namespace std;
 using namespace SESync;
