@@ -6,7 +6,7 @@
 using namespace std;
 
 /*Define the namespace*/
-namespace AsynchPGO{
+namespace DPGO{
 
 	QuadraticProblem::QuadraticProblem(unsigned int nIn, unsigned int dIn, unsigned int rIn, SparseMatrix& QIn, SparseMatrix& GIn)
 	{

@@ -11,7 +11,7 @@ using namespace std;
 using namespace SESync;
 
 /*Define the namespace*/
-namespace AsynchPGO{
+namespace DPGO{
 
 	class QuadraticProblem{
 

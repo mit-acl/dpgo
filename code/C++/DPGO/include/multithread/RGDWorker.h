@@ -8,7 +8,7 @@
 #include "CartanSyncVector.h"
 
 /*Define the namespace*/
-namespace AsynchPGO{
+namespace DPGO{
   
   class RGDMaster;
 

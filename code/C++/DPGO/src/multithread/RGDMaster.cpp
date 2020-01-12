@@ -7,7 +7,7 @@
 
 using namespace std;
 
-namespace AsynchPGO{
+namespace DPGO{
 
 	RGDMaster::RGDMaster(QuadraticProblem* p, Matrix Y0){
 		problem = p;
@@ -89,7 +89,7 @@ namespace AsynchPGO{
 			worker->setUpdateRate(10000);
 
 			// initialize thread that this worker runs on
-			thread* worker_thread = new thread(&AsynchPGO::RGDWorker::run, worker);
+			thread* worker_thread = new thread(&DPGO::RGDWorker::run, worker);
 			threads.push_back(worker_thread);
 		}
 
@@ -123,7 +123,7 @@ namespace AsynchPGO{
 		}
 
 		// export results to file
-		// string dirname ="/home/yulun/bitbucket/asynchpgo/code/C++/results";
+		// string dirname ="/home/yulun/bitbucket/DPGO/code/C++/results";
 		// ofstream file;
 		// string filename;
 		// filename = dirname + "/multithread.csv";

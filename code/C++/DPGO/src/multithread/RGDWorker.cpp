@@ -9,7 +9,7 @@ using namespace std;
 using namespace SESync;
 
 
-namespace AsynchPGO{
+namespace DPGO{
 
 	RGDWorker::RGDWorker(RGDMaster* pMaster, unsigned pId){
 		id = pId;

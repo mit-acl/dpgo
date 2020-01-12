@@ -139,4 +139,4 @@ export(TARGETS roptlib SESync FILE SESync.cmake)
 
 
 # Asynchronous Pose-graph Optimization
-add_subdirectory(asynchPGO)
+add_subdirectory(DPGO)

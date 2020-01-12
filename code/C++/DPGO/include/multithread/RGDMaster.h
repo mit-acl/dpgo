@@ -14,7 +14,7 @@
 using namespace std;
 
 /*Define the namespace*/
-namespace AsynchPGO{
+namespace DPGO{
 
   class RGDWorker;
 

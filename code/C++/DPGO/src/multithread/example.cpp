@@ -5,7 +5,7 @@
 #include "multithread/RGDMaster.h"
 
 using namespace std;
-using namespace AsynchPGO;
+using namespace DPGO;
 
 int main(int argc, char** argv)
 {
