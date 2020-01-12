@@ -28,8 +28,15 @@ namespace AsynchPGO{
 		descentVector = new CartanSyncVector(r,d,1);
 
 		cout << "Worker " << id << " initialized. "<< endl;
+	}
 
-		
+	RGDWorker::~RGDWorker(){
+		delete manifold;
+		delete x;
+		delete xNext;
+		delete euclideanGradient;
+		delete riemannianGradient;
+		delete descentVector;
 	}
 
 	void RGDWorker::run(){
@@ -37,7 +44,6 @@ namespace AsynchPGO{
 	    std::mt19937 rng(rd()); //Standard mersenne_twister_engine seeded with rd()
 	    std::uniform_int_distribution<> distribution(0, updateIndices.size()-1);
 
-	    double sleepMs = 0.5; // in milliseconds!
 
 	    auto startTime = std::chrono::high_resolution_clock::now();
 	    double numWrites = 0.0;
@@ -63,7 +69,7 @@ namespace AsynchPGO{
 			if(mFinishRequested) break;
 			
 			// use usleep for microsecond
-			usleep((int) sleepMs * 1000); 
+			usleep(sleepMicroSec); 
 		}
 
 		auto counter = std::chrono::high_resolution_clock::now() - startTime;
@@ -122,7 +128,7 @@ namespace AsynchPGO{
     	manifold->Projection(x, euclideanGradient, riemannianGradient);
 
     	// Compute descent direction
-    	manifold->ScaleTimesVector(x, -0.00001, riemannianGradient, descentVector);
+    	manifold->ScaleTimesVector(x, -stepsize, riemannianGradient, descentVector);
 
     	// Update
     	manifold->Retraction(x, descentVector, xNext);

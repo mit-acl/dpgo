@@ -1,6 +1,8 @@
 #include "multithread/RGDMaster.h"
 #include <iostream>
+#include <fstream>
 #include <cassert>
+#include <chrono>
 #include <unistd.h>
 
 using namespace std;
@@ -20,6 +22,13 @@ namespace AsynchPGO{
 		riemannianGradient = new CartanSyncVector(r,d,n);
 
 		initialize();
+	}
+
+	RGDMaster::~RGDMaster(){
+		delete manifold;
+		delete x;
+		delete euclideanGradient;
+		delete riemannianGradient;
 	}
 
 	void RGDMaster::initialize(){
@@ -77,13 +86,25 @@ namespace AsynchPGO{
 			}
 			worker->setUpdateIndices(updateIndices);
 
+			worker->setUpdateRate(10000);
+
 			// initialize thread that this worker runs on
 			thread* worker_thread = new thread(&AsynchPGO::RGDWorker::run, worker);
 			threads.push_back(worker_thread);
 		}
 
+		auto startTime = std::chrono::high_resolution_clock::now();
+		vector<float> costs;
+		vector<float> gradnorms;
+		vector<float> elapsedTimes;
+
 		while(true){
-			cout << "Cost = " << computeCost() << "; GradNorm = " << computeGradNorm() << endl;
+			auto counter = std::chrono::high_resolution_clock::now() - startTime;
+			double elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(counter).count();
+
+			costs.push_back(computeCost());
+			gradnorms.push_back(computeGradNorm());
+			elapsedTimes.push_back(elapsedMs);
 
 			if (computeGradNorm() < 0.1){
 				// stop all workers
@@ -101,21 +122,31 @@ namespace AsynchPGO{
 			threads[i]->join();
 		}
 
-		cout << "Master finished. Total number of writes: " << numWrites << endl;
+		// export results to file
+		// string dirname ="/home/yulun/bitbucket/asynchpgo/code/C++/results";
+		// ofstream file;
+		// string filename;
+		// filename = dirname + "/multithread.csv";
+		// file.open(filename.c_str(), ofstream::out);
+		// for(unsigned i = 0; i < costs.size(); ++i){
+		// 	file << elapsedTimes[i] << ","
+		// 		 << costs[i] << "," 
+		// 		 << gradnorms[i] << std::endl;
+		// }
+		// file.close();
+
+		cout << "Master finished. Total number of writes: " << numWrites << ". Elapsed time: " \
+		<< elapsedTimes.back() / (float) 1000 << " seconds." << endl;
 
 	}
 
 	void RGDMaster::readComponent(unsigned i, Matrix& Yi){
-
 		unsigned start = (d+1) * i;
-
 		Yi = Y.block(0, start, r, d+1);
 	}
 
     void RGDMaster::writeComponent(unsigned i, Matrix& Yi){
-
 		unsigned start = (d+1) * i;
-
 		Y.block(0, start, r, d+1) = Yi;
 		numWrites++;
     }
@@ -144,5 +175,4 @@ namespace AsynchPGO{
     	CartanProd2Mat(*riemannianGradient, RG);
     	return RG.norm();
     }
-
 }

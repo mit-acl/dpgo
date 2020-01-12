@@ -16,8 +16,19 @@ namespace AsynchPGO{
   public:
     RGDWorker(RGDMaster* pMaster, unsigned pId);
 
+    ~RGDWorker();
+
     void setUpdateIndices(vector<unsigned>& pUpdateIndices){
       updateIndices = pUpdateIndices;
+    }
+
+    void setUpdateRate(int freq){
+      double sleepSec = 1 / (float) freq;
+      sleepMicroSec = (int) (sleepSec * 1000 * 1000);
+    }
+
+    void setStepsize(float s){
+      stepsize = s;
     }
 
     void run();
@@ -39,6 +50,8 @@ namespace AsynchPGO{
   	unsigned id;
     unsigned d, r;
     vector<unsigned> updateIndices;
+    int sleepMicroSec = 5000; // default update rate = 200 Hz
+    float stepsize = 0.001;
   	RGDMaster* master;
   	bool mFinishRequested;
   	bool mFinished;

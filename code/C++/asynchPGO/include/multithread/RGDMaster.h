@@ -23,6 +23,8 @@ namespace AsynchPGO{
   public:
     RGDMaster(QuadraticProblem* p, Matrix Y0);
 
+    ~RGDMaster();
+
     void solve(unsigned num_threads);
     
     void readComponent(unsigned i, Matrix& Yi);
@@ -31,11 +33,18 @@ namespace AsynchPGO{
 
     void readDataMatrixBlock(unsigned i, unsigned j, Matrix& Qij);
 
+    void getSolution(Matrix& Yout){
+      Yout = Y;
+    }
+
     QuadraticProblem* problem = nullptr;
 
     vector<mutex> mUpdateMutexes;
 
     vector<vector<unsigned>> adjList;
+
+    // number of writes performed by ALL workers
+    unsigned numWrites;
 
   private:
   	vector<thread*> threads;
@@ -45,8 +54,6 @@ namespace AsynchPGO{
 
     // current iterate
     Matrix Y;
-    // number of writes performed by ALL workers
-    unsigned numWrites;
     
     // ROPTLIB
     CartanSyncManifold* manifold;

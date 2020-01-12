@@ -61,10 +61,26 @@ int main(int argc, char** argv)
     }
 
 
-    /** Call asynchronous PGO solver
-    */
-    RGDMaster master(problem, Y);
+    /** Call asynchronous PGO solver */
+    // unsigned numberOfThreads[8] = {1,2,3,4,5,6,7,8};
+    // unsigned numberOfTrials = 5;
+    // vector<float> averageWritesVector;
+
+    // for(unsigned i = 0; i < 8; ++i){
+    //     unsigned averageNumberOfWrites = 0;
+    //     for(unsigned k = 1; k <= numberOfTrials; ++k){
+    //         RGDMaster master(problem, Y);
+    //         master.solve(numberOfThreads[i]);
+    //         averageNumberOfWrites += master.numWrites;
+    //     }
+    //     averageWritesVector.push_back((float) averageNumberOfWrites / (float) numberOfTrials);
+    // }
+
+    // for(unsigned i = 0; i < averageWritesVector.size(); ++i){
+    //     cout << averageWritesVector[i] << endl;
+    // }
     
+    RGDMaster master(problem, Y);
     master.solve(8);
 
     exit(0);
