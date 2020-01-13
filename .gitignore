@@ -11,6 +11,7 @@ code/C++/build
 *.fdb_latexmk
 *.avi
 *.asv
+*.md~
 
 # Ignore plots and results folders
 code/Cartan-Sync/MATLAB/plots

@@ -1,4 +1,4 @@
-# AsynchPGO
+# DPGO
 
 Distributed (Asynchronous) Pose-Graph Optimization
 
@@ -10,7 +10,7 @@ TODO.
 Install dependencies.
 
 ```
-sudo apt-get install libsuitesparse-dev
+sudo apt-get install build-essential cmake-gui libsuitesparse-dev
 ```
 
 Inside the C++ directory, execute the following commands.
@@ -22,4 +22,7 @@ cmake ../
 make
 ```
 
-The built executables are located in directory build/bin.
+The built executables are located in directory build/bin. For a demo of multithreaded PGO, run:
+```
+./C++/build/bin/multithread-example data/smallGrid3D.g2o
+```
