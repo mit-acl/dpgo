@@ -11,17 +11,26 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -pthread")
 find_package(Threads REQUIRED)
 find_package(Eigen3 REQUIRED)
 
+# message(STATUS "EIGEN3_INCLUDE_DIR: " ${EIGEN3_INCLUDE_DIR})
+# message(STATUS "ROPTLIB_INCLUDE_DIRECTORIES: " ${ROPTLIB_INCLUDE_DIRECTORIES})
+
 include_directories(
 	include
 	${EIGEN3_INCLUDE_DIR}
-	${SESync_INCLUDE_DIR})
+	${ROPTLIB_INCLUDE_DIRECTORIES})
 
-add_executable(multithread
-	src/multithread/example.cpp
+add_library(DPGO SHARED
+	src/manifold/LiftedSEManifold.cpp
+	src/manifold/LiftedSEVariable.cpp
+	src/manifold/LiftedSEVector.cpp
 	src/multithread/RGDMaster.cpp
 	src/multithread/RGDWorker.cpp
 	src/QuadraticProblem.cpp
-	src/manifold/LiftedSEManifold.cpp
-	src/manifold/LiftedSEVariable.cpp
-	src/manifold/LiftedSEVector.cpp)
-target_link_libraries(multithread ${CMAKE_THREAD_LIBS_INIT} SESync)
+	)
+target_link_libraries(DPGO ${CMAKE_THREAD_LIBS_INIT} roptlib)
+
+# Build multithread PGO example
+add_executable(multithread-example
+	src/examples/MultithreadExample.cpp)
+target_link_libraries(multithread-example ${CMAKE_THREAD_LIBS_INIT} SESync DPGO)
+

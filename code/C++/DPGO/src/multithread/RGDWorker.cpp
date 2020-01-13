@@ -5,7 +5,6 @@
 #include "multithread/RGDWorker.h"
 
 using namespace std;
-using namespace SESync;
 
 
 namespace DPGO{
@@ -19,23 +18,23 @@ namespace DPGO{
 		d = master->problem->dimension();
 		r = master->problem->relaxation_rank();
 
-		manifold = new CartanSyncManifold(r,d,1);
-		x = new CartanSyncVariable(r,d,1);
-		xNext = new CartanSyncVariable(r,d,1);
-		euclideanGradient = new CartanSyncVector(r,d,1);
-		riemannianGradient = new CartanSyncVector(r,d,1);
-		descentVector = new CartanSyncVector(r,d,1);
+		M = new LiftedSEManifold(r,d,1);
+		Var = new LiftedSEVariable(r,d,1);
+		VarNext = new LiftedSEVariable(r,d,1);
+		EGrad = new LiftedSEVector(r,d,1);
+		RGrad = new LiftedSEVector(r,d,1);
+		Eta = new LiftedSEVector(r,d,1);
 
 		cout << "Worker " << id << " initialized. "<< endl;
 	}
 
 	RGDWorker::~RGDWorker(){
-		delete manifold;
-		delete x;
-		delete xNext;
-		delete euclideanGradient;
-		delete riemannianGradient;
-		delete descentVector;
+		delete M;
+		delete Var;
+		delete VarNext;
+		delete EGrad;
+		delete RGrad;
+		delete Eta;
 	}
 
 	void RGDWorker::run(){
@@ -113,28 +112,11 @@ namespace DPGO{
 
     void RGDWorker::gradientUpdate(Matrix& Yi, Matrix& Gi, Matrix& YiNext){
     	YiNext.setZero();
-    	
-    	LiftedSEManifold M(r,d,1);
-    	LiftedSEVariable Var(r,d,1);
-    	LiftedSEVector Vec(r,d,1);
-
-    	// This does not have memory leak
-    	// ROPTLIB::StieVector sv(r,d);
-    	// ROPTLIB::EucVector ev(r);
-    	// ROPTLIB::ProductElement elem(2,&sv,1,&ev,1);
-
-    	// This does have memory leak
-    	Mat2CartanProd(Yi, *x);
-    	Mat2CartanProd(Gi, *euclideanGradient);
-    	
-    	// Compute Riemannian gradient
-    	manifold->Projection(x, euclideanGradient, riemannianGradient);
-
-    	// Compute descent direction
-    	manifold->ScaleTimesVector(x, -stepsize, riemannianGradient, descentVector);
-
-    	// Update
-    	manifold->Retraction(x, descentVector, xNext);
-    	CartanProd2Mat(*xNext, YiNext);
+    	Var->setData(Yi);
+    	EGrad->setData(Gi);
+    	M->getManifold()->Projection(Var->var(), EGrad->vec(), RGrad->vec());
+    	M->getManifold()->ScaleTimesVector(Var->var(), -stepsize, RGrad->vec(), Eta->vec());
+    	M->getManifold()->Retraction(Var->var(), Eta->vec(), VarNext->var());
+    	VarNext->getData(YiNext);
     }
 }

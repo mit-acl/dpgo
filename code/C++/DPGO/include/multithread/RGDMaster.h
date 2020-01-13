@@ -5,11 +5,13 @@
 #include <thread>
 #include <mutex>
 #include <Eigen/Dense>
+#include "Manifolds/Element.h"
+#include "Manifolds/Manifold.h"
 #include "QuadraticProblem.h"
-#include "CartanSyncVariable.h"
-#include "CartanSyncManifold.h"
-#include "CartanSyncVector.h"
 #include "multithread/RGDWorker.h"
+#include "manifold/LiftedSEManifold.h"
+#include "manifold/LiftedSEVariable.h"
+#include "manifold/LiftedSEVector.h"
 
 using namespace std;
 
@@ -56,10 +58,10 @@ namespace DPGO{
     Matrix Y;
     
     // ROPTLIB
-    CartanSyncManifold* manifold;
-    CartanSyncVariable* x;
-    CartanSyncVector* euclideanGradient;
-    CartanSyncVector* riemannianGradient;
+    LiftedSEManifold* M;
+    LiftedSEVariable* Var;
+    LiftedSEVector* EGrad;
+    LiftedSEVector* RGrad;
 
     
     void initialize();

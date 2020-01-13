@@ -2,10 +2,6 @@
 #define RGDWORKER_H
 
 #include "multithread/RGDMaster.h"
-#include "SESync_utils.h"
-#include "CartanSyncVariable.h"
-#include "CartanSyncManifold.h"
-#include "CartanSyncVector.h"
 #include "manifold/LiftedSEManifold.h"
 #include "manifold/LiftedSEVariable.h"
 #include "manifold/LiftedSEVector.h"
@@ -61,12 +57,12 @@ namespace DPGO{
   	bool mFinished;
 
     // ROPTLIB
-    CartanSyncManifold* manifold;
-    CartanSyncVariable* x;
-    CartanSyncVariable* xNext;
-    CartanSyncVector* euclideanGradient;
-    CartanSyncVector* riemannianGradient;
-    CartanSyncVector* descentVector;
+    LiftedSEManifold* M;
+    LiftedSEVariable* Var;
+    LiftedSEVariable* VarNext;
+    LiftedSEVector* EGrad;
+    LiftedSEVector* RGrad;
+    LiftedSEVector* Eta;
 
   };
 

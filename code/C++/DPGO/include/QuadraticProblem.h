@@ -2,13 +2,9 @@
 #define QUADRATICPROBLEM_H
 
 #include <vector>
-#include <Eigen/Dense>
-#include "SESync.h"
-#include "SESync_utils.h"
 #include "DPGO_types.h"
 
 using namespace std;
-using namespace SESync;
 
 /*Define the namespace*/
 namespace DPGO{

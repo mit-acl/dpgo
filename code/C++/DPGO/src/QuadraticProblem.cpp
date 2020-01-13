@@ -1,6 +1,3 @@
-#include <iostream>
-#include <vector>
-#include <Eigen/Dense>
 #include "QuadraticProblem.h"
 
 using namespace std;

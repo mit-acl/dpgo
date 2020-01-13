@@ -16,6 +16,9 @@ namespace DPGO{
 
     ~LiftedSEVariable();
 
+    ROPTLIB::ProductElement* var(){
+    	return MyVariable;
+    }
 
     /**
     Write data to matrix

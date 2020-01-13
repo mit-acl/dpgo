@@ -16,19 +16,19 @@ namespace DPGO{
 		r = problem->relaxation_rank();
 		n = problem->num_poses();
 		
-		manifold = new CartanSyncManifold(r,d,n);
-		x = new CartanSyncVariable(r,d,n);
-		euclideanGradient = new CartanSyncVector(r,d,n);
-		riemannianGradient = new CartanSyncVector(r,d,n);
+		M = new LiftedSEManifold(r,d,n);
+		Var = new LiftedSEVariable(r,d,n);
+		EGrad = new LiftedSEVector(r,d,n);
+		RGrad = new LiftedSEVector(r,d,n);
 
 		initialize();
 	}
 
 	RGDMaster::~RGDMaster(){
-		delete manifold;
-		delete x;
-		delete euclideanGradient;
-		delete riemannianGradient;
+		delete M;
+		delete Var;
+		delete EGrad;
+		delete RGrad;
 	}
 
 	void RGDMaster::initialize(){
@@ -87,6 +87,8 @@ namespace DPGO{
 			worker->setUpdateIndices(updateIndices);
 
 			worker->setUpdateRate(10000);
+
+			// worker->setStepsize(0.00001);
 
 			// initialize thread that this worker runs on
 			thread* worker_thread = new thread(&DPGO::RGDWorker::run, worker);
@@ -163,16 +165,20 @@ namespace DPGO{
     }
 
     float RGDMaster::computeGradNorm(){
-    	Mat2CartanProd(Y, *x);
+    	// Mat2CartanProd(Y, *x);
+    	Var->setData(Y);
 
     	// compute Euclidean gradient
     	Matrix G = 2 * Y * problem->Q;
-    	Mat2CartanProd(G, *euclideanGradient);
+    	// Mat2CartanProd(G, *euclideanGradient);
+    	EGrad->setData(G);
 
     	// compute Riemannian gradient
-    	manifold->Projection(x, euclideanGradient, riemannianGradient);
+    	// manifold->Projection(x, euclideanGradient, riemannianGradient);
+    	M->getManifold()->Projection(Var->var(), EGrad->vec(), RGrad->vec());
     	Matrix RG;
-    	CartanProd2Mat(*riemannianGradient, RG);
+    	// CartanProd2Mat(*riemannianGradient, RG);
+    	RGrad->getData(RG);
     	return RG.norm();
     }
 }

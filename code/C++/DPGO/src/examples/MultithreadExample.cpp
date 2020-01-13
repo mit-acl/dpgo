@@ -1,11 +1,13 @@
 #include <iostream>
 #include "SESync.h"
 #include "SESync_utils.h"
+#include "SESync_types.h"
 #include "QuadraticProblem.h"
 #include "multithread/RGDMaster.h"
 
 using namespace std;
 using namespace DPGO;
+using namespace SESync;
 
 int main(int argc, char** argv)
 {
@@ -41,11 +43,11 @@ int main(int argc, char** argv)
     SESyncResult results = SESync::SESync(measurements, AlgType::CartanSync, opts);
     // Y = results.Yopt;
 
-    // Random initialization
-    // CartanSyncVariable Yinit(r,problem->dimension(),problem->num_poses());
-    // Yinit.RandInManifold();
-    // Y.resize(r, problem->dimension() * problem->num_poses());
-    // CartanProd2Mat(Yinit, Y);
+    // // Random initialization
+    // // CartanSyncVariable Yinit(r,problem->dimension(),problem->num_poses());
+    // // Yinit.RandInManifold();
+    // // Y.resize(r, problem->dimension() * problem->num_poses());
+    // // CartanProd2Mat(Yinit, Y);
 
     // Chordal initialization
     SparseMatrix B1, B2, B3; 

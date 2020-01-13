@@ -15,6 +15,10 @@ namespace DPGO{
 
     ~LiftedSEVector();
 
+    ROPTLIB::ProductElement* vec(){
+      return MyVector;
+    }
+
     void getData(Matrix& Y);
 
     void setData(Matrix& Y);
