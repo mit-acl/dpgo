@@ -165,19 +165,15 @@ namespace DPGO{
     }
 
     float RGDMaster::computeGradNorm(){
-    	// Mat2CartanProd(Y, *x);
     	Var->setData(Y);
 
     	// compute Euclidean gradient
     	Matrix G = 2 * Y * problem->Q;
-    	// Mat2CartanProd(G, *euclideanGradient);
     	EGrad->setData(G);
 
     	// compute Riemannian gradient
-    	// manifold->Projection(x, euclideanGradient, riemannianGradient);
     	M->getManifold()->Projection(Var->var(), EGrad->vec(), RGrad->vec());
     	Matrix RG;
-    	// CartanProd2Mat(*riemannianGradient, RG);
     	RGrad->getData(RG);
     	return RG.norm();
     }
