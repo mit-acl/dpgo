@@ -11,9 +11,6 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -pthread")
 find_package(Threads REQUIRED)
 find_package(Eigen3 REQUIRED)
 
-# message(STATUS "EIGEN3_INCLUDE_DIR: " ${EIGEN3_INCLUDE_DIR})
-# message(STATUS "ROPTLIB_INCLUDE_DIRECTORIES: " ${ROPTLIB_INCLUDE_DIRECTORIES})
-
 include_directories(
 	include
 	${EIGEN3_INCLUDE_DIR}
