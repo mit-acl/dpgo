@@ -1,6 +1,6 @@
 # AsynchPGO
 
-Asynchronous Pose-Graph Optimization
+Distributed (Asynchronous) Pose-Graph Optimization
 
 ## MATLAB
 TODO.
