@@ -32,12 +32,12 @@ namespace DPGO{
     void setUpdateRate(int freq){updateRate = freq;}
 
     void setStepsize(float s){stepsize = s;}
+
+    Matrix readDataMatrixBlock(unsigned i, unsigned j);
     
-    void readComponent(unsigned i, Matrix& Yi);
+    Matrix readComponent(unsigned i);
 
     void writeComponent(unsigned i, const Matrix& Yi);
-
-    void readDataMatrixBlock(unsigned i, unsigned j, Matrix& Qij);
 
     void getSolution(Matrix& Yout){
       Yout = Y;

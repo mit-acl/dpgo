@@ -127,27 +127,21 @@ namespace DPGO{
 			threads[i]->join();
 		}
 
-		// export results to file
-		// string dirname ="/home/yulun/bitbucket/DPGO/code/C++/results";
-		// ofstream file;
-		// string filename;
-		// filename = dirname + "/multithread.csv";
-		// file.open(filename.c_str(), ofstream::out);
-		// for(unsigned i = 0; i < costs.size(); ++i){
-		// 	file << elapsedTimes[i] << ","
-		// 		 << costs[i] << "," 
-		// 		 << gradnorms[i] << std::endl;
-		// }
-		// file.close();
-
 		cout << "Master finished. Total number of writes: " << numWrites << ". Elapsed time: " \
 		<< elapsedTimes.back() / (float) 1000 << " seconds." << endl;
 
 	}
 
-	void RGDMaster::readComponent(unsigned i, Matrix& Yi){
+	Matrix RGDMaster::readDataMatrixBlock(unsigned i, unsigned j){
+    	unsigned rowStart = (d+1) * i;
+    	unsigned colStart = (d+1) * j;
+
+    	return  Matrix(problem->Q.block(rowStart, colStart, d+1, d+1));
+    }
+
+	Matrix RGDMaster::readComponent(unsigned i){
 		unsigned start = (d+1) * i;
-		Yi = Y.block(0, start, r, d+1);
+		return Y.block(0, start, r, d+1);
 	}
 
     void RGDMaster::writeComponent(unsigned i, const Matrix& Yi){
@@ -155,13 +149,7 @@ namespace DPGO{
 		Y.block(0, start, r, d+1) = Yi;
 		numWrites++;
     }
-
-    void RGDMaster::readDataMatrixBlock(unsigned i, unsigned j, Matrix& Qij){
-    	unsigned rowStart = (d+1) * i;
-    	unsigned colStart = (d+1) * j;
-
-    	Qij = Matrix(problem->Q.block(rowStart, colStart, d+1, d+1));
-    }
+    
 
     float RGDMaster::computeCost(){
     	return (Y * problem->Q * Y.transpose()).trace();
@@ -176,8 +164,7 @@ namespace DPGO{
 
     	// compute Riemannian gradient
     	M->getManifold()->Projection(Var->var(), EGrad->vec(), RGrad->vec());
-    	Matrix RG;
-    	RGrad->getData(RG);
+    	Matrix RG = RGrad->getData();
     	return RG.norm();
     }
 }

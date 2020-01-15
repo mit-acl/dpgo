@@ -19,7 +19,7 @@ namespace DPGO{
       return MyVector;
     }
 
-    void getData(Matrix& Y);
+    Matrix getData();
 
     void setData(const Matrix& Y);
 

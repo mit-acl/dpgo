@@ -23,7 +23,7 @@ namespace DPGO{
     /**
     Write data to matrix
     */
-    void getData(Matrix& Y);
+    Matrix getData();
 
     /** 
 	Set data from matrix

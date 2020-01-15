@@ -38,14 +38,15 @@ namespace DPGO{
     bool isFinished();
   
   private:
+    Matrix readDataMatrixBlock(unsigned i, unsigned j);
 
-    void readComponent(unsigned i, Matrix& Yi);
+    Matrix readComponent(unsigned i);
 
-    void writeComponent(unsigned i, Matrix& Yi);
+    void writeComponent(unsigned i, const Matrix& Yi);
 
-    void computeEuclideanGradient(unsigned i, Matrix& Gi);
+    Matrix computeEuclideanGradient(unsigned i);
 
-    void gradientUpdate(Matrix& Yi, Matrix& Gi, Matrix& YiNext);
+    Matrix gradientUpdate(const Matrix& Yi, const Matrix& Gi);
 
   	RGDMaster* master;
     unsigned id;

@@ -19,14 +19,13 @@ namespace DPGO{
 		delete MyVariable;
 	}
 
-	void LiftedSEVariable::getData(Matrix& Y){
+	Matrix LiftedSEVariable::getData(){
 		ProductElement* T = static_cast<ProductElement*>(MyVariable->GetElement(0));
 	  	const int *sizes = T->GetElement(0)->Getsize();
 	  	unsigned int r = sizes[0];
 	  	unsigned int d = sizes[1];
 	  	unsigned int n = MyVariable->GetNumofElement();
-	  	Y = Eigen::Map<Matrix>(
-	        (double *)MyVariable->ObtainReadData(), r, n*(d+1));
+	  	return Eigen::Map<Matrix>((double *)MyVariable->ObtainReadData(), r, n*(d+1));
 		}
 
     void LiftedSEVariable::setData(const Matrix& Y){

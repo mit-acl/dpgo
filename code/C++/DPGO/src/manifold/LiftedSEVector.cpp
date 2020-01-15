@@ -21,14 +21,13 @@ namespace DPGO{
 		delete MyVector;
 	}
 
-	void LiftedSEVector::getData(Matrix& Y){
+	Matrix LiftedSEVector::getData(){
 		ProductElement* T = static_cast<ProductElement*>(MyVector->GetElement(0));
 	  	const int *sizes = T->GetElement(0)->Getsize();
 	  	unsigned int r = sizes[0];
 	  	unsigned int d = sizes[1];
 	  	unsigned int n = MyVector->GetNumofElement();
-	  	Y = Eigen::Map<Matrix>(
-	        (double *)MyVector->ObtainReadData(), r, n*(d+1));
+	  	return Eigen::Map<Matrix>((double *)MyVector->ObtainReadData(), r, n*(d+1));
 		}
 
     void LiftedSEVector::setData(const Matrix& Y){

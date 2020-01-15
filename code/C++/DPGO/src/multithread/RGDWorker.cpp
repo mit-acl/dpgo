@@ -55,13 +55,11 @@ namespace DPGO{
 			// randomly select an index
 			unsigned i = updateIndices[distribution(rng)];
 
-			Matrix Yi, Gi, YiNext;
-			readComponent(i, Yi);
+			Matrix Yi = readComponent(i);
 
-			Gi.resize(Yi.rows(), Yi.cols());
-			computeEuclideanGradient(i, Gi);
+			Matrix Gi = computeEuclideanGradient(i);
 
-			gradientUpdate(Yi, Gi, YiNext);
+			Matrix YiNext = gradientUpdate(Yi, Gi);
 
 			writeComponent(i, YiNext);
 
@@ -89,37 +87,42 @@ namespace DPGO{
 		return mFinished;
 	}
 
-	void RGDWorker::readComponent(unsigned i, Matrix& Yi){
-		// obtain lock
-		lock_guard<mutex> lock(master->mUpdateMutexes[i]);
-		master->readComponent(i, Yi);
+	Matrix RGDWorker::readDataMatrixBlock(unsigned i, unsigned j){
+		return master->readDataMatrixBlock(i, j);
 	}
 
-    void RGDWorker::writeComponent(unsigned i, Matrix& Yi){
+	Matrix RGDWorker::readComponent(unsigned i){
+		// obtain lock
+		lock_guard<mutex> lock(master->mUpdateMutexes[i]);
+		return master->readComponent(i);
+	}
+
+    void RGDWorker::writeComponent(unsigned i, const Matrix& Yi){
     	// obtain lock
 		lock_guard<mutex> lock(master->mUpdateMutexes[i]);
 		master->writeComponent(i, Yi);
     }
 
-    void RGDWorker::computeEuclideanGradient(unsigned i, Matrix &Gi){
+    Matrix RGDWorker::computeEuclideanGradient(unsigned i){
+    	Matrix Gi(r, d+1);
     	Gi.setZero();
     	// iterate over neighbors of i
     	for(unsigned k = 0; k < master->adjList[i].size(); ++k){
     		unsigned j = master->adjList[i][k];
     		Matrix Yj, Qji;
-    		master->readComponent(j, Yj);
-    		master->readDataMatrixBlock(j, i, Qji);
+    		Yj = readComponent(j);
+    		Qji = readDataMatrixBlock(j, i);
     		Gi = Gi + Yj * Qji;
     	}
+    	return Gi;
     }
 
-    void RGDWorker::gradientUpdate(Matrix& Yi, Matrix& Gi, Matrix& YiNext){
-    	YiNext.setZero();
+    Matrix RGDWorker::gradientUpdate(const Matrix& Yi, const Matrix& Gi){
     	Var->setData(Yi);
     	EGrad->setData(Gi);
     	M->getManifold()->Projection(Var->var(), EGrad->vec(), RGrad->vec());
     	M->getManifold()->ScaleTimesVector(Var->var(), -stepsize, RGrad->vec(), Eta->vec());
     	M->getManifold()->Retraction(Var->var(), Eta->vec(), VarNext->var());
-    	VarNext->getData(YiNext);
+    	return VarNext->getData();
     }
 }
