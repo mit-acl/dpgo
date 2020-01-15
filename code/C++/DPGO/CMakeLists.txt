@@ -22,6 +22,7 @@ add_library(DPGO SHARED
 	src/manifold/LiftedSEVector.cpp
 	src/multithread/RGDMaster.cpp
 	src/multithread/RGDWorker.cpp
+	src/distributed/PGOAgent.cpp
 	src/QuadraticProblem.cpp
 	)
 target_link_libraries(DPGO ${CMAKE_THREAD_LIBS_INIT} roptlib)
@@ -30,4 +31,9 @@ target_link_libraries(DPGO ${CMAKE_THREAD_LIBS_INIT} roptlib)
 add_executable(multithread-example
 	src/examples/MultithreadExample.cpp)
 target_link_libraries(multithread-example ${CMAKE_THREAD_LIBS_INIT} SESync DPGO)
+
+# Build Distributed PGO example
+add_executable(distributed-example
+	src/examples/DistributedExample.cpp)
+target_link_libraries(distributed-example ${CMAKE_THREAD_LIBS_INIT} SESync DPGO)
 
