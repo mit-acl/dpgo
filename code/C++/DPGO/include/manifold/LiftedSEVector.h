@@ -21,7 +21,7 @@ namespace DPGO{
 
     void getData(Matrix& Y);
 
-    void setData(Matrix& Y);
+    void setData(const Matrix& Y);
 
   private:
   	ROPTLIB::StieVector* StiefelVector;

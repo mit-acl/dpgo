@@ -28,10 +28,14 @@ namespace DPGO{
     ~RGDMaster();
 
     void solve(unsigned num_threads);
+
+    void setUpdateRate(int freq){updateRate = freq;}
+
+    void setStepsize(float s){stepsize = s;}
     
     void readComponent(unsigned i, Matrix& Yi);
 
-    void writeComponent(unsigned i, Matrix& Yi);
+    void writeComponent(unsigned i, const Matrix& Yi);
 
     void readDataMatrixBlock(unsigned i, unsigned j, Matrix& Qij);
 
@@ -39,23 +43,41 @@ namespace DPGO{
       Yout = Y;
     }
 
-    QuadraticProblem* problem = nullptr;
+    unsigned int num_poses() const { return n; }
 
+    unsigned int dimension() const { return d; }
+
+    unsigned int relaxation_rank() const { return r; }
+
+    // mutexes for each coordinate (to ensure atomic read/write)
     vector<mutex> mUpdateMutexes;
 
+    // adjacency list between coordinates
     vector<vector<unsigned>> adjList;
 
     // number of writes performed by ALL workers
     unsigned numWrites;
 
   private:
-  	vector<thread*> threads;
-  	vector<RGDWorker*> workers;
-
-    unsigned d,r,n;
+    // problem object
+    QuadraticProblem* problem = nullptr;
 
     // current iterate
     Matrix Y;
+
+    // step size
+    float stepsize;
+
+    // update rate in Hz
+    int updateRate;
+
+
+    // problem specific constants
+    unsigned d,r,n;
+
+    // list of workers
+    vector<thread*> threads;
+    vector<RGDWorker*> workers;
     
     // ROPTLIB
     LiftedSEManifold* M;

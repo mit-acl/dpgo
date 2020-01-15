@@ -28,7 +28,7 @@ namespace DPGO{
     /** 
 	Set data from matrix
     */
-    void setData(Matrix& Y);
+    void setData(const Matrix& Y);
 
   private:
   	ROPTLIB::StieVariable* StiefelVariable;

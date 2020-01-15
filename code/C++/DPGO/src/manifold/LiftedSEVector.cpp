@@ -31,7 +31,7 @@ namespace DPGO{
 	        (double *)MyVector->ObtainReadData(), r, n*(d+1));
 		}
 
-    void LiftedSEVector::setData(Matrix& Y){
+    void LiftedSEVector::setData(const Matrix& Y){
     	ProductElement* T = static_cast<ROPTLIB::ProductElement*>(MyVector->GetElement(0));
 	    const int *sizes = T->GetElement(0)->Getsize();
 	    unsigned int r = sizes[0];

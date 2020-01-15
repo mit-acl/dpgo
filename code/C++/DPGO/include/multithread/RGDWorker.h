@@ -47,14 +47,17 @@ namespace DPGO{
 
     void gradientUpdate(Matrix& Yi, Matrix& Gi, Matrix& YiNext);
 
-  	unsigned id;
+  	RGDMaster* master;
+    unsigned id;
+    bool mFinishRequested;
+    bool mFinished;
+
+    int sleepMicroSec;
+    float stepsize;
+
     unsigned d, r;
     vector<unsigned> updateIndices;
-    int sleepMicroSec = 5000; // default update rate = 200 Hz
-    float stepsize = 0.001;
-  	RGDMaster* master;
-  	bool mFinishRequested;
-  	bool mFinished;
+
 
     // ROPTLIB
     LiftedSEManifold* M;

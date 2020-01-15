@@ -9,14 +9,17 @@ using namespace std;
 
 namespace DPGO{
 
-	RGDWorker::RGDWorker(RGDMaster* pMaster, unsigned pId){
-		id = pId;
-		master = pMaster;
-		mFinishRequested = false;
-		mFinished = false;
+	RGDWorker::RGDWorker(RGDMaster* pMaster, unsigned pId):
+	master(pMaster), 
+	id(pId), 
+	mFinishRequested(false), 
+	mFinished(false),
+	sleepMicroSec(5000), //default rate is 200 Hz
+	stepsize(0.001)
+	{
 
-		d = master->problem->dimension();
-		r = master->problem->relaxation_rank();
+		d = master->dimension();
+		r = master->relaxation_rank();
 
 		M = new LiftedSEManifold(r,d,1);
 		Var = new LiftedSEVariable(r,d,1);

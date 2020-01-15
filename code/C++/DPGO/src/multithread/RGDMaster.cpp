@@ -9,9 +9,12 @@ using namespace std;
 
 namespace DPGO{
 
-	RGDMaster::RGDMaster(QuadraticProblem* p, Matrix Y0){
-		problem = p;
-		Y = Y0;
+	RGDMaster::RGDMaster(QuadraticProblem* p, Matrix Y0):
+	problem(p), 
+	Y(Y0), 
+	stepsize(0.001),
+	updateRate(10000)
+	{
 		d = problem->dimension();
 		r = problem->relaxation_rank();
 		n = problem->num_poses();
@@ -86,9 +89,9 @@ namespace DPGO{
 			}
 			worker->setUpdateIndices(updateIndices);
 
-			worker->setUpdateRate(10000);
+			worker->setUpdateRate(updateRate);
 
-			// worker->setStepsize(0.00001);
+			worker->setStepsize(stepsize);
 
 			// initialize thread that this worker runs on
 			thread* worker_thread = new thread(&DPGO::RGDWorker::run, worker);
@@ -147,7 +150,7 @@ namespace DPGO{
 		Yi = Y.block(0, start, r, d+1);
 	}
 
-    void RGDMaster::writeComponent(unsigned i, Matrix& Yi){
+    void RGDMaster::writeComponent(unsigned i, const Matrix& Yi){
 		unsigned start = (d+1) * i;
 		Y.block(0, start, r, d+1) = Yi;
 		numWrites++;

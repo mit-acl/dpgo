@@ -29,7 +29,7 @@ namespace DPGO{
 	        (double *)MyVariable->ObtainReadData(), r, n*(d+1));
 		}
 
-    void LiftedSEVariable::setData(Matrix& Y){
+    void LiftedSEVariable::setData(const Matrix& Y){
     	ProductElement* T = static_cast<ROPTLIB::ProductElement*>(MyVariable->GetElement(0));
 	    const int *sizes = T->GetElement(0)->Getsize();
 	    unsigned int r = sizes[0];
