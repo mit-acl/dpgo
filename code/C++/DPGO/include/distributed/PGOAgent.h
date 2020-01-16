@@ -31,7 +31,7 @@ namespace DPGO{
         Eigen::aligned_allocator<std::pair<PoseID, Matrix>>> PoseDict;
 
     // Implement a dictionary for easy access of measurement by PoseID
-    typedef map<PoseID, RelativeSEMeasurement*, std::less<PoseID>> MeasurementDict;
+    typedef map<PoseID, RelativeSEMeasurement, std::less<PoseID>> MeasurementDict;
 
   public:
     // Initialize with an empty pose graph
@@ -64,7 +64,6 @@ namespace DPGO{
     
     vector<RelativeSEMeasurement> odometry;
     vector<RelativeSEMeasurement> privateLoopClosures;
-    vector<RelativeSEMeasurement> sharedLoopClosures; 
 
     // Stores ID of other robots that share loop closures
     vector<unsigned> neighborAgents;
@@ -72,7 +71,7 @@ namespace DPGO{
     // This dictionary stores poses owned by other robots that is connected to this robot by loop closure
     PoseDict sharedPoseDict;
     
-    // This dictionary stores pointer to shared loop closures; the actual measurements reside in sharedLoopClosures
+    // This dictionary stores shared loop closure measurements
     MeasurementDict sharedMeasurementDict;
 
     // Implement locking to synchronize read & write of trajectory estimate
