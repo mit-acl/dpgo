@@ -36,7 +36,6 @@ namespace DPGO{
   public:
     // Initialize with an empty pose graph
     PGOAgent(unsigned ID, unsigned dIn, unsigned rIn);
-
     ~PGOAgent();
 
     /** Helper function to reset the internal solution
@@ -44,15 +43,27 @@ namespace DPGO{
      */
     void setY(const Matrix& Yin){Y = Yin;}
 
+    /**
+    Add an odometric measurement of this robot.
+    This function automatically initialize the new pose, by propagating odometry
+    */
     void addOdometry(const RelativeSEMeasurement& factor);
 
+    /**
+    Add a private loop closure of this robot
+    */
     void addPrivateLoopClosure(const RelativeSEMeasurement& factor);
 
+
+    /**
+    Add a shared loop closure between this robot and another
+    */
     void addSharedLoopClosure(const RelativeSEMeasurement& factor);
 
-    /** Store the pose of a neighboring robot who shares loop closure with this robot
-        TODO: if necessary (based on the cluster), realign the local frame of this robot to match the neighbor's
-        and update the cluster that this robot belongs to 
+    /** 
+    Store the pose of a neighboring robot who shares loop closure with this robot
+    TODO: if necessary (based on the cluster), realign the local frame of this robot to match the neighbor's
+    and update the cluster that this robot belongs to 
     */
     void updateSharedPose(unsigned neighborCluster, unsigned neighborID, unsigned neighborPose, const Matrix& var);
 
@@ -71,18 +82,28 @@ namespace DPGO{
     
 
   private:
-    unsigned mID; // The unique ID associated to this robot
-    unsigned mCluster; // The cluster that this robot belongs to 
+    
+    // The unique ID associated to this robot
+    unsigned mID; 
+
+    // The cluster that this robot belongs to 
+    unsigned mCluster; 
+    
+    // Constants
     unsigned d;
     unsigned r;
     unsigned n;
 
+    // Solution before rounding
     Matrix Y;
     
     // used by getTrajectoryInGlobalFrame
     Matrix globalAnchor; 
 
+    // Store odometric measurement of this robot
     vector<RelativeSEMeasurement> odometry;
+
+    // Store private loop closures of this robot
     vector<RelativeSEMeasurement> privateLoopClosures;
 
     // Stores ID of other robots that share loop closures
