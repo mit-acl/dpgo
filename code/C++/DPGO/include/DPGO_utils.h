@@ -3,12 +3,17 @@
 
 
 #include "DPGO_types.h"
+#include "RelativeSEMeasurement.h"
 #include <Eigen/Dense>
 #include <Eigen/SVD>
 
 namespace DPGO{
 
-Matrix projectToRotationGroup(const Matrix& M);
+	void constructOrientedConnectionIncidenceMatrixSE(const std::vector<RelativeSEMeasurement>& measurements, SparseMatrix& AT, DiagonalMatrix& OmegaT);
+
+	SparseMatrix constructConnectionLaplacianSE(const std::vector<RelativeSEMeasurement>& measurements);
+
+	Matrix projectToRotationGroup(const Matrix& M);
 
 
 }

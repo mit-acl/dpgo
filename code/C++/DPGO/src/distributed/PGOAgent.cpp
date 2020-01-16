@@ -19,7 +19,7 @@ namespace DPGO{
 	void PGOAgent::addOdometry(const RelativeSEMeasurement& factor){
 		// check that this is a odometric measurement 
 		assert(factor.r1 == mID);
-		assert(factor.r1 == factor.r2);
+		assert(factor.r2 == mID);
 		assert(factor.p1 == n-1);
 		assert(factor.p2 == n);
 
@@ -41,6 +41,14 @@ namespace DPGO{
 		n++;
 		assert((d+1)*n == Y.cols());
 		cout << "Length of trajectory: " << n << endl;
+	}
+
+	void PGOAgent::addPrivateLoopClosure(const RelativeSEMeasurement& factor){
+		assert(factor.r1 == mID);
+		assert(factor.r2 == mID);
+		assert(factor.p1 < n);
+		assert(factor.p2 < n);
+		privateLoopClosures.push_back(factor);
 	}
 
 	void PGOAgent::updateSharedPose(unsigned neighborCluster, unsigned neighborID, unsigned neighborPose, const Matrix& var){
