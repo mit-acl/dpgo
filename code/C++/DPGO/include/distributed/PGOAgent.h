@@ -26,10 +26,12 @@ namespace DPGO{
     // In distributed PGO, each pose is uniquely determined by the robot ID and pose ID
     typedef pair<unsigned, unsigned> PoseID;
 
-    // Implement a dictionary for easy access of pose value by its ID
+    // Implement a dictionary for easy access of pose value by PoseID
     typedef map<PoseID, Matrix, std::less<PoseID>, 
         Eigen::aligned_allocator<std::pair<PoseID, Matrix>>> PoseDict;
 
+    // Implement a dictionary for easy access of measurement by PoseID
+    typedef map<PoseID, RelativeSEMeasurement*, std::less<PoseID>> MeasurementDict;
 
   public:
     // Initialize with an empty pose graph
@@ -41,14 +43,19 @@ namespace DPGO{
 
     void addPrivateLoopClosure(const RelativeSEMeasurement& factor);
 
-    void addSharedFactor(const RelativeSEMeasurement& factor);
+    void addSharedLoopClosure(const RelativeSEMeasurement& factor);
 
-    void updateNeighborPose(unsigned agent, unsigned pose, const Matrix& var);
+    /** Store the pose of a neighboring robot who shares loop closure with this robot
+        TODO: if necessary (based on the cluster), realign the local frame of this robot to match the neighbor's
+        and update the cluster that this robot belongs to 
+    */
+    void updateSharedPose(unsigned neighborCluster, unsigned neighborID, unsigned neighborPose, const Matrix& var);
 
     
 
   private:
-    unsigned mID;
+    unsigned mID; // The unique ID associated to this robot
+    unsigned mCluster; // The cluster that this robot belongs to 
     unsigned d;
     unsigned r;
     unsigned n;
@@ -63,10 +70,16 @@ namespace DPGO{
     vector<unsigned> neighborAgents;
 
     // This dictionary stores poses owned by other robots that is connected to this robot by loop closure
-    PoseDict cachedNeighborPoses;
+    PoseDict sharedPoseDict;
+    
+    // This dictionary stores pointer to shared loop closures; the actual measurements reside in sharedLoopClosures
+    MeasurementDict sharedMeasurementDict;
 
     // Implement locking to synchronize read & write of trajectory estimate
     mutex mTrajectoryMutex;
+
+    // Implement locking to synchronize read & write of shared poses from neighbors
+    mutex mSharedPosesMutex;
 
   };
 

@@ -6,7 +6,7 @@ using namespace std;
 
 namespace DPGO{
 
-	PGOAgent::PGOAgent(unsigned ID, unsigned dIn, unsigned rIn): mID(ID), d(dIn), r(rIn), n(1){
+	PGOAgent::PGOAgent(unsigned ID, unsigned dIn, unsigned rIn): mID(ID), mCluster(ID), d(dIn), r(rIn), n(1){
 		// automatically initialize the first pose on the Cartan group
 		LiftedSEVariable x(r,d,1);
 		x.var()->RandInManifold();
@@ -29,12 +29,19 @@ namespace DPGO{
 		assert((d+1)*n == Y.cols());
 	}
 
-	void PGOAgent::updateNeighborPose(unsigned agent, unsigned pose, const Matrix& var){
-		assert(agent != mID);
+	void PGOAgent::updateSharedPose(unsigned neighborCluster, unsigned neighborID, unsigned neighborPose, const Matrix& var){
+		assert(neighborID != mID);
 
-		PoseID pID = std::make_pair(agent, pose);
+		/** 
+        TODO: if necessary, realign the local frame of this robot to match the neighbor's
+        and update the cluster that this robot belongs to
+    	*/
 
-		cachedNeighborPoses[pID] = var;
+		PoseID nID = std::make_pair(neighborID, neighborPose);
+
+		lock_guard<mutex> lock(mSharedPosesMutex);
+
+		sharedPoseDict[nID] = var;
 	}
 
 

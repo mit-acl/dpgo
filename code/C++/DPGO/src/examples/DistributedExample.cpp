@@ -16,10 +16,6 @@ int main(int argc, char** argv)
 
     Matrix M(3,5);
     M.setZero();
-    agent.updateNeighborPose(1,1,M);
-    agent.updateNeighborPose(1,2,M);
-    agent.updateNeighborPose(1,3,M);
-    agent.updateNeighborPose(1,3,M);
 
 
     exit(0);
