@@ -39,6 +39,11 @@ namespace DPGO{
 
     ~PGOAgent();
 
+    /** Helper function to reset the internal solution
+        In deployment, should not use this
+     */
+    void setY(const Matrix& Yin){Y = Yin;}
+
     void addOdometry(const RelativeSEMeasurement& factor);
 
     void addPrivateLoopClosure(const RelativeSEMeasurement& factor);
@@ -51,6 +56,18 @@ namespace DPGO{
     */
     void updateSharedPose(unsigned neighborCluster, unsigned neighborID, unsigned neighborPose, const Matrix& var);
 
+    /**
+    Return trajectory estimate of this robot in local frame, with its first pose set to identity   
+    */
+    Matrix getTrajectoryInLocalFrame(); 
+
+    /**
+    Return trajectory estimate of this robot in global frame, with the first pose of robot 0 set to identity   
+    */
+    Matrix getTrajectoryInGlobalFrame();
+
+
+
     
 
   private:
@@ -62,6 +79,9 @@ namespace DPGO{
 
     Matrix Y;
     
+    // used by getTrajectoryInGlobalFrame
+    Matrix globalAnchor; 
+
     vector<RelativeSEMeasurement> odometry;
     vector<RelativeSEMeasurement> privateLoopClosures;
 

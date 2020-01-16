@@ -1,6 +1,7 @@
 #include "distributed/PGOAgent.h"
 #include <iostream>
 #include <cassert>
+#include "DPGO_utils.h"
 
 using namespace std;
 
@@ -22,11 +23,24 @@ namespace DPGO{
 		assert(factor.p1 == n-1);
 		assert(factor.p2 == n);
 
+		odometry.push_back(factor);
+
 		// extend trajectory by a single pose
 		lock_guard<mutex> lock(mTrajectoryMutex);
-		// TODO!
+		Y.conservativeResize(Eigen::NoChange, (d+1)*(n+1));
+
+		Matrix currR = Y.block(0, (n-1)*(d+1), r, d);
+		Matrix currt = Y.block(0, (n-1)*(d+1)+d,r,1);
+
+		// initialize next pose by propagating odometry
+		Matrix nextR = currR * factor.R;
+		Matrix nextt = currt + currR * factor.t;
+		Y.block(0, n*(d+1), r, d) = nextR;
+		Y.block(0, n*(d+1)+d,r,1) = nextt;
+
 		n++;
 		assert((d+1)*n == Y.cols());
+		cout << "Length of trajectory: " << n << endl;
 	}
 
 	void PGOAgent::updateSharedPose(unsigned neighborCluster, unsigned neighborID, unsigned neighborPose, const Matrix& var){
@@ -42,6 +56,19 @@ namespace DPGO{
 		lock_guard<mutex> lock(mSharedPosesMutex);
 
 		sharedPoseDict[nID] = var;
+	}
+
+
+	Matrix PGOAgent::getTrajectoryInLocalFrame(){
+		Matrix T = Y.block(0,0,r,d).transpose() * Y;
+		Matrix t0 = T.block(0,d,d,1);
+
+		for(unsigned i = 0; i < n; ++i){
+			T.block(0,i*(d+1),d,d) = projectToRotationGroup(T.block(0,i*(d+1),d,d));
+			T.block(0,i*(d+1)+d,d,1) = T.block(0,i*(d+1)+d,d,1) - t0;
+		}
+
+		return T;
 	}
 
 

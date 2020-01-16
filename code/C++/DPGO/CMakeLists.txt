@@ -24,6 +24,7 @@ add_library(DPGO SHARED
 	src/multithread/RGDWorker.cpp
 	src/distributed/PGOAgent.cpp
 	src/QuadraticProblem.cpp
+	src/DPGO_utils.cpp
 	)
 target_link_libraries(DPGO ${CMAKE_THREAD_LIBS_INIT} roptlib)
 
