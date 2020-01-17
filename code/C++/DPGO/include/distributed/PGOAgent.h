@@ -67,6 +67,17 @@ namespace DPGO{
     */
     void updateSharedPose(unsigned neighborCluster, unsigned neighborID, unsigned neighborPose, const Matrix& var);
 
+    /** 
+    Optimize pose graph by a single iteration. 
+    This process use both private and shared factors (communication required for the latter)
+    */
+    void optimize();
+
+    /**
+    Optimize pose graph by periodically calling optimize()
+    */
+    void runOptimizationLoop();
+
     /**
     Return trajectory estimate of this robot in local frame, with its first pose set to identity   
     */
@@ -89,10 +100,20 @@ namespace DPGO{
     // The cluster that this robot belongs to 
     unsigned mCluster; 
     
-    // Constants
+    // Dimension
     unsigned d;
+
+    // Relaxed rank in Riemanian optimization problem
     unsigned r;
+    
+    // Number of poses
     unsigned n;
+
+    // Maximum step size
+    float maxStepsize;
+
+    // Step size during line search 
+    float stepsizeDecay;
 
     // Solution before rounding
     Matrix Y;
@@ -121,6 +142,21 @@ namespace DPGO{
     // Implement locking to synchronize read & write of shared poses from neighbors
     mutex mSharedPosesMutex;
 
+    // Implement locking on measurements
+    mutex mMeasurementsMutex;
+
+    /**
+    Given Euclidean gradient, compute Riemannian gradient
+    */
+    Matrix computeRiemannianGradient(const SparseMatrix& Q, const Matrix& Y);
+
+    /**
+    Apply preconditioning on the Riemannian gradient
+    */
+    Matrix computePreconditionedGradient(const SparseMatrix& Q, const Matrix& Y, const Matrix& RG);
+
+
+    Matrix lineSearchDescent(const SparseMatrix& Q, const Matrix& Y, const Matrix& Ydot);
   };
 
 } 

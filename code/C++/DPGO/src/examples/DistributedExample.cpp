@@ -22,32 +22,34 @@ int main(int argc, char** argv)
     }
 
     size_t num_poses;
-    vector<RelativeSEMeasurement> measurements;
     vector<SESync::RelativePoseMeasurement> dataset = SESync::read_g2o_file(argv[1], num_poses);
     cout << "Loaded dataset from file " << argv[1] << endl;
+    
     unsigned d = (!dataset.empty() ? dataset[0].t.size() : 0);
     unsigned r = 5;
-
-    for(size_t i = 0; i < dataset.size(); ++i){
-        RelativeSEMeasurement m(0,0,dataset[i].i,dataset[i].j,dataset[i].R,dataset[i].t,dataset[i].kappa, dataset[i].tau);
-        measurements.push_back(m);
-    }
-
-
-    SparseMatrix Q = constructConnectionLaplacianSE(measurements);
-
     unsigned agentID = 0;
     PGOAgent agent(agentID,d,r);
-    
-    
 
+
+    for(size_t k = 0; k < dataset.size(); ++k){
+        RelativeSEMeasurement m(0,0,dataset[k].i,dataset[k].j,dataset[k].R,dataset[k].t,dataset[k].kappa, dataset[k].tau);
+        if(dataset[k].j == dataset[k].i + 1){
+            agent.addOdometry(m);
+        }else{
+            agent.addPrivateLoopClosure(m);
+        }
+    }
+    
+    for (unsigned i = 0; i < 25; ++i){
+        agent.optimize();
+    }
 
     // Save to file
-    // string filename = "/home/yulun/git/dpgo/code/results/Q.txt";
-    // ofstream file;
-    // file.open(filename.c_str(), std::ofstream::out);
-    // file << Matrix(Q) << std::endl;
-    // file.close();
+    string filename = "/home/yulun/git/dpgo/code/results/trajectory.txt";
+    ofstream file;
+    file.open(filename.c_str(), std::ofstream::out);
+    file << agent.getTrajectoryInLocalFrame() << std::endl;
+    file.close();
 
 
     exit(0);
