@@ -91,8 +91,6 @@ namespace DPGO{
 		mLock.unlock();
 		if (measurements.empty()) return;
 
-		// TODO: encapsulate the following code 
-
 		// Compute connection laplacian matrix (all private factors)
 		SparseMatrix Q = constructConnectionLaplacianSE(measurements);
 		
@@ -102,6 +100,8 @@ namespace DPGO{
 		Matrix Ycurr = Y.block(0,0,r,(d+1)*k);
 		tLock.unlock();
 		assert(Ycurr.cols() == Q.cols());
+
+		// TODO: encapsulate the following code (use ROPTLIB?)
 
 		// Compute Riemannian gradient
 		Matrix RG = computeRiemannianGradient(Q, Ycurr);
