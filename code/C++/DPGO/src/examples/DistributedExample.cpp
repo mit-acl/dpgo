@@ -40,9 +40,7 @@ int main(int argc, char** argv)
         }
     }
     
-    for (unsigned i = 0; i < 1000; ++i){
-        agent.optimize();
-    }
+    agent.optimize();
 
     // Save to file
     string filename = "/home/yulun/git/dpgo/code/results/trajectory.txt";

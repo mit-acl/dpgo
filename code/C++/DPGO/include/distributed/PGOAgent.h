@@ -147,19 +147,6 @@ namespace DPGO{
 
     // Implement locking on measurements
     mutex mMeasurementsMutex;
-
-    /**
-    Given Euclidean gradient, compute Riemannian gradient
-    */
-    Matrix computeRiemannianGradient(const SparseMatrix& Q, const Matrix& Y);
-
-    /**
-    Apply preconditioning on the Riemannian gradient
-    */
-    Matrix computePreconditionedGradient(const SparseMatrix& Q, const Matrix& Y, const Matrix& RG);
-
-
-    Matrix linesearch(const SparseMatrix& Q, const Matrix& Y, const Matrix& Ydot);
   };
 
 } 

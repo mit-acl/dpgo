@@ -15,7 +15,7 @@ namespace DPGO{
 
 	Matrix projectToRotationGroup(const Matrix& M);
 
-
+	
 }
 
 

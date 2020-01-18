@@ -2,6 +2,8 @@
 #include <iostream>
 #include <cassert>
 #include "DPGO_utils.h"
+#include "QuadraticProblem.h"
+#include "QuadraticOptimizer.h"
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
 #include <Eigen/CholmodSupport>
@@ -104,7 +106,7 @@ namespace DPGO{
 
 		// Compute connection laplacian matrix (all private factors)
 		SparseMatrix Q = constructConnectionLaplacianSE(measurements);
-		
+
 		// Number of poses included in this optimization
 		unsigned k = Q.rows() / (d+1);
 		unique_lock<mutex> tLock(mTrajectoryMutex);
@@ -112,101 +114,22 @@ namespace DPGO{
 		tLock.unlock();
 		assert(Ycurr.cols() == Q.cols());
 
-		// TODO: encapsulate the following code (use ROPTLIB?)
+		// TODO: compute linear factors (all shared factors)
+		SparseMatrix G(r,(d+1)*k);
+    	G.setZero();
 
-		// Compute Riemannian gradient
-		Matrix RG = computeRiemannianGradient(Q, Ycurr);
-		
-		// Apply preconditioner
-		Matrix PRG = computePreconditionedGradient(Q, Ycurr, RG);
 
-		// Line search!
-		Matrix Ynext = linesearch(Q, Ycurr, -PRG);
+		QuadraticProblem problem(k, d, r, Q, G);
+		cout << "Constructed quadratic problem instance." << endl;
+		QuadraticOptimizer optimizer(&problem);
+		cout << "Constructed optimizer." << endl;
+		Matrix Ynext = optimizer.optimize(Ycurr);
 
-    	// Print information
-		cout << "cost = " <<  (Ycurr * Q * Ycurr.transpose()).trace() << " | "
-			 << "costdecr = " << (Ycurr * Q * Ycurr.transpose()).trace() - (Ynext * Q * Ynext.transpose()).trace() << " | "
-		     << "gradnorm = " << computeRiemannianGradient(Q, Ynext).norm() << endl;
 
 		// TODO: handle dynamic pose graph
 		tLock.lock();
 		Y = Ynext;
 		tLock.unlock();
-	}
-
-	Matrix PGOAgent::computeRiemannianGradient(const SparseMatrix& Q, const Matrix& Y){
-		unsigned k = Y.cols() / (d+1);
-		// Compute Euclidean gradient
-		Matrix EG = 2 * Y * Q;
-
-		// Compute Riemannian gradient
-		LiftedSEManifold M(r,d,k);
-		LiftedSEVariable Var(r,d,k);
-		LiftedSEVector EGrad(r,d,k);
-		LiftedSEVector RGrad(r,d,k);
-		Var.setData(Y);
-		EGrad.setData(EG);
-		M.getManifold()->Projection(Var.var(), EGrad.vec(), RGrad.vec());
-		return RGrad.getData();
-	}
-
-	Matrix PGOAgent::computePreconditionedGradient(const SparseMatrix& Q, const Matrix& Y, const Matrix& RG){
-		SparseMatrix P = Q;
-		for(unsigned i = 0; i < P.rows(); ++i){
-			P.coeffRef(i,i) += 1.0;
-		}
-
-		Eigen::CholmodDecomposition<SparseMatrix> solver;
-		solver.compute(P);
-		Matrix RGInv = solver.solve(RG.transpose()).transpose();
-
-		// Project to tangent space
-		unsigned k = Y.cols() / (d+1);
-		LiftedSEManifold M(r,d,k);
-		LiftedSEVariable Var(r,d,k);
-		LiftedSEVector DescentDirection(r,d,k);
-		Var.setData(Y);
-		DescentDirection.setData(RG);
-		M.getManifold()->Projection(Var.var(), DescentDirection.vec(), DescentDirection.vec());
-	
-		return DescentDirection.getData();
-
-		// return RG;
-	}
-
-
-	Matrix PGOAgent::linesearch(const SparseMatrix& Q, const Matrix& Y, const Matrix& Ydot){
-		unsigned k = Y.cols() / (d+1);
-		// Compute Riemannian gradient
-		LiftedSEManifold M(r,d,k);
-		LiftedSEVariable Var(r,d,k);
-		LiftedSEVariable VarNext(r,d,k);
-		LiftedSEVector DescentDirection(r,d,k);
-		LiftedSEVector Eta(r,d,k);
-		Var.setData(Y);
-		DescentDirection.setData(Ydot);
-
-		double initCost = (Y * Q * Y.transpose()).trace();
-		double stepsize = maxStepsize;
-		unsigned iter = 0;
-		for(iter = 0; iter < maxLineSearchAttempts; ++iter){
-			M.getManifold()->ScaleTimesVector(Var.var(), stepsize, DescentDirection.vec(), Eta.vec());
-			M.getManifold()->Retraction(Var.var(), Eta.vec(), VarNext.var());
-
-			Matrix Ynext = VarNext.getData();
-			double nextCost = (Ynext * Q * Ynext.transpose()).trace();
-			if (nextCost < initCost){
-				break;
-			}
-			stepsize = stepsize * stepsizeDecay;
-		}
-		
-		if(iter >= maxLineSearchAttempts){
-			cout << "Line search did not achieve cost decrement. " << endl;
-			return Y;
-		}
-
-		return VarNext.getData();
 	}
 
 
