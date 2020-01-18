@@ -25,10 +25,26 @@ int main(int argc, char** argv)
     vector<SESync::RelativePoseMeasurement> dataset = SESync::read_g2o_file(argv[1], num_poses);
     cout << "Loaded dataset from file " << argv[1] << endl;
     
-    unsigned d = (!dataset.empty() ? dataset[0].t.size() : 0);
-    unsigned r = 5;
+    unsigned int n,d,r;
+    SparseMatrix ConLapT = construct_connection_Laplacian_T(dataset);
+    d = (!dataset.empty() ? dataset[0].t.size() : 0);
+    n = ConLapT.rows()/(d+1);
+    r = 5;
     unsigned agentID = 0;
     PGOAgent agent(agentID,d,r);
+
+    Matrix Y;
+    SparseMatrix B1, B2, B3; 
+    construct_B_matrices(dataset, B1, B2, B3);
+    Matrix Rinit = chordal_initialization(d, B3);
+    Matrix tinit = recover_translations(B1, B2, Rinit);
+    Y.resize(r, n*(d+1));
+    Y.setZero();
+    for (size_t i=0; i<n; i++)
+    {
+        Y.block(0,i*(d+1),  d,d) = Rinit.block(0,i*d,d,d);
+        Y.block(0,i*(d+1)+d,d,1) = tinit.block(0,i,d,1);
+    }
 
 
     for(size_t k = 0; k < dataset.size(); ++k){
@@ -40,6 +56,7 @@ int main(int argc, char** argv)
         }
     }
     
+    agent.setTrajectory(Y);
     agent.optimize();
 
     // Save to file

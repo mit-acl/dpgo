@@ -1,7 +1,6 @@
+#include <iostream>
 #include "QuadraticProblem.h"
-#include <Eigen/Dense>
-#include <Eigen/Sparse>
-#include <Eigen/CholmodSupport>
+
 
 using namespace std;
 
@@ -21,6 +20,9 @@ namespace DPGO{
 		HessianVectorProduct = new LiftedSEVector(r,d,n);
 
 		SetDomain(M->getManifold());
+
+		SparseMatrix P = Q.topLeftCorner(Q.rows()-1, Q.cols()-1);		
+		solver.compute(P);
 	}
 
 	QuadraticProblem::~QuadraticProblem()
@@ -60,17 +62,9 @@ namespace DPGO{
 	void QuadraticProblem::PreConditioner(ROPTLIB::Variable* x, ROPTLIB::Vector* inVec,
                       ROPTLIB::Vector* outVec) const 
 	{
-		
-		SparseMatrix P = Q;
-		for(unsigned i = 0; i < P.rows(); ++i){
-			P.coeffRef(i,i) += 1.0;
-		}
-
-		Eigen::CholmodDecomposition<SparseMatrix> solver;
-		solver.compute(P);
-
 		inVec->CopyTo(Vector->vec());
-		Matrix HV = solver.solve(Vector->getData().transpose()).transpose();
+		Matrix HV = Matrix::Zero(r, n*(d+1));
+		HV.leftCols(n*(d+1)-1) = solver.solve(Vector->getData().leftCols(n*(d+1)-1).transpose()).transpose();
 
 		// Project to tangent space
 		x->CopyTo(Variable->var());

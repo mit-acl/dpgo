@@ -7,6 +7,9 @@
 #include "manifold/LiftedSEVariable.h"
 #include "manifold/LiftedSEVector.h"
 #include "DPGO_types.h"
+#include <Eigen/Dense>
+#include <Eigen/Sparse>
+#include <Eigen/CholmodSupport>
 
 using namespace std;
 
@@ -70,6 +73,9 @@ namespace DPGO{
 		LiftedSEVector* Vector;
 
 		LiftedSEVector* HessianVectorProduct;
+
+		// Solver used for preconditioner
+		Eigen::CholmodDecomposition<SparseMatrix> solver;
 		
 
 	};

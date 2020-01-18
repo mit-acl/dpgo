@@ -21,18 +21,18 @@ namespace DPGO{
 
 
 		// Use RTR 
-		// ROPTLIB::RTRNewton Solver(problem, VarInit.var());
-		// Solver.Stop_Criterion = ROPTLIB::StopCrit::FUN_REL;
-		// Solver.maximum_Delta = 1e4;
-		// Solver.Debug = ROPTLIB::DEBUGINFO::ITERRESULT;
-		// Solver.Max_Iteration = 1;
-		// Solver.Run();
+		ROPTLIB::RTRNewton Solver(problem, VarInit.var());
+		Solver.Stop_Criterion = ROPTLIB::StopCrit::FUN_REL;
+		Solver.maximum_Delta = 1e4;
+		Solver.Debug = ROPTLIB::DEBUGINFO::ITERRESULT;
+		Solver.Max_Iteration = 500;
+		Solver.Run();
 
 		// Use RGD
-		ROPTLIB::RSD Solver(problem, VarInit.var());
-		Solver.Max_Iteration = 1;
-		Solver.Debug = ROPTLIB::DEBUGINFO::ITERRESULT;
-		Solver.Run();
+		// ROPTLIB::RSD Solver(problem, VarInit.var());
+		// Solver.Max_Iteration = 1;
+		// Solver.Debug = ROPTLIB::DEBUGINFO::ITERRESULT;
+		// Solver.Run();
 
 		// Retrieve results
 		const ROPTLIB::ProductElement *Yopt = static_cast<const ROPTLIB::ProductElement*>(Solver.GetXopt());

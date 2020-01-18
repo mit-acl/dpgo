@@ -41,7 +41,7 @@ namespace DPGO{
     /** Helper function to reset the internal solution
         In deployment, should not use this
      */
-    void setY(const Matrix& Yin){Y = Yin;}
+    void setTrajectory(const Matrix& Yin){Y = Yin;}
 
     /**
     Add an odometric measurement of this robot.
