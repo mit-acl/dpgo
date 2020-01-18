@@ -40,7 +40,7 @@ int main(int argc, char** argv)
         }
     }
     
-    for (unsigned i = 0; i < 25; ++i){
+    for (unsigned i = 0; i < 1000; ++i){
         agent.optimize();
     }
 

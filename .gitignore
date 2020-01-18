@@ -12,6 +12,7 @@ code/C++/build
 *.avi
 *.asv
 *.md~
+*.txt~
 
 # Ignore plots and results folders
 code/Cartan-Sync/MATLAB/plots

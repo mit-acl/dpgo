@@ -2,13 +2,24 @@
 #include <iostream>
 #include <cassert>
 #include "DPGO_utils.h"
-#include<Eigen/SparseCholesky>
+#include <Eigen/Dense>
+#include <Eigen/Sparse>
+#include <Eigen/CholmodSupport>
 
 using namespace std;
 
 namespace DPGO{
 
-	PGOAgent::PGOAgent(unsigned ID, unsigned dIn, unsigned rIn): mID(ID), mCluster(ID), d(dIn), r(rIn), n(1){
+	PGOAgent::PGOAgent(unsigned ID, unsigned dIn, unsigned rIn): 
+	mID(ID), 
+	mCluster(ID), 
+	d(dIn), 
+	r(rIn), 
+	n(1),
+	maxStepsize(0.001),
+	stepsizeDecay(0.8),
+	maxLineSearchAttempts(100)
+	{
 		// automatically initialize the first pose on the Cartan group
 		LiftedSEVariable x(r,d,1);
 		x.var()->RandInManifold();
@@ -110,13 +121,14 @@ namespace DPGO{
 		Matrix PRG = computePreconditionedGradient(Q, Ycurr, RG);
 
 		// Line search!
-		Matrix Ynext = lineSearchDescent(Q, Ycurr, -PRG);
+		Matrix Ynext = linesearch(Q, Ycurr, -PRG);
 
     	// Print information
 		cout << "cost = " <<  (Ycurr * Q * Ycurr.transpose()).trace() << " | "
 			 << "costdecr = " << (Ycurr * Q * Ycurr.transpose()).trace() - (Ynext * Q * Ynext.transpose()).trace() << " | "
 		     << "gradnorm = " << computeRiemannianGradient(Q, Ynext).norm() << endl;
 
+		// TODO: handle dynamic pose graph
 		tLock.lock();
 		Y = Ynext;
 		tLock.unlock();
@@ -139,13 +151,31 @@ namespace DPGO{
 	}
 
 	Matrix PGOAgent::computePreconditionedGradient(const SparseMatrix& Q, const Matrix& Y, const Matrix& RG){
-		// TODO!
-		Matrix X = RG;
-		return X;
+		SparseMatrix P = Q;
+		for(unsigned i = 0; i < P.rows(); ++i){
+			P.coeffRef(i,i) += 1.0;
+		}
+
+		Eigen::CholmodDecomposition<SparseMatrix> solver;
+		solver.compute(P);
+		Matrix RGInv = solver.solve(RG.transpose()).transpose();
+
+		// Project to tangent space
+		unsigned k = Y.cols() / (d+1);
+		LiftedSEManifold M(r,d,k);
+		LiftedSEVariable Var(r,d,k);
+		LiftedSEVector DescentDirection(r,d,k);
+		Var.setData(Y);
+		DescentDirection.setData(RG);
+		M.getManifold()->Projection(Var.var(), DescentDirection.vec(), DescentDirection.vec());
+	
+		return DescentDirection.getData();
+
+		// return RG;
 	}
 
 
-	Matrix PGOAgent::lineSearchDescent(const SparseMatrix& Q, const Matrix& Y, const Matrix& Ydot){
+	Matrix PGOAgent::linesearch(const SparseMatrix& Q, const Matrix& Y, const Matrix& Ydot){
 		unsigned k = Y.cols() / (d+1);
 		// Compute Riemannian gradient
 		LiftedSEManifold M(r,d,k);
@@ -155,8 +185,27 @@ namespace DPGO{
 		LiftedSEVector Eta(r,d,k);
 		Var.setData(Y);
 		DescentDirection.setData(Ydot);
-		M.getManifold()->ScaleTimesVector(Var.var(), 0.00001, DescentDirection.vec(), Eta.vec());
-		M.getManifold()->Retraction(Var.var(), Eta.vec(), VarNext.var());
+
+		double initCost = (Y * Q * Y.transpose()).trace();
+		double stepsize = maxStepsize;
+		unsigned iter = 0;
+		for(iter = 0; iter < maxLineSearchAttempts; ++iter){
+			M.getManifold()->ScaleTimesVector(Var.var(), stepsize, DescentDirection.vec(), Eta.vec());
+			M.getManifold()->Retraction(Var.var(), Eta.vec(), VarNext.var());
+
+			Matrix Ynext = VarNext.getData();
+			double nextCost = (Ynext * Q * Ynext.transpose()).trace();
+			if (nextCost < initCost){
+				break;
+			}
+			stepsize = stepsize * stepsizeDecay;
+		}
+		
+		if(iter >= maxLineSearchAttempts){
+			cout << "Line search did not achieve cost decrement. " << endl;
+			return Y;
+		}
+
 		return VarNext.getData();
 	}
 

@@ -110,10 +110,13 @@ namespace DPGO{
     unsigned n;
 
     // Maximum step size
-    float maxStepsize;
+    double maxStepsize;
 
     // Step size during line search 
-    float stepsizeDecay;
+    double stepsizeDecay;
+
+    // Maximum attempts of line search
+    unsigned maxLineSearchAttempts;
 
     // Solution before rounding
     Matrix Y;
@@ -156,7 +159,7 @@ namespace DPGO{
     Matrix computePreconditionedGradient(const SparseMatrix& Q, const Matrix& Y, const Matrix& RG);
 
 
-    Matrix lineSearchDescent(const SparseMatrix& Q, const Matrix& Y, const Matrix& Ydot);
+    Matrix linesearch(const SparseMatrix& Q, const Matrix& Y, const Matrix& Ydot);
   };
 
 } 

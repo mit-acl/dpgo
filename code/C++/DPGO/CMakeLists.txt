@@ -14,6 +14,7 @@ find_package(Eigen3 REQUIRED)
 include_directories(
 	include
 	${EIGEN3_INCLUDE_DIR}
+	${CHOLMOD_INCLUDES}
 	${ROPTLIB_INCLUDE_DIRECTORIES})
 
 add_library(DPGO SHARED
@@ -26,7 +27,7 @@ add_library(DPGO SHARED
 	src/QuadraticProblem.cpp
 	src/DPGO_utils.cpp
 	)
-target_link_libraries(DPGO ${CMAKE_THREAD_LIBS_INIT} roptlib)
+target_link_libraries(DPGO ${CMAKE_THREAD_LIBS_INIT} roptlib ${CHOLMOD_LIBRARIES})
 
 # Build multithread PGO example
 add_executable(multithread-example
