@@ -13,6 +13,7 @@ code/C++/build
 *.asv
 *.md~
 *.txt~
+*.g2o~
 
 # Ignore plots and results folders
 code/Cartan-Sync/MATLAB/plots
