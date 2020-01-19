@@ -27,6 +27,20 @@ namespace DPGO{
 		Y = x.getData();
 	}
 
+	PGOAgent::PGOAgent(unsigned ID, unsigned dIn, unsigned rIn, bool v):
+	mID(ID), 
+	mCluster(ID), 
+	d(dIn), 
+	r(rIn), 
+	n(1),
+	verbose(v)
+	{
+		// automatically initialize the first pose on the Cartan group
+		LiftedSEVariable x(r,d,1);
+		x.var()->RandInManifold();
+		Y = x.getData();
+	}
+
 	PGOAgent::~PGOAgent(){}
 
 	void PGOAgent::addOdometry(const RelativeSEMeasurement& factor){
@@ -117,7 +131,6 @@ namespace DPGO{
 		unsigned k = n; // number of poses updated at this time
 
 		vector<RelativeSEMeasurement> myMeasurements;
-		vector<RelativeSEMeasurement> sharedMeasurements;
 		unique_lock<mutex> mLock(mMeasurementsMutex);
 		for(size_t i = 0; i < odometry.size(); ++i){
 			RelativeSEMeasurement m = odometry[i];
@@ -129,6 +142,13 @@ namespace DPGO{
 		}
 		mLock.unlock();
 		if (myMeasurements.empty()) return;
+
+		vector<RelativeSEMeasurement> sharedMeasurements;
+		for(size_t i = 0; i < sharedLoopClosures.size(); ++i){
+			RelativeSEMeasurement m = sharedLoopClosures[i];
+			if(m.r1 == mID && m.p1 < k) sharedMeasurements.push_back(m);
+			else if(m.r2 == mID && m.p2 < k) sharedMeasurements.push_back(m);
+		}
 
 		SparseMatrix Q((d+1)*k, (d+1)*k);
 		SparseMatrix G(r,(d+1)*k);
@@ -182,12 +202,14 @@ namespace DPGO{
 			T.block(0,d,d,1) = m.t;
 			T(d,d) = 1;
 
+
 			// Construct aggregate weight matrix
 			Matrix Omega = Matrix::Zero(d+1,d+1);
 			for(unsigned row = 0; row < d; ++row){
 				Omega(row,row) = m.kappa;
 			}
 			Omega(d,d) = m.tau;
+
 
 			if(m.r1 == mID){
 				// First pose belongs to this robot
@@ -215,12 +237,13 @@ namespace DPGO{
 				}
 
 				// Modify linear cost 
-				Matrix L = -2 * Yj * Omega * T.transpose();
+				Matrix L = - Yj * Omega * T.transpose();
 				for (size_t col = 0; col < d+1; ++col){
 					for(size_t row = 0; row < r; ++row){
 						G->coeffRef(row, idx*(d+1)+col) += L(row,col);
 					}
 				}
+
 
 			}
 			else{
@@ -248,12 +271,13 @@ namespace DPGO{
 				}
 
 				// Modify linear cost
-				Matrix L = -2 * Yi * T * Omega;
+				Matrix L = - Yi * T * Omega;
 				for (size_t col = 0; col < d+1; ++col){
 					for(size_t row = 0; row < r; ++row){
 						G->coeffRef(row, idx*(d+1)+col) += L(row,col);
 					}
 				}
+
 			}
 
 		}

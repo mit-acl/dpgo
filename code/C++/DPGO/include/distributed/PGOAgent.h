@@ -33,12 +33,18 @@ namespace DPGO{
   public:
     // Initialize with an empty pose graph
     PGOAgent(unsigned ID, unsigned dIn, unsigned rIn);
+    PGOAgent(unsigned ID, unsigned dIn, unsigned rIn, bool v);
     ~PGOAgent();
 
     /** Helper function to reset the internal solution
         In deployment, should not use this
      */
-    void setY(const Matrix& Yin){Y = Yin;}
+    void setY(const Matrix& Yin)
+    {
+        Y = Yin;
+        assert(Y.cols() == n * (d+1));
+        assert(Y.rows() == r);
+    }
     Matrix getY(){return Y;};
 
     /**

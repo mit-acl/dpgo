@@ -30,9 +30,8 @@ int main(int argc, char** argv)
     d = (!dataset.empty() ? dataset[0].t.size() : 0);
     n = ConLapT.rows()/(d+1);
     r = 5;
-    unsigned agentID = 0;
-    PGOAgent agent(agentID,d,r);
 
+    // Chordal initialization
     Matrix Y;
     SparseMatrix B1, B2, B3; 
     construct_B_matrices(dataset, B1, B2, B3);
@@ -47,25 +46,115 @@ int main(int argc, char** argv)
     }
 
 
-    for(size_t k = 0; k < dataset.size(); ++k){
-        RelativeSEMeasurement m(0,0,dataset[k].i,dataset[k].j,dataset[k].R,dataset[k].t,dataset[k].kappa, dataset[k].tau);
-        if(dataset[k].j == dataset[k].i + 1){
-            agent.addOdometry(m);
-        }else{
-            agent.addPrivateLoopClosure(m);
-        }
-    }
-    
-    agent.setY(Y);
-    agent.optimize();
+    // Agent 1 owns pose [0, n1)
+    // Agent 2 owns pose [n1, n)
+    unsigned int n1 = n/2;
 
-    // Save to file
-    // string filename = "/home/yulun/git/dpgo/code/results/trajectory.txt";
-    string filename = "/home/yulun/bitbucket/dpgo/code/results/trajectory.txt";
-    ofstream file;
-    file.open(filename.c_str(), std::ofstream::out);
-    file << agent.getTrajectoryInLocalFrame() << std::endl;
-    file.close();
+    // initialize two agents
+    PGOAgent agent1(0, d, r, false);
+    PGOAgent agent2(1, d, r, false);
+
+
+    vector<PGOAgent::PoseID> agent1PublicPoses;
+    vector<PGOAgent::PoseID> agent2PublicPoses;
+
+    for(size_t k = 0; k < dataset.size(); ++k){
+        RelativePoseMeasurement mIn = dataset[k];
+        if(mIn.i < n1 && mIn.j < n1){
+            // private measuerment of agent 1
+            RelativeSEMeasurement m(0,0,mIn.i, mIn.j, mIn.R, mIn.t, mIn.kappa, mIn.tau);
+
+            if(mIn.i + 1== mIn.j){
+                // odometry
+                agent1.addOdometry(m);
+            }else{
+                // private loop closure
+                agent1.addPrivateLoopClosure(m);
+            }
+        }
+        else if (mIn.i >= n1 && mIn.j >= n1){
+            // private measurement of agent 2
+            RelativeSEMeasurement m(1,1,mIn.i-n1, mIn.j-n1, mIn.R, mIn.t, mIn.kappa, mIn.tau);
+            if(mIn.i + 1== mIn.j){
+                // odometry
+                agent2.addOdometry(m);
+            }else{
+                // private loop closure
+                agent2.addPrivateLoopClosure(m);
+            }
+        }
+        else if (mIn.i < n1 && mIn.j >= n1){
+            // shared loop closure from agent 0 to agent 1
+            RelativeSEMeasurement m(0,1,mIn.i, mIn.j-n1, mIn.R, mIn.t, mIn.kappa, mIn.tau);
+            agent1.addSharedLoopClosure(m);
+            agent2.addSharedLoopClosure(m);
+
+            agent1PublicPoses.push_back(make_pair(0,mIn.i));
+            agent2PublicPoses.push_back(make_pair(1,mIn.j - n1));
+
+        }
+        else if (mIn.i >= n1 && mIn.j < n1){
+            // shared loop closure from agent 1 to 0
+            RelativeSEMeasurement m(1,0,mIn.i-n1, mIn.j, mIn.R, mIn.t, mIn.kappa, mIn.tau);
+            agent1.addSharedLoopClosure(m);
+            agent2.addSharedLoopClosure(m);
+
+            agent1PublicPoses.push_back(make_pair(0,mIn.j));
+            agent2PublicPoses.push_back(make_pair(1,mIn.i-n1));
+        }
+
+    }
+
+    cout << "# Agent 1 public poses: " << endl;
+    for(size_t i = 0; i < agent1PublicPoses.size() ; ++i){
+        cout << get<1>(agent1PublicPoses[i]) << ", ";
+    }
+    cout << endl;
+
+    cout << "# Agent 2 public poses: " <<  endl;
+    for(size_t i = 0; i < agent2PublicPoses.size() ; ++i){
+        cout << get<1>(agent2PublicPoses[i]) << ", ";
+    }
+    cout << endl;
+
+
+    // Initialize
+    agent1.setY(Y.block(0,0,r,n1*(d+1)));
+    agent2.setY(Y.block(0,n1*(d+1),r,(n-n1)*(d+1)));
+
+    cout << "COST = " << (Y * ConLapT * Y.transpose()).trace() << endl;
+
+    unsigned numIters = 500;
+    for (unsigned iter = 0; iter < numIters; ++iter){
+        // exchange public poses
+        Matrix Y2 = agent2.getY();
+        for(size_t i = 0; i < agent2PublicPoses.size() ; ++i){
+            PGOAgent::PoseID pose_id = agent2PublicPoses[i];
+            assert(get<0>(pose_id) == 1);
+            unsigned idx = get<1>(pose_id);
+            Matrix Yi = Y2.block(0, idx*(d+1), r, d+1);
+            agent1.updateSharedPose(0,1,idx,Yi);
+        }
+        agent1.optimize();
+
+
+        Matrix Y1 = agent1.getY();
+        for(size_t i = 0; i < agent1PublicPoses.size(); ++i){
+            PGOAgent::PoseID pose_id = agent1PublicPoses[i];
+            assert(get<0>(pose_id) == 0);
+            unsigned idx = get<1>(pose_id);
+            Matrix Yi = Y1.block(0, idx*(d+1), r, d+1);
+            agent2.updateSharedPose(0,0,idx,Yi);
+        }
+        agent2.optimize();
+
+        Matrix Yopt = Matrix(r, n*(d+1));
+        Yopt.block(0,0,r,n1*(d+1)) = agent1.getY();
+        Yopt.block(0,n1*(d+1),r,(n-n1)*(d+1)) = agent2.getY();
+
+        cout << "COST = " << (Yopt * ConLapT * Yopt.transpose()).trace() << endl;
+
+    }
 
     exit(0);
 }

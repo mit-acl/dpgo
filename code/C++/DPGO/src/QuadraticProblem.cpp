@@ -23,6 +23,9 @@ namespace DPGO{
 
 		SparseMatrix P = Q.topLeftCorner(Q.rows()-1, Q.cols()-1);		
 		solver.compute(P);
+		if(solver.info() != Eigen::Success){
+			cout << "WARNING: preconditioning failed." << endl;
+		}
 	}
 
 	QuadraticProblem::~QuadraticProblem()
