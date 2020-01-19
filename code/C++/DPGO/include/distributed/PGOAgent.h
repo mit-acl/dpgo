@@ -30,9 +30,6 @@ namespace DPGO{
     typedef map<PoseID, Matrix, std::less<PoseID>, 
         Eigen::aligned_allocator<std::pair<PoseID, Matrix>>> PoseDict;
 
-    // Implement a dictionary for easy access of measurement by PoseID
-    typedef map<PoseID, RelativeSEMeasurement, std::less<PoseID>> MeasurementDict;
-
   public:
     // Initialize with an empty pose graph
     PGOAgent(unsigned ID, unsigned dIn, unsigned rIn);
@@ -41,7 +38,8 @@ namespace DPGO{
     /** Helper function to reset the internal solution
         In deployment, should not use this
      */
-    void setTrajectory(const Matrix& Yin){Y = Yin;}
+    void setY(const Matrix& Yin){Y = Yin;}
+    Matrix getY(){return Y;};
 
     /**
     Add an odometric measurement of this robot.
@@ -109,14 +107,8 @@ namespace DPGO{
     // Number of poses
     unsigned n;
 
-    // Maximum step size
-    double maxStepsize;
-
-    // Step size during line search 
-    double stepsizeDecay;
-
-    // Maximum attempts of line search
-    unsigned maxLineSearchAttempts;
+    // Verbose flag
+    bool verbose;
 
     // Solution before rounding
     Matrix Y;
@@ -137,7 +129,7 @@ namespace DPGO{
     PoseDict sharedPoseDict;
     
     // This dictionary stores shared loop closure measurements
-    MeasurementDict sharedMeasurementDict;
+    vector<RelativeSEMeasurement> sharedLoopClosures;
 
     // Implement locking to synchronize read & write of trajectory estimate
     mutex mTrajectoryMutex;
@@ -147,6 +139,15 @@ namespace DPGO{
 
     // Implement locking on measurements
     mutex mMeasurementsMutex;
+
+    /** Compute the cost matrices that define the local PGO problem
+        f(X) = 0.5<Q, XtX> + <X, G>
+    */
+    void constructCostMatrices(const vector<RelativeSEMeasurement>& privateMeasurements,
+            const vector<RelativeSEMeasurement>& sharedMeasurements,
+            SparseMatrix* Q, 
+            SparseMatrix* G);
+
   };
 
 } 

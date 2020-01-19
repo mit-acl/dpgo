@@ -26,9 +26,14 @@ namespace DPGO{
 		*/
 		Matrix optimize() const;
 
+		void setVerbose(bool v) {verbose = v;}
+
 	private:
 		// Underlying Riemannian Optimization Problem
 		QuadraticProblem* problem;
+
+		// Verbose flag
+		bool verbose;
 
 	};
 

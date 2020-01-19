@@ -56,16 +56,16 @@ int main(int argc, char** argv)
         }
     }
     
-    agent.setTrajectory(Y);
+    agent.setY(Y);
     agent.optimize();
 
     // Save to file
-    string filename = "/home/yulun/git/dpgo/code/results/trajectory.txt";
+    // string filename = "/home/yulun/git/dpgo/code/results/trajectory.txt";
+    string filename = "/home/yulun/bitbucket/dpgo/code/results/trajectory.txt";
     ofstream file;
     file.open(filename.c_str(), std::ofstream::out);
     file << agent.getTrajectoryInLocalFrame() << std::endl;
     file.close();
-
 
     exit(0);
 }

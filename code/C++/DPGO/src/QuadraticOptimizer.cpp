@@ -6,7 +6,7 @@
 
 namespace DPGO{
 
-	QuadraticOptimizer::QuadraticOptimizer(QuadraticProblem* p):problem(p){}
+	QuadraticOptimizer::QuadraticOptimizer(QuadraticProblem* p):problem(p), verbose(true){}
 
 	QuadraticOptimizer::~QuadraticOptimizer(){}
 
@@ -19,12 +19,12 @@ namespace DPGO{
 		VarInit.setData(Y);
 		VarInit.var()->NewMemoryOnWrite();
 
-
 		// Use RTR 
 		ROPTLIB::RTRNewton Solver(problem, VarInit.var());
 		Solver.Stop_Criterion = ROPTLIB::StopCrit::FUN_REL;
 		Solver.maximum_Delta = 1e4;
-		Solver.Debug = ROPTLIB::DEBUGINFO::ITERRESULT;
+		Solver.Debug = (verbose ? ROPTLIB::DEBUGINFO::ITERRESULT
+                                     : ROPTLIB::DEBUGINFO::NOOUTPUT);
 		Solver.Max_Iteration = 500;
 		Solver.Run();
 
@@ -38,10 +38,11 @@ namespace DPGO{
 		const ROPTLIB::ProductElement *Yopt = static_cast<const ROPTLIB::ProductElement*>(Solver.GetXopt());
 		LiftedSEVariable VarOpt(r,d,n);
 		Yopt->CopyTo(VarOpt.var());
-
-		cout << "Initial objective value: " << problem->f(VarInit.var()) << endl;
-		cout << "Final objective value: " << Solver.Getfinalfun() << endl;
-		cout << "Final gradient norm: " << Solver.Getnormgf() << endl;
+		if (verbose){
+			cout << "Initial objective value: " << problem->f(VarInit.var()) << endl;
+			cout << "Final objective value: " << Solver.Getfinalfun() << endl;
+			cout << "Final gradient norm: " << Solver.Getnormgf() << endl;
+		}
 
 		return VarOpt.getData();
 	}

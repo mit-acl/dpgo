@@ -1,6 +1,7 @@
 #include "distributed/PGOAgent.h"
 #include <iostream>
 #include <cassert>
+#include <chrono>
 #include "DPGO_utils.h"
 #include "QuadraticProblem.h"
 #include "QuadraticOptimizer.h"
@@ -18,9 +19,7 @@ namespace DPGO{
 	d(dIn), 
 	r(rIn), 
 	n(1),
-	maxStepsize(0.001),
-	stepsizeDecay(0.8),
-	maxLineSearchAttempts(100)
+	verbose(true)
 	{
 		// automatically initialize the first pose on the Cartan group
 		LiftedSEVariable x(r,d,1);
@@ -52,7 +51,7 @@ namespace DPGO{
 
 		n++;
 		assert((d+1)*n == Y.cols());
-		cout << "Initialized pose " << n << endl;
+		if(verbose) cout << "Initialized pose " << n << endl;
 
 		lock_guard<mutex> mLock(mMeasurementsMutex);
 		odometry.push_back(factor);
@@ -66,7 +65,22 @@ namespace DPGO{
 
 		lock_guard<mutex> lock(mMeasurementsMutex);
 		privateLoopClosures.push_back(factor);
-		cout << "Add private loop closure " << privateLoopClosures.size() << endl;
+		if(verbose) cout << "Add private loop closure " << privateLoopClosures.size() << endl;
+	}
+
+	void PGOAgent::addSharedLoopClosure(const RelativeSEMeasurement& factor){
+		if(factor.r1 == mID){
+			assert(factor.p1 < n);
+			assert(factor.r2 != mID);
+		}
+		else{
+			assert(factor.r2 == mID);
+			assert(factor.p2 < n);
+		}
+
+		lock_guard<mutex> lock(mMeasurementsMutex);
+		sharedLoopClosures.push_back(factor);
+		if(verbose) cout << "Add shared loop closure " << sharedLoopClosures.size() << endl;
 	}
 
 	void PGOAgent::updateSharedPose(unsigned neighborCluster, unsigned neighborID, unsigned neighborPose, const Matrix& var){
@@ -98,38 +112,152 @@ namespace DPGO{
 	}
 
 	void PGOAgent::optimize(){
+		cout << "========================= Agent " << mID << " optimize =========================" << endl;
+
+		unsigned k = n; // number of poses updated at this time
+
+		vector<RelativeSEMeasurement> myMeasurements;
+		vector<RelativeSEMeasurement> sharedMeasurements;
 		unique_lock<mutex> mLock(mMeasurementsMutex);
-		vector<RelativeSEMeasurement> measurements = odometry;
-		measurements.insert(measurements.end(), privateLoopClosures.begin(), privateLoopClosures.end());
+		for(size_t i = 0; i < odometry.size(); ++i){
+			RelativeSEMeasurement m = odometry[i];
+			if(m.p1 < k && m.p2 < k) myMeasurements.push_back(m);
+		}
+		for(size_t i = 0; i < privateLoopClosures.size(); ++i){
+			RelativeSEMeasurement m = privateLoopClosures[i];
+			if(m.p1 < k && m.p2 < k) myMeasurements.push_back(m);
+		}
 		mLock.unlock();
-		if (measurements.empty()) return;
+		if (myMeasurements.empty()) return;
 
-		// Compute connection laplacian matrix (all private factors)
-		SparseMatrix Q = constructConnectionLaplacianSE(measurements);
+		SparseMatrix Q((d+1)*k, (d+1)*k);
+		SparseMatrix G(r,(d+1)*k);
+		constructCostMatrices(myMeasurements, sharedMeasurements, &Q, &G);
 
-		// Number of poses included in this optimization
-		unsigned k = Q.rows() / (d+1);
+		// Read current estimates of the first k poses
 		unique_lock<mutex> tLock(mTrajectoryMutex);
 		Matrix Ycurr = Y.block(0,0,r,(d+1)*k);
 		tLock.unlock();
 		assert(Ycurr.cols() == Q.cols());
 
-		// TODO: compute linear factors (all shared factors)
-		SparseMatrix G(r,(d+1)*k);
-    	G.setZero();
-
-
+		// Construct optimization problem
 		QuadraticProblem problem(k, d, r, Q, G);
-		cout << "Constructed quadratic problem instance." << endl;
+		if (verbose) cout << "Constructed quadratic problem instance." << endl;
+		
+		// Initialize optimizer object
 		QuadraticOptimizer optimizer(&problem);
-		cout << "Constructed optimizer." << endl;
+		optimizer.setVerbose(verbose);
+		if (verbose) cout << "Constructed optimizer. Optimizing..." << endl;
+		
+		// Optimize
+		auto startTime = std::chrono::high_resolution_clock::now();
 		Matrix Ynext = optimizer.optimize(Ycurr);
-
+		auto counter = std::chrono::high_resolution_clock::now() - startTime;
+		double elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(counter).count();
+		if (verbose) cout << "Optimization time: " << elapsedMs / 1000 << " seconds." << endl;
 
 		// TODO: handle dynamic pose graph
 		tLock.lock();
 		Y = Ynext;
 		tLock.unlock();
+	}
+
+
+	void PGOAgent::constructCostMatrices(const vector<RelativeSEMeasurement>& privateMeasurements,
+            const vector<RelativeSEMeasurement>& sharedMeasurements,
+            SparseMatrix* Q, 
+            SparseMatrix* G)
+	{
+		*Q = constructConnectionLaplacianSE(privateMeasurements);
+
+		unique_lock<mutex> lock(mSharedPosesMutex, std::defer_lock);
+
+		// go through shared measurements
+		for(size_t i = 0; i < sharedMeasurements.size(); ++i){
+			RelativeSEMeasurement m = sharedMeasurements[i];
+
+			// Construct relative SE matrix in homogeneous form
+			Matrix T = Matrix::Zero(d+1,d+1);
+			T.block(0,0,d,d) = m.R;
+			T.block(0,d,d,1) = m.t;
+			T(d,d) = 1;
+
+			// Construct aggregate weight matrix
+			Matrix Omega = Matrix::Zero(d+1,d+1);
+			for(unsigned row = 0; row < d; ++row){
+				Omega(row,row) = m.kappa;
+			}
+			Omega(d,d) = m.tau;
+
+			if(m.r1 == mID){
+				// First pose belongs to this robot
+				// Hence, this is an outgoing edge in the pose graph
+				assert(m.r2 != mID);
+
+				// Read neighbor's pose
+				const PoseID nID = make_pair(m.r2, m.p2);
+				auto KVpair = sharedPoseDict.find(nID);
+				if(KVpair == sharedPoseDict.end()){
+					cout << "WARNING: shared pose does not exist!" << endl;
+					continue;
+				}
+				lock.lock();
+				Matrix Yj = KVpair->second;
+				lock.unlock();
+
+				// Modify quadratic cost
+				size_t idx = m.p1;
+				Matrix W = T * Omega * T.transpose();
+				for (size_t col = 0; col < d+1; ++col){
+					for(size_t row = 0; row < d+1; ++row){
+						Q->coeffRef(idx*(d+1)+row, idx*(d+1)+col) += W(row,col);
+					}
+				}
+
+				// Modify linear cost 
+				Matrix L = -2 * Yj * Omega * T.transpose();
+				for (size_t col = 0; col < d+1; ++col){
+					for(size_t row = 0; row < r; ++row){
+						G->coeffRef(row, idx*(d+1)+col) += L(row,col);
+					}
+				}
+
+			}
+			else{
+				// Second pose belongs to this robot
+				// Hence, this is an incoming edge in the pose graph
+				assert(m.r2 == mID);
+
+				// Read neighbor's pose
+				const PoseID nID = make_pair(m.r1, m.p1);
+				auto KVpair = sharedPoseDict.find(nID);
+				if(KVpair == sharedPoseDict.end()){
+					cout << "WARNING: shared pose does not exist!" << endl;
+					continue;
+				}
+				lock.lock();
+				Matrix Yi = KVpair->second;
+				lock.unlock();
+
+				// Modify quadratic cost
+				size_t idx = m.p2;
+				for (size_t col = 0; col < d+1; ++col){
+					for(size_t row = 0; row < d+1; ++row){
+						Q->coeffRef(idx*(d+1)+row, idx*(d+1)+col) += Omega(row,col);
+					}
+				}
+
+				// Modify linear cost
+				Matrix L = -2 * Yi * T * Omega;
+				for (size_t col = 0; col < d+1; ++col){
+					for(size_t row = 0; row < r; ++row){
+						G->coeffRef(row, idx*(d+1)+col) += L(row,col);
+					}
+				}
+			}
+
+		}
+
 	}
 
 
