@@ -21,10 +21,10 @@ namespace DPGO{
 
 		SetDomain(M->getManifold());
 
-		SparseMatrix P = Q.topLeftCorner(Q.rows()-1, Q.cols()-1);		
+		SparseMatrix P = Q;	
 		solver.compute(P);
 		if(solver.info() != Eigen::Success){
-			cout << "WARNING: preconditioning failed." << endl;
+			cout << "WARNING: Precon.compute() failed." << endl;
 		}
 	}
 
@@ -65,15 +65,17 @@ namespace DPGO{
 	void QuadraticProblem::PreConditioner(ROPTLIB::Variable* x, ROPTLIB::Vector* inVec,
                       ROPTLIB::Vector* outVec) const 
 	{
-		inVec->CopyTo(Vector->vec());
-		Matrix HV = Matrix::Zero(r, n*(d+1));
-		HV.leftCols(n*(d+1)-1) = solver.solve(Vector->getData().leftCols(n*(d+1)-1).transpose()).transpose();
 
+		inVec->CopyTo(Vector->vec());
+		Matrix HV = solver.solve(Vector->getData().transpose()).transpose();
+		if(solver.info() != Eigen::Success){
+			cout << "WARNING: Precon.solve() failed." << endl;
+		}
 		// Project to tangent space
 		x->CopyTo(Variable->var());
 		Vector->setData(HV);
 		M->getManifold()->Projection(Variable->var(), Vector->vec(), Vector->vec());
-		
 		Vector->vec()->CopyTo(outVec);
+
 	}
 }

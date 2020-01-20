@@ -51,7 +51,7 @@ namespace DPGO{
 		assert(factor.p2 == n);
 
 		// extend trajectory by a single pose
-		lock_guard<mutex> tLock(mTrajectoryMutex);
+		lock_guard<mutex> tLock(mPosesMutex);
 		Y.conservativeResize(Eigen::NoChange, (d+1)*(n+1));
 
 		Matrix currR = Y.block(0, (n-1)*(d+1), r, d);
@@ -86,10 +86,14 @@ namespace DPGO{
 		if(factor.r1 == mID){
 			assert(factor.p1 < n);
 			assert(factor.r2 != mID);
+			mSharedPoses.insert(make_pair(mID, factor.p1));
+			neighborSharedPoses.insert(make_pair(factor.r2,factor.p2));
 		}
 		else{
 			assert(factor.r2 == mID);
 			assert(factor.p2 < n);
+			mSharedPoses.insert(make_pair(mID, factor.p2));
+			neighborSharedPoses.insert(make_pair(factor.r1, factor.p1));
 		}
 
 		lock_guard<mutex> lock(mMeasurementsMutex);
@@ -97,7 +101,7 @@ namespace DPGO{
 		if(verbose) cout << "Add shared loop closure " << sharedLoopClosures.size() << endl;
 	}
 
-	void PGOAgent::updateSharedPose(unsigned neighborCluster, unsigned neighborID, unsigned neighborPose, const Matrix& var){
+	void PGOAgent::updateNeighborPose(unsigned neighborCluster, unsigned neighborID, unsigned neighborPose, const Matrix& var){
 		assert(neighborID != mID);
 
 		/** 
@@ -107,13 +111,18 @@ namespace DPGO{
 
 		PoseID nID = std::make_pair(neighborID, neighborPose);
 
-		lock_guard<mutex> lock(mSharedPosesMutex);
+		// Do not store this pose if not needed
+		if(neighborSharedPoses.find(nID) == neighborSharedPoses.end()) return;
 
-		sharedPoseDict[nID] = var;
+		lock_guard<mutex> lock(mNeighborPosesMutex);
+
+		neighborPoseDict[nID] = var;
 	}
 
 
 	Matrix PGOAgent::getTrajectoryInLocalFrame(){
+		lock_guard<mutex> lock(mPosesMutex);
+
 		Matrix T = Y.block(0,0,r,d).transpose() * Y;
 		Matrix t0 = T.block(0,d,d,1);
 
@@ -125,10 +134,23 @@ namespace DPGO{
 		return T;
 	}
 
-	void PGOAgent::optimize(){
-		cout << "========================= Agent " << mID << " optimize =========================" << endl;
 
-		unsigned k = n; // number of poses updated at this time
+	PoseDict PGOAgent::getSharedPoses(){
+		PoseDict map;
+		lock_guard<mutex> lock(mPosesMutex);
+		for(auto it = mSharedPoses.begin(); it!= mSharedPoses.end(); ++it){
+			unsigned idx = get<1>(*it);
+			map[*it] = Y.block(0, idx*(d+1), r, d+1);
+		}
+		return map;
+	}
+
+
+	void PGOAgent::optimize(){
+		if(verbose) cout << "Agent " << mID << " optimize..." << endl;
+
+		// number of poses updated at this time
+		unsigned k = n; 
 
 		vector<RelativeSEMeasurement> myMeasurements;
 		unique_lock<mutex> mLock(mMeasurementsMutex);
@@ -155,7 +177,7 @@ namespace DPGO{
 		constructCostMatrices(myMeasurements, sharedMeasurements, &Q, &G);
 
 		// Read current estimates of the first k poses
-		unique_lock<mutex> tLock(mTrajectoryMutex);
+		unique_lock<mutex> tLock(mPosesMutex);
 		Matrix Ycurr = Y.block(0,0,r,(d+1)*k);
 		tLock.unlock();
 		assert(Ycurr.cols() == Q.cols());
@@ -190,7 +212,7 @@ namespace DPGO{
 	{
 		*Q = constructConnectionLaplacianSE(privateMeasurements);
 
-		unique_lock<mutex> lock(mSharedPosesMutex, std::defer_lock);
+		unique_lock<mutex> lock(mNeighborPosesMutex, std::defer_lock);
 
 		// go through shared measurements
 		for(size_t i = 0; i < sharedMeasurements.size(); ++i){
@@ -218,8 +240,8 @@ namespace DPGO{
 
 				// Read neighbor's pose
 				const PoseID nID = make_pair(m.r2, m.p2);
-				auto KVpair = sharedPoseDict.find(nID);
-				if(KVpair == sharedPoseDict.end()){
+				auto KVpair = neighborPoseDict.find(nID);
+				if(KVpair == neighborPoseDict.end()){
 					cout << "WARNING: shared pose does not exist!" << endl;
 					continue;
 				}
@@ -253,8 +275,8 @@ namespace DPGO{
 
 				// Read neighbor's pose
 				const PoseID nID = make_pair(m.r1, m.p1);
-				auto KVpair = sharedPoseDict.find(nID);
-				if(KVpair == sharedPoseDict.end()){
+				auto KVpair = neighborPoseDict.find(nID);
+				if(KVpair == neighborPoseDict.end()){
 					cout << "WARNING: shared pose does not exist!" << endl;
 					continue;
 				}

@@ -1,5 +1,6 @@
 #include <iostream>
 #include <fstream>
+#include <cstdlib>
 #include "SESync.h"
 #include "SESync_utils.h"
 #include "SESync_types.h"
@@ -12,26 +13,44 @@ using namespace std;
 using namespace DPGO;
 using namespace SESync;
 
+
+/**
+This demo simulates a serial version of the distributed PGO algorithm described in:
+
+Y. Tian, K. Khosoussi, and JP How
+"Block-Coordinate Descent on the Riemannian Staircase for Certifiably Correct Distributed Rotation and Pose Synchronization"
+*/
+
 int main(int argc, char** argv)
 {
     
-    if (argc < 2) {
+    if (argc < 3) {
         cout << "Distributed pose-graph optimization. " << endl;
-        cout << "Usage: " << argv[0] << " [input .g2o file]" << endl;
+        cout << "Usage: " << argv[0] << " [# robots] [input .g2o file]" << endl;
         exit(1);
     }
 
+    cout << "Distributed pose-graph optimization demo. " << endl;
+
+    int num_robots = atoi(argv[1]);
+    if (num_robots <= 0){
+        cout << "Number of robots must be positive!" << endl;
+        exit(1);
+    }
+    cout << "Simulating " << num_robots << " robots." << endl;
+
+
     size_t num_poses;
-    vector<SESync::RelativePoseMeasurement> dataset = SESync::read_g2o_file(argv[1], num_poses);
-    cout << "Loaded dataset from file " << argv[1] << endl;
+    vector<SESync::RelativePoseMeasurement> dataset = SESync::read_g2o_file(argv[2], num_poses);
+    cout << "Loaded dataset from file " << argv[2] << "." << endl;
     
     unsigned int n,d,r;
     SparseMatrix ConLapT = construct_connection_Laplacian_T(dataset);
     d = (!dataset.empty() ? dataset[0].t.size() : 0);
-    n = ConLapT.rows()/(d+1);
+    n = num_poses;
     r = 5;
 
-    // Chordal initialization
+    // We use SE-Sync's implementation of chordal initialization
     Matrix Y;
     SparseMatrix B1, B2, B3; 
     construct_B_matrices(dataset, B1, B2, B3);
@@ -54,9 +73,6 @@ int main(int argc, char** argv)
     PGOAgent agent1(0, d, r, false);
     PGOAgent agent2(1, d, r, false);
 
-
-    vector<PGOAgent::PoseID> agent1PublicPoses;
-    vector<PGOAgent::PoseID> agent2PublicPoses;
 
     for(size_t k = 0; k < dataset.size(); ++k){
         RelativePoseMeasurement mIn = dataset[k];
@@ -89,70 +105,51 @@ int main(int argc, char** argv)
             agent1.addSharedLoopClosure(m);
             agent2.addSharedLoopClosure(m);
 
-            agent1PublicPoses.push_back(make_pair(0,mIn.i));
-            agent2PublicPoses.push_back(make_pair(1,mIn.j - n1));
-
         }
         else if (mIn.i >= n1 && mIn.j < n1){
             // shared loop closure from agent 1 to 0
             RelativeSEMeasurement m(1,0,mIn.i-n1, mIn.j, mIn.R, mIn.t, mIn.kappa, mIn.tau);
             agent1.addSharedLoopClosure(m);
             agent2.addSharedLoopClosure(m);
-
-            agent1PublicPoses.push_back(make_pair(0,mIn.j));
-            agent2PublicPoses.push_back(make_pair(1,mIn.i-n1));
         }
 
     }
-
-    cout << "# Agent 1 public poses: " << endl;
-    for(size_t i = 0; i < agent1PublicPoses.size() ; ++i){
-        cout << get<1>(agent1PublicPoses[i]) << ", ";
-    }
-    cout << endl;
-
-    cout << "# Agent 2 public poses: " <<  endl;
-    for(size_t i = 0; i < agent2PublicPoses.size() ; ++i){
-        cout << get<1>(agent2PublicPoses[i]) << ", ";
-    }
-    cout << endl;
 
 
     // Initialize
     agent1.setY(Y.block(0,0,r,n1*(d+1)));
     agent2.setY(Y.block(0,n1*(d+1),r,(n-n1)*(d+1)));
-
-    cout << "COST = " << (Y * ConLapT * Y.transpose()).trace() << endl;
-
-    unsigned numIters = 500;
+    Matrix Yopt = Y;
+    unsigned numIters = 10;
+    cout << "Running RBCD for " << numIters << " iterations..." << endl; 
     for (unsigned iter = 0; iter < numIters; ++iter){
+        cout 
+        << "Iter = " << iter << " | "
+        << "cost = " << (Yopt * ConLapT * Yopt.transpose()).trace() << endl;
+
         // exchange public poses
-        Matrix Y2 = agent2.getY();
-        for(size_t i = 0; i < agent2PublicPoses.size() ; ++i){
-            PGOAgent::PoseID pose_id = agent2PublicPoses[i];
-            assert(get<0>(pose_id) == 1);
-            unsigned idx = get<1>(pose_id);
-            Matrix Yi = Y2.block(0, idx*(d+1), r, d+1);
-            agent1.updateSharedPose(0,1,idx,Yi);
+        PoseDict agent2SharedPoses = agent2.getSharedPoses();
+        for(auto it = agent2SharedPoses.begin(); it != agent2SharedPoses.end(); ++it){
+            PoseID nID = it->first; 
+            Matrix var = it->second;
+            unsigned agentID = get<0>(nID);
+            unsigned localID = get<1>(nID);
+            agent1.updateNeighborPose(0,agentID,localID, var);
         }
         agent1.optimize();
 
-
-        Matrix Y1 = agent1.getY();
-        for(size_t i = 0; i < agent1PublicPoses.size(); ++i){
-            PGOAgent::PoseID pose_id = agent1PublicPoses[i];
-            assert(get<0>(pose_id) == 0);
-            unsigned idx = get<1>(pose_id);
-            Matrix Yi = Y1.block(0, idx*(d+1), r, d+1);
-            agent2.updateSharedPose(0,0,idx,Yi);
+        PoseDict agent1SharedPoses = agent1.getSharedPoses();
+        for(auto it = agent1SharedPoses.begin(); it != agent1SharedPoses.end(); ++it){
+            PoseID nID = it->first; 
+            Matrix var = it->second;
+            unsigned agentID = get<0>(nID);
+            unsigned localID = get<1>(nID);
+            agent2.updateNeighborPose(0,agentID,localID, var);
         }
         agent2.optimize();
 
-        Matrix Yopt = Matrix(r, n*(d+1));
         Yopt.block(0,0,r,n1*(d+1)) = agent1.getY();
-        Yopt.block(0,n1*(d+1),r,(n-n1)*(d+1)) = agent2.getY();
-
-        cout << "COST = " << (Yopt * ConLapT * Yopt.transpose()).trace() << endl;
+        Yopt.block(0,n1*(d+1),r,(n-n1)*(d+1)) = agent2.getY();        
 
     }
 

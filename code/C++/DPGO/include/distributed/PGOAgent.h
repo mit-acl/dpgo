@@ -2,6 +2,8 @@
 #define PGOAGENT_H
 
 #include <vector>
+#include <set>
+#include <map>
 #include <thread>
 #include <mutex>
 #include "manifold/LiftedSEManifold.h"
@@ -18,18 +20,14 @@ using namespace std;
 
 /*Define the namespace*/
 namespace DPGO{
+  // In distributed PGO, each pose is uniquely determined by the robot ID and pose ID
+  typedef pair<unsigned, unsigned> PoseID;
 
+  // Implement a dictionary for easy access of pose value by PoseID
+  typedef map<PoseID, Matrix, std::less<PoseID>, 
+          Eigen::aligned_allocator<std::pair<PoseID, Matrix>>> PoseDict;
 
   class PGOAgent{
-
-  public:
-    // In distributed PGO, each pose is uniquely determined by the robot ID and pose ID
-    typedef pair<unsigned, unsigned> PoseID;
-
-    // Implement a dictionary for easy access of pose value by PoseID
-    typedef map<PoseID, Matrix, std::less<PoseID>, 
-        Eigen::aligned_allocator<std::pair<PoseID, Matrix>>> PoseDict;
-
   public:
     // Initialize with an empty pose graph
     PGOAgent(unsigned ID, unsigned dIn, unsigned rIn);
@@ -69,7 +67,7 @@ namespace DPGO{
     TODO: if necessary (based on the cluster), realign the local frame of this robot to match the neighbor's
     and update the cluster that this robot belongs to 
     */
-    void updateSharedPose(unsigned neighborCluster, unsigned neighborID, unsigned neighborPose, const Matrix& var);
+    void updateNeighborPose(unsigned neighborCluster, unsigned neighborID, unsigned neighborPose, const Matrix& var);
 
     /** 
     Optimize pose graph by a single iteration. 
@@ -91,6 +89,12 @@ namespace DPGO{
     Return trajectory estimate of this robot in global frame, with the first pose of robot 0 set to identity   
     */
     Matrix getTrajectoryInGlobalFrame();
+
+
+    /**
+    Return a map of shared poses of this robot, that need to be sent to others
+    */
+    PoseDict getSharedPoses();
 
 
 
@@ -128,20 +132,23 @@ namespace DPGO{
     // Store private loop closures of this robot
     vector<RelativeSEMeasurement> privateLoopClosures;
 
-    // Stores ID of other robots that share loop closures
-    vector<unsigned> neighborAgents;
-
     // This dictionary stores poses owned by other robots that is connected to this robot by loop closure
-    PoseDict sharedPoseDict;
+    PoseDict neighborPoseDict;
+
+    // Store the set of public poses that need to be sent to other robots
+    set<PoseID> mSharedPoses;
+
+    // Store the set of public poses needed from other robots
+    set<PoseID> neighborSharedPoses;
     
     // This dictionary stores shared loop closure measurements
     vector<RelativeSEMeasurement> sharedLoopClosures;
 
     // Implement locking to synchronize read & write of trajectory estimate
-    mutex mTrajectoryMutex;
+    mutex mPosesMutex;
 
     // Implement locking to synchronize read & write of shared poses from neighbors
-    mutex mSharedPosesMutex;
+    mutex mNeighborPosesMutex;
 
     // Implement locking on measurements
     mutex mMeasurementsMutex;
