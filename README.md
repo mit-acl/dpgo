@@ -29,7 +29,12 @@ For a demo of multithreaded PGO, run:
 ./C++/build/bin/multithread-example data/smallGrid3D.g2o
 ```
 
-For a demo of distributed PGO (serial version), run:
+For a serialized demo of distributed PGO, run:
 ```
 ./C++/build/bin/distributed-example 5 data/smallGrid3D.g2o
+```
+
+For a parallel demo of distributed PGO (where agents optimize local pose graphs concurrently in multiple threads), run:
+```
+./C++/build/bin/distributed-example2 5 data/smallGrid3D.g2o
 ```

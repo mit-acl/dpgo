@@ -27,6 +27,7 @@ namespace DPGO{
 		Y = x.getData();
 	}
 
+
 	PGOAgent::PGOAgent(unsigned ID, unsigned dIn, unsigned rIn, bool v):
 	mID(ID), 
 	mCluster(ID), 
@@ -41,7 +42,9 @@ namespace DPGO{
 		Y = x.getData();
 	}
 
+
 	PGOAgent::~PGOAgent(){}
+
 
 	void PGOAgent::addOdometry(const RelativeSEMeasurement& factor){
 		// check that this is a odometric measurement 
@@ -71,6 +74,7 @@ namespace DPGO{
 		odometry.push_back(factor);
 	}
 
+
 	void PGOAgent::addPrivateLoopClosure(const RelativeSEMeasurement& factor){
 		assert(factor.r1 == mID);
 		assert(factor.r2 == mID);
@@ -81,6 +85,7 @@ namespace DPGO{
 		privateLoopClosures.push_back(factor);
 		if(verbose) cout << "Add private loop closure " << privateLoopClosures.size() << endl;
 	}
+
 
 	void PGOAgent::addSharedLoopClosure(const RelativeSEMeasurement& factor){
 		if(factor.r1 == mID){
@@ -100,6 +105,7 @@ namespace DPGO{
 		sharedLoopClosures.push_back(factor);
 		if(verbose) cout << "Add shared loop closure " << sharedLoopClosures.size() << endl;
 	}
+
 
 	void PGOAgent::updateNeighborPose(unsigned neighborCluster, unsigned neighborID, unsigned neighborPose, const Matrix& var){
 		assert(neighborID != mID);
@@ -145,6 +151,7 @@ namespace DPGO{
 		return map;
 	}
 
+	
 
 	void PGOAgent::optimize(){
 		if(verbose) cout << "Agent " << mID << " optimize..." << endl;
@@ -152,6 +159,8 @@ namespace DPGO{
 		// number of poses updated at this time
 		unsigned k = n; 
 
+
+		// get private measurements
 		vector<RelativeSEMeasurement> myMeasurements;
 		unique_lock<mutex> mLock(mMeasurementsMutex);
 		for(size_t i = 0; i < odometry.size(); ++i){
@@ -165,6 +174,8 @@ namespace DPGO{
 		mLock.unlock();
 		if (myMeasurements.empty()) return;
 
+
+		// get shared measurements
 		vector<RelativeSEMeasurement> sharedMeasurements;
 		for(size_t i = 0; i < sharedLoopClosures.size(); ++i){
 			RelativeSEMeasurement m = sharedLoopClosures[i];
@@ -172,9 +183,12 @@ namespace DPGO{
 			else if(m.r2 == mID && m.p2 < k) sharedMeasurements.push_back(m);
 		}
 
+
+		// construct data matrices
 		SparseMatrix Q((d+1)*k, (d+1)*k);
 		SparseMatrix G(r,(d+1)*k);
 		constructCostMatrices(myMeasurements, sharedMeasurements, &Q, &G);
+
 
 		// Read current estimates of the first k poses
 		unique_lock<mutex> tLock(mPosesMutex);
@@ -182,14 +196,17 @@ namespace DPGO{
 		tLock.unlock();
 		assert(Ycurr.cols() == Q.cols());
 
+
 		// Construct optimization problem
 		QuadraticProblem problem(k, d, r, Q, G);
 		if (verbose) cout << "Constructed quadratic problem instance." << endl;
+
 		
 		// Initialize optimizer object
 		QuadraticOptimizer optimizer(&problem);
 		optimizer.setVerbose(verbose);
 		if (verbose) cout << "Constructed optimizer. Optimizing..." << endl;
+
 		
 		// Optimize
 		auto startTime = std::chrono::high_resolution_clock::now();
@@ -197,6 +214,7 @@ namespace DPGO{
 		auto counter = std::chrono::high_resolution_clock::now() - startTime;
 		double elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(counter).count();
 		if (verbose) cout << "Optimization time: " << elapsedMs / 1000 << " seconds." << endl;
+
 
 		// TODO: handle dynamic pose graph
 		tLock.lock();
@@ -210,11 +228,13 @@ namespace DPGO{
             SparseMatrix* Q, 
             SparseMatrix* G)
 	{
+
+		// All private measurements appear in the quadratic term
 		*Q = constructConnectionLaplacianSE(privateMeasurements);
 
-		unique_lock<mutex> lock(mNeighborPosesMutex, std::defer_lock);
 
-		// go through shared measurements
+		// Shared measurements modify both quadratic and linear terms
+		unique_lock<mutex> lock(mNeighborPosesMutex, std::defer_lock);
 		for(size_t i = 0; i < sharedMeasurements.size(); ++i){
 			RelativeSEMeasurement m = sharedMeasurements[i];
 
@@ -304,6 +324,57 @@ namespace DPGO{
 
 		}
 
+	}
+
+
+	void PGOAgent::startOptimizationLoop(double freq){
+		if (isOptimizationRunning()){
+			cout << "WARNING: optimization thread already running! Skip..." << endl;
+			return;
+		}
+
+		double sleepSec = 1 / freq;
+      	sleepMicroSec = (int) (sleepSec * 1000 * 1000);
+
+      	mOptimizationThread = new thread(&PGOAgent::runOptimizationLoop,this);
+	}
+
+
+	void PGOAgent::runOptimizationLoop(){
+		cout << "Agent " << mID << " optimization thread running at " << (1e6 / sleepMicroSec) << " Hz." << endl;
+
+		while(true)
+		{
+			optimize();
+
+			if(mFinishRequested){
+				break;
+			}
+
+			usleep(sleepMicroSec); 
+		}
+	}
+
+	void PGOAgent::endOptimizationLoop(){
+		mFinishRequested = true;
+
+		// wait for thread to finish
+		mOptimizationThread->join();
+		
+		delete mOptimizationThread;
+		
+		mOptimizationThread = nullptr;
+
+		mFinishRequested = false; // reset request flag
+
+		cout << "Agent " << mID << " optimization thread exited. " << endl;
+
+
+	}
+
+
+	bool PGOAgent::isOptimizationRunning(){
+		return !(mOptimizationThread == nullptr);
 	}
 
 

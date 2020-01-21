@@ -39,11 +39,20 @@ namespace DPGO{
      */
     void setY(const Matrix& Yin)
     {
+        lock_guard<mutex> lock(mPosesMutex);
         Y = Yin;
         assert(Y.cols() == n * (d+1));
         assert(Y.rows() == r);
     }
-    Matrix getY(){return Y;};
+
+    /** Helper function to get current solution
+        In deployment, should not use this
+     */
+    Matrix getY()
+    {
+        lock_guard<mutex> lock(mPosesMutex);
+        return Y;
+    }
 
     /**
     Add an odometric measurement of this robot.
@@ -76,9 +85,16 @@ namespace DPGO{
     void optimize();
 
     /**
-    Optimize pose graph by periodically calling optimize()
+    Return the cluster that this robot belongs to 
     */
-    void runOptimizationLoop();
+    unsigned getCluster(){return mCluster;}
+
+
+    /**
+    Return ID of this robot
+    */
+    unsigned getID(){return mID;}
+
 
     /**
     Return trajectory estimate of this robot in local frame, with its first pose set to identity   
@@ -96,8 +112,20 @@ namespace DPGO{
     */
     PoseDict getSharedPoses();
 
+    /**
+    Initiate a new thread that runs runOptimizationLoop()
+    */
+    void startOptimizationLoop(double freq);
 
+    /**
+    Request to terminate optimization loop, if running
+    */
+    void endOptimizationLoop();
 
+    /**
+    Check if the optimization thread is running
+    */
+    bool isOptimizationRunning();
     
 
   private:
@@ -119,6 +147,12 @@ namespace DPGO{
 
     // Verbose flag
     bool verbose;
+
+    // Microseconds to sleep after each call to optimize()
+    int sleepMicroSec;
+
+    // whether there is request to terminate optimization thread
+    bool mFinishRequested = false;
 
     // Solution before rounding
     Matrix Y;
@@ -153,6 +187,10 @@ namespace DPGO{
     // Implement locking on measurements
     mutex mMeasurementsMutex;
 
+    // Thread that runs optimization loop
+    thread* mOptimizationThread = nullptr;
+
+
     /** Compute the cost matrices that define the local PGO problem
         f(X) = 0.5<Q, XtX> + <X, G>
     */
@@ -160,6 +198,12 @@ namespace DPGO{
             const vector<RelativeSEMeasurement>& sharedMeasurements,
             SparseMatrix* Q, 
             SparseMatrix* G);
+
+    /**
+    Optimize pose graph by calling optimize(). 
+    This function will run in a separate thread. 
+    */
+    void runOptimizationLoop();
 
   };
 
