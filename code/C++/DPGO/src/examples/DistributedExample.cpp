@@ -51,106 +51,133 @@ int main(int argc, char** argv)
     r = 5;
 
     // We use SE-Sync's implementation of chordal initialization
-    Matrix Y;
+    Matrix Yinit;
     SparseMatrix B1, B2, B3; 
     construct_B_matrices(dataset, B1, B2, B3);
     Matrix Rinit = chordal_initialization(d, B3);
     Matrix tinit = recover_translations(B1, B2, Rinit);
-    Y.resize(r, n*(d+1));
-    Y.setZero();
+    Yinit.resize(r, n*(d+1));
+    Yinit.setZero();
     for (size_t i=0; i<n; i++)
     {
-        Y.block(0,i*(d+1),  d,d) = Rinit.block(0,i*d,d,d);
-        Y.block(0,i*(d+1)+d,d,1) = tinit.block(0,i,d,1);
+        Yinit.block(0,i*(d+1),  d,d) = Rinit.block(0,i*d,d,d);
+        Yinit.block(0,i*(d+1)+d,d,1) = tinit.block(0,i,d,1);
     }
 
+    unsigned int num_poses_per_robot = n/num_robots;
+    if(num_poses_per_robot <= 0){
+        cout << "More robots than total number of poses! Decrease the number of robots" << endl;
+        exit(1);
+    }
 
-    // Agent 1 owns pose [0, n1)
-    // Agent 2 owns pose [n1, n)
-    unsigned int n1 = n/2;
+    // create mapping from global pose index to local pose index
+    map<unsigned, PoseID> PoseMap;
+    for(unsigned robot = 0; robot < (unsigned) num_robots; ++robot){
+        // cout << "Poses for robot " << robot << endl;
+        unsigned startIdx = robot * num_poses_per_robot;
+        unsigned endIdx = (robot+1) * num_poses_per_robot; // non-inclusive
+        if (robot == (unsigned) num_robots - 1) endIdx = n;
+        for(unsigned idx = startIdx; idx < endIdx; ++idx){
+            unsigned localIdx = idx - startIdx; // this is the local ID of this pose
+            PoseID pose = make_pair(robot, localIdx);
+            PoseMap[idx] = pose;
+            // cout << idx << ", ";
+        }
+        cout << endl;
+    }
 
-    // initialize two agents
-    PGOAgent agent1(0, d, r, false);
-    PGOAgent agent2(1, d, r, false);
+    
+    vector<PGOAgent*> agents;
+    for(unsigned robot = 0; robot < (unsigned) num_robots; ++robot){
+        PGOAgent* ag = new PGOAgent(robot, d, r, false);
+        agents.push_back(ag);
+    }
 
 
     for(size_t k = 0; k < dataset.size(); ++k){
         RelativePoseMeasurement mIn = dataset[k];
-        if(mIn.i < n1 && mIn.j < n1){
-            // private measuerment of agent 1
-            RelativeSEMeasurement m(0,0,mIn.i, mIn.j, mIn.R, mIn.t, mIn.kappa, mIn.tau);
+        PoseID src = PoseMap[mIn.i];
+        PoseID dst = PoseMap[mIn.j];
 
-            if(mIn.i + 1== mIn.j){
-                // odometry
-                agent1.addOdometry(m);
-            }else{
-                // private loop closure
-                agent1.addPrivateLoopClosure(m);
-            }
-        }
-        else if (mIn.i >= n1 && mIn.j >= n1){
-            // private measurement of agent 2
-            RelativeSEMeasurement m(1,1,mIn.i-n1, mIn.j-n1, mIn.R, mIn.t, mIn.kappa, mIn.tau);
-            if(mIn.i + 1== mIn.j){
-                // odometry
-                agent2.addOdometry(m);
-            }else{
-                // private loop closure
-                agent2.addPrivateLoopClosure(m);
-            }
-        }
-        else if (mIn.i < n1 && mIn.j >= n1){
-            // shared loop closure from agent 0 to agent 1
-            RelativeSEMeasurement m(0,1,mIn.i, mIn.j-n1, mIn.R, mIn.t, mIn.kappa, mIn.tau);
-            agent1.addSharedLoopClosure(m);
-            agent2.addSharedLoopClosure(m);
+        unsigned srcRobot = get<0>(src);
+        unsigned srcIdx = get<1>(src);
+        unsigned dstRobot = get<0>(dst);
+        unsigned dstIdx = get<1>(dst);
 
-        }
-        else if (mIn.i >= n1 && mIn.j < n1){
-            // shared loop closure from agent 1 to 0
-            RelativeSEMeasurement m(1,0,mIn.i-n1, mIn.j, mIn.R, mIn.t, mIn.kappa, mIn.tau);
-            agent1.addSharedLoopClosure(m);
-            agent2.addSharedLoopClosure(m);
+        RelativeSEMeasurement m(srcRobot, dstRobot, srcIdx, dstIdx, mIn.R, mIn.t, mIn.kappa, mIn.tau);
+
+        if (srcRobot == dstRobot){
+            // private measurement
+            if(srcIdx + 1 == dstIdx){
+                // Odometry
+                agents[srcRobot]->addOdometry(m);
+            }
+            else{
+                // private loop closure
+                agents[srcRobot]->addPrivateLoopClosure(m);
+            }
+        }else{
+            // shared measurement
+            agents[srcRobot]->addSharedLoopClosure(m);
+            agents[dstRobot]->addSharedLoopClosure(m);
         }
 
     }
 
 
-    // Initialize
-    agent1.setY(Y.block(0,0,r,n1*(d+1)));
-    agent2.setY(Y.block(0,n1*(d+1),r,(n-n1)*(d+1)));
-    Matrix Yopt = Y;
-    unsigned numIters = 10;
+    cout << "Initializing..." << endl;
+    for(unsigned robot = 0; robot < (unsigned) num_robots; ++robot){
+        unsigned startIdx = robot * num_poses_per_robot;
+        unsigned endIdx = (robot+1) * num_poses_per_robot; // non-inclusive
+        if (robot == (unsigned) num_robots - 1) endIdx = n;
+
+        agents[robot]->setY(Yinit.block(0, startIdx*(d+1), r, (endIdx-startIdx)*(d+1)));
+        
+    }
+
+
+    Matrix Yopt = Yinit;
+    unsigned numIters = 1000;
     cout << "Running RBCD for " << numIters << " iterations..." << endl; 
+
+
+    std::default_random_engine generator;
+    std::uniform_int_distribution<int> distribution(0,num_robots-1);
+
     for (unsigned iter = 0; iter < numIters; ++iter){
+        // exchange public poses
+        for(unsigned robot1 = 0; robot1 < (unsigned) num_robots; ++robot1){
+            PoseDict sharedPoses = agents[robot1]->getSharedPoses();
+            for(unsigned robot2 = 0; robot2 < (unsigned) num_robots; ++robot2){
+                if(robot1 == robot2) continue;
+                
+                for(auto it = sharedPoses.begin(); it != sharedPoses.end(); ++it){
+                    PoseID nID = it->first; 
+                    Matrix var = it->second;
+                    unsigned agentID = get<0>(nID);
+                    unsigned localID = get<1>(nID);
+                    agents[robot2]->updateNeighborPose(0,agentID,localID, var);
+                }
+
+            }
+        }
+
+
+        // randomly select a robot to optimize
+        unsigned robot = (unsigned) distribution(generator);
+        agents[robot]->optimize();
+
+        
+        unsigned startIdx = robot * num_poses_per_robot;
+        unsigned endIdx = (robot+1) * num_poses_per_robot; // non-inclusive
+        if (robot == (unsigned) num_robots - 1) endIdx = n;
+        Yopt.block(0, startIdx*(d+1), r, (endIdx-startIdx)*(d+1)) = agents[robot]->getY();
+
+        // Evaluate
         cout 
         << "Iter = " << iter << " | "
-        << "cost = " << (Yopt * ConLapT * Yopt.transpose()).trace() << endl;
-
-        // exchange public poses
-        PoseDict agent2SharedPoses = agent2.getSharedPoses();
-        for(auto it = agent2SharedPoses.begin(); it != agent2SharedPoses.end(); ++it){
-            PoseID nID = it->first; 
-            Matrix var = it->second;
-            unsigned agentID = get<0>(nID);
-            unsigned localID = get<1>(nID);
-            agent1.updateNeighborPose(0,agentID,localID, var);
-        }
-        agent1.optimize();
-
-        PoseDict agent1SharedPoses = agent1.getSharedPoses();
-        for(auto it = agent1SharedPoses.begin(); it != agent1SharedPoses.end(); ++it){
-            PoseID nID = it->first; 
-            Matrix var = it->second;
-            unsigned agentID = get<0>(nID);
-            unsigned localID = get<1>(nID);
-            agent2.updateNeighborPose(0,agentID,localID, var);
-        }
-        agent2.optimize();
-
-        Yopt.block(0,0,r,n1*(d+1)) = agent1.getY();
-        Yopt.block(0,n1*(d+1),r,(n-n1)*(d+1)) = agent2.getY();        
-
+        << "cost = " << (Yopt * ConLapT * Yopt.transpose()).trace() << " | "
+        << "robot = " << robot << endl;
     }
 
     exit(0);
