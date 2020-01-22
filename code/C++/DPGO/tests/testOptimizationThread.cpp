@@ -33,9 +33,9 @@ int main(int argc, char** argv)
     unsigned int d,r;
     d = (!dataset.empty() ? dataset[0].t.size() : 0);
     r = 5;
-    bool verbose = false;
     ROPTALG algorithm = ROPTALG::RTR;
-    PGOAgentParameters options(d,r,verbose,algorithm);
+    bool verbose = false;
+    PGOAgentParameters options(d,r,algorithm,verbose);
 
     PGOAgent agent(0, options);
 

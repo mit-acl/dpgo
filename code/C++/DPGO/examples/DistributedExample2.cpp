@@ -85,10 +85,10 @@ int main(int argc, char** argv)
     d = (!dataset.empty() ? dataset[0].t.size() : 0);
     n = num_poses;
     r = 5;
-    bool verbose = false;
+    bool verbose = true;
     ROPTALG algorithm = ROPTALG::RGD;
     
-    PGOAgentParameters options(d,r,verbose,algorithm);
+    PGOAgentParameters options(d,r,algorithm,verbose);
 
 
     /**
@@ -126,7 +126,6 @@ int main(int argc, char** argv)
     // create mapping from global pose index to local pose index
     map<unsigned, PoseID> PoseMap;
     for(unsigned robot = 0; robot < (unsigned) num_robots; ++robot){
-        // cout << "Poses for robot " << robot << endl;
         unsigned startIdx = robot * num_poses_per_robot;
         unsigned endIdx = (robot+1) * num_poses_per_robot; // non-inclusive
         if (robot == (unsigned) num_robots - 1) endIdx = n;
@@ -134,7 +133,6 @@ int main(int argc, char** argv)
             unsigned localIdx = idx - startIdx; // this is the local ID of this pose
             PoseID pose = make_pair(robot, localIdx);
             PoseMap[idx] = pose;
-            // cout << idx << ", ";
         }
         cout << endl;
     }
@@ -143,6 +141,7 @@ int main(int argc, char** argv)
     vector<PGOAgent*> agents;
     for(unsigned robot = 0; robot < (unsigned) num_robots; ++robot){
         PGOAgent* ag = new PGOAgent(robot, options);
+        ag->setMaxStepsize(1e1);
         agents.push_back(ag);
     }
 
@@ -221,15 +220,16 @@ int main(int argc, char** argv)
 
         auto counter = std::chrono::high_resolution_clock::now() - startTime;
         double elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(counter).count();
+        double elapsedSecond = elapsedMs / 1000.0;
 
         // Evaluate
         cout 
-        << "Time = " << elapsedMs / 1000.0 << " sec | "
+        << "Time = " << elapsedSecond << " sec | "
         << "cost = " << (Yopt * ConLapT * Yopt.transpose()).trace() << endl;
 
-        if (elapsedMs > 10 * 1000) break;
+        if (elapsedSecond > 20) break;
 
-        usleep(50 * 1e3);
+        usleep(5e5);
     }
 
     for(unsigned robot = 0; robot < (unsigned) num_robots; ++robot){

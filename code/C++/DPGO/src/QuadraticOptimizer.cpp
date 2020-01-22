@@ -6,8 +6,8 @@
 
 namespace DPGO{
 
-	QuadraticOptimizer::QuadraticOptimizer(QuadraticProblem* p, ROPTALG alg):
-	problem(p), algorithm(alg), verbose(true){}
+	QuadraticOptimizer::QuadraticOptimizer(QuadraticProblem* p):
+	problem(p), algorithm(ROPTALG::RTR), maxStepsize(1e2), verbose(true){}
 
 	QuadraticOptimizer::~QuadraticOptimizer(){}
 
@@ -21,7 +21,7 @@ namespace DPGO{
 		VarInit.var()->NewMemoryOnWrite();
 
 		if(algorithm == ROPTALG::RTR)
-		{
+		{	
 			ROPTLIB::RTRNewton Solver(problem, VarInit.var());
 			Solver.Stop_Criterion = ROPTLIB::StopCrit::FUN_REL;
 			Solver.maximum_Delta = 1e1;
@@ -45,6 +45,7 @@ namespace DPGO{
 		{
 			ROPTLIB::RSD Solver(problem, VarInit.var());
 			Solver.Max_Iteration = 1;
+			Solver.Maxstepsize = maxStepsize;
 			Solver.Debug = (verbose ? ROPTLIB::DEBUGINFO::ITERRESULT : ROPTLIB::DEBUGINFO::NOOUTPUT);		
 			Solver.Run();
 

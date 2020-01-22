@@ -14,7 +14,7 @@ namespace DPGO{
 	class QuadraticOptimizer{
 	public:
 
-		QuadraticOptimizer(QuadraticProblem* p, ROPTALG alg);
+		QuadraticOptimizer(QuadraticProblem* p);
 		
 
 		~QuadraticOptimizer();
@@ -34,6 +34,18 @@ namespace DPGO{
 		*/
 		void setVerbose(bool v) {verbose = v;}
 
+
+		/**
+		Set optimization algorithm
+		*/
+		void setAlgorithm(ROPTALG alg) {algorithm = alg;}
+
+
+		/**
+		Set maximum step size
+		*/
+		void setMaxStepsize(double s) {maxStepsize = s;}
+
 	private:
 		// Underlying Riemannian Optimization Problem
 		QuadraticProblem* problem;
@@ -41,8 +53,12 @@ namespace DPGO{
 		// Optimization algorithm to be used
 		ROPTALG algorithm;
 
+		// Maximum step size
+		double maxStepsize;
+
 		// Verbose flag
 		bool verbose;
+
 
 	};
 

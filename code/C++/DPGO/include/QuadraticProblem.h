@@ -38,16 +38,20 @@ namespace DPGO{
 
 		unsigned int relaxation_rank() const { return r; }
 
+  		
   		/** Evaluates the problem objective */
 		double f(ROPTLIB::Variable* x) const ;
 
+		
 		/** Evaluates the Euclidean gradient of the function */
 		void EucGrad(ROPTLIB::Variable* x, ROPTLIB::Vector* g) const ;
 
+		
 		/** Evaluates the action of the Euclidean Hessian of the function */
 		void EucHessianEta(ROPTLIB::Variable* x, ROPTLIB::Vector* v,
                      ROPTLIB::Vector* Hv) const ;
 
+		
 		/** Evaluates the action of the Preconditioner for the Hessian of the function */
   		void PreConditioner(ROPTLIB::Variable* x, ROPTLIB::Vector* inVec,
                       ROPTLIB::Vector* outVec) const ;
@@ -66,15 +70,25 @@ namespace DPGO{
 		/** The rank of the rank-restricted relaxation */
   		unsigned int r = 0;
 
+  		/** 
+		Manifold object
+		*/
   		LiftedSEManifold* M;
 
+  		/** 
+		Manifold variable
+		*/
 		LiftedSEVariable* Variable;
 		
+		/** 
+		Tangent vectors
+		*/
 		LiftedSEVector* Vector;
-
 		LiftedSEVector* HessianVectorProduct;
 
-		// Solver used for preconditioner
+		/** 
+		Solver used by preconditioner
+		*/
 		Eigen::CholmodDecomposition<SparseMatrix> solver;
 		
 

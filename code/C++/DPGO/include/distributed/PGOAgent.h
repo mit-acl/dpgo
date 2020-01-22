@@ -33,18 +33,18 @@ namespace DPGO{
     // Relaxed rank in Riemanian optimization
     unsigned r;
 
-    // Verbosility flag
-    bool verbose;
-
     // Riemannian optimization algorithm
     ROPTALG algorithm;
+
+    // Verbosility flag
+    bool verbose;
 
     // Default constructor
     PGOAgentParameters(unsigned dIn,
                        unsigned rIn = 5, 
-                       bool v = true, 
-                       ROPTALG alg = ROPTALG::RTR):
-    d(dIn), r(rIn), verbose(v), algorithm(alg){}
+                       ROPTALG algorithmIn = ROPTALG::RTR,
+                       bool v = true):
+    d(dIn), r(rIn), algorithm(algorithmIn), verbose(v){}
 
   };  
 
@@ -156,15 +156,9 @@ namespace DPGO{
 
 
     /**
-    Turn on/off verbose output
+    Set maximum stepsize during Riemannian optimization
     */
-    void setVerbose(bool v){verbose = v;}
-
-
-    /**
-    Set optimization algorithm
-    */ 
-    void setAlgorithm(ROPTALG alg){algorithm = alg;}
+    void setMaxStepsize(double s){maxStepsize = s;}
     
 
   private:
@@ -195,6 +189,9 @@ namespace DPGO{
 
     // Optimization algorithm 
     ROPTALG algorithm;
+
+    // Maximum step size (only used in RGD)
+    double maxStepsize;
 
     // Solution before rounding
     Matrix Y;

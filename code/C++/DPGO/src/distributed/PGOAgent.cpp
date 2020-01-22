@@ -20,7 +20,8 @@ namespace DPGO{
 	r(params.r), 
 	n(1),
 	verbose(params.verbose),
-	algorithm(params.algorithm)
+	algorithm(params.algorithm),
+	maxStepsize(1e3)
 	{
 		// automatically initialize the first pose on the Cartan group
 		LiftedSEVariable x(r,d,1);
@@ -184,15 +185,17 @@ namespace DPGO{
 		QuadraticProblem problem(k, d, r, Q, G);
 
 		// Initialize optimizer object
-		QuadraticOptimizer optimizer(&problem, ROPTALG::RTR);
+		QuadraticOptimizer optimizer(&problem);
 		optimizer.setVerbose(verbose);
+		optimizer.setAlgorithm(algorithm);
+		optimizer.setMaxStepsize(maxStepsize);
 		
 		// Optimize
 		auto startTime = std::chrono::high_resolution_clock::now();
 		Matrix Ynext = optimizer.optimize(Ycurr);
 		auto counter = std::chrono::high_resolution_clock::now() - startTime;
 		double elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(counter).count();
-		if (verbose) cout << "Optimization time: " << elapsedMs / 1000 << " seconds." << endl;
+		if(verbose) cout << "Optimization time: " << elapsedMs / 1000 << " seconds." << endl;
 
 
 		// TODO: handle dynamic pose graph
@@ -320,7 +323,7 @@ namespace DPGO{
 
 
 	void PGOAgent::runOptimizationLoop(){
-		if(verbose) cout << "Agent " << mID << " optimization thread running at " << (1e6 / sleepMicroSec) << " Hz." << endl;
+		cout << "Agent " << mID << " optimization thread running at " << (1e6 / sleepMicroSec) << " Hz." << endl;
 
 		while(true)
 		{
@@ -346,7 +349,7 @@ namespace DPGO{
 
 		mFinishRequested = false; // reset request flag
 
-		if(verbose) cout << "Agent " << mID << " optimization thread exited. " << endl;
+		cout << "Agent " << mID << " optimization thread exited. " << endl;
 
 
 	}
