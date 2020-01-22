@@ -67,7 +67,7 @@ int main(int argc, char** argv)
 	    assert(agent.isOptimizationRunning() == false);
     }
 
-    cout << "Tests passed." << endl;
+    cout << "Passed." << endl;
 
     exit(0);
 }

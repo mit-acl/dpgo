@@ -158,7 +158,7 @@ namespace DPGO{
     /**
     Set maximum stepsize during Riemannian optimization
     */
-    void setMaxStepsize(double s){maxStepsize = s;}
+    void setStepsize(double s){stepsize = s;}
     
 
   private:
@@ -190,8 +190,8 @@ namespace DPGO{
     // Optimization algorithm 
     ROPTALG algorithm;
 
-    // Maximum step size (only used in RGD)
-    double maxStepsize;
+    // step size (only used in RGD)
+    double stepsize;
 
     // Solution before rounding
     Matrix Y;

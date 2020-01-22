@@ -21,7 +21,7 @@ namespace DPGO{
 	n(1),
 	verbose(params.verbose),
 	algorithm(params.algorithm),
-	maxStepsize(1e3)
+	stepsize(1e-3)
 	{
 		// automatically initialize the first pose on the Cartan group
 		LiftedSEVariable x(r,d,1);
@@ -55,7 +55,7 @@ namespace DPGO{
 
 		n++;
 		assert((d+1)*n == Y.cols());
-		if(verbose) cout << "Agent" << mID << " initialized pose " << n << endl;
+		if(verbose) cout << "Agent " << mID << " initialized pose " << n << endl;
 
 		lock_guard<mutex> mLock(mMeasurementsMutex);
 		odometry.push_back(factor);
@@ -188,7 +188,7 @@ namespace DPGO{
 		QuadraticOptimizer optimizer(&problem);
 		optimizer.setVerbose(verbose);
 		optimizer.setAlgorithm(algorithm);
-		optimizer.setMaxStepsize(maxStepsize);
+		optimizer.setStepsize(stepsize);
 		
 		// Optimize
 		auto startTime = std::chrono::high_resolution_clock::now();

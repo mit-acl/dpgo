@@ -44,7 +44,7 @@ namespace DPGO{
 		/**
 		Set maximum step size
 		*/
-		void setMaxStepsize(double s) {maxStepsize = s;}
+		void setStepsize(double s) {stepsize = s;}
 
 	private:
 		// Underlying Riemannian Optimization Problem
@@ -53,8 +53,8 @@ namespace DPGO{
 		// Optimization algorithm to be used
 		ROPTALG algorithm;
 
-		// Maximum step size
-		double maxStepsize;
+		// step size (only for RGD)
+		double stepsize;
 
 		// Verbose flag
 		bool verbose;

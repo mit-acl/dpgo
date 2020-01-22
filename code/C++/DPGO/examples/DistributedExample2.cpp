@@ -86,7 +86,7 @@ int main(int argc, char** argv)
     n = num_poses;
     r = 5;
     bool verbose = true;
-    ROPTALG algorithm = ROPTALG::RGD;
+    ROPTALG algorithm = ROPTALG::RTR;
     
     PGOAgentParameters options(d,r,algorithm,verbose);
 
@@ -141,7 +141,6 @@ int main(int argc, char** argv)
     vector<PGOAgent*> agents;
     for(unsigned robot = 0; robot < (unsigned) num_robots; ++robot){
         PGOAgent* ag = new PGOAgent(robot, options);
-        ag->setMaxStepsize(1e1);
         agents.push_back(ag);
     }
 
@@ -199,7 +198,7 @@ int main(int argc, char** argv)
 
     // Initiate optimization thread for each agent
     for(unsigned robot = 0; robot < (unsigned) num_robots; ++robot){
-        agents[robot]->startOptimizationLoop(10);
+        agents[robot]->startOptimizationLoop(3);
         usleep(1000);
     }
 
@@ -223,13 +222,13 @@ int main(int argc, char** argv)
         double elapsedSecond = elapsedMs / 1000.0;
 
         // Evaluate
-        cout 
-        << "Time = " << elapsedSecond << " sec | "
-        << "cost = " << (Yopt * ConLapT * Yopt.transpose()).trace() << endl;
+        // cout 
+        // << "Time = " << elapsedSecond << " sec | "
+        // << "cost = " << 0.5 * (Yopt * ConLapT * Yopt.transpose()).trace() << endl;
 
         if (elapsedSecond > 20) break;
 
-        usleep(5e5);
+        usleep(1e5);
     }
 
     for(unsigned robot = 0; robot < (unsigned) num_robots; ++robot){
