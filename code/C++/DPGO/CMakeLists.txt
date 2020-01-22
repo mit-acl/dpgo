@@ -30,16 +30,21 @@ add_library(DPGO SHARED
 	)
 target_link_libraries(DPGO ${CMAKE_THREAD_LIBS_INIT} roptlib ${CHOLMOD_LIBRARIES})
 
+# Build tests
+add_executable(test-optimization-thread
+	tests/testOptimizationThread.cpp)
+target_link_libraries(test-optimization-thread ${CMAKE_THREAD_LIBS_INIT} SESync DPGO)
+
 # Build multithread PGO example
 add_executable(multithread-example
-	src/examples/MultithreadExample.cpp)
+	examples/MultithreadExample.cpp)
 target_link_libraries(multithread-example ${CMAKE_THREAD_LIBS_INIT} SESync DPGO)
 
 # Build Distributed PGO example
 add_executable(distributed-example
-	src/examples/DistributedExample.cpp)
+	examples/DistributedExample.cpp)
 target_link_libraries(distributed-example ${CMAKE_THREAD_LIBS_INIT} SESync DPGO)
 
 add_executable(distributed-example2
-	src/examples/DistributedExample2.cpp)
+	examples/DistributedExample2.cpp)
 target_link_libraries(distributed-example2 ${CMAKE_THREAD_LIBS_INIT} SESync DPGO)

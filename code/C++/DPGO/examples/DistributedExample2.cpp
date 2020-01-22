@@ -20,7 +20,7 @@ This demo simulates *parallel* distributed pose graph optimization
 
 Robots optimize local pose graphs concurrently in multiple threads.
 
-The communication is taken care of by the master thread running the main() function.
+The communication is simulated by the master thread running the main() function.
 
 */
 

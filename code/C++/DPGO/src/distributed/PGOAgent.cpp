@@ -68,7 +68,7 @@ namespace DPGO{
 
 		n++;
 		assert((d+1)*n == Y.cols());
-		if(verbose) cout << "Initialized pose " << n << endl;
+		if(verbose) cout << "Agent" << mID << " initialized pose " << n << endl;
 
 		lock_guard<mutex> mLock(mMeasurementsMutex);
 		odometry.push_back(factor);
@@ -83,7 +83,6 @@ namespace DPGO{
 
 		lock_guard<mutex> lock(mMeasurementsMutex);
 		privateLoopClosures.push_back(factor);
-		if(verbose) cout << "Add private loop closure " << privateLoopClosures.size() << endl;
 	}
 
 
@@ -103,7 +102,6 @@ namespace DPGO{
 
 		lock_guard<mutex> lock(mMeasurementsMutex);
 		sharedLoopClosures.push_back(factor);
-		if(verbose) cout << "Add shared loop closure " << sharedLoopClosures.size() << endl;
 	}
 
 
@@ -159,7 +157,6 @@ namespace DPGO{
 		// number of poses updated at this time
 		unsigned k = n; 
 
-
 		// get private measurements
 		vector<RelativeSEMeasurement> myMeasurements;
 		unique_lock<mutex> mLock(mMeasurementsMutex);
@@ -199,14 +196,10 @@ namespace DPGO{
 
 		// Construct optimization problem
 		QuadraticProblem problem(k, d, r, Q, G);
-		if (verbose) cout << "Constructed quadratic problem instance." << endl;
 
-		
 		// Initialize optimizer object
 		QuadraticOptimizer optimizer(&problem);
 		optimizer.setVerbose(verbose);
-		if (verbose) cout << "Constructed optimizer. Optimizing..." << endl;
-
 		
 		// Optimize
 		auto startTime = std::chrono::high_resolution_clock::now();
@@ -341,7 +334,7 @@ namespace DPGO{
 
 
 	void PGOAgent::runOptimizationLoop(){
-		cout << "Agent " << mID << " optimization thread running at " << (1e6 / sleepMicroSec) << " Hz." << endl;
+		if(verbose) cout << "Agent " << mID << " optimization thread running at " << (1e6 / sleepMicroSec) << " Hz." << endl;
 
 		while(true)
 		{
@@ -367,7 +360,7 @@ namespace DPGO{
 
 		mFinishRequested = false; // reset request flag
 
-		cout << "Agent " << mID << " optimization thread exited. " << endl;
+		if(verbose) cout << "Agent " << mID << " optimization thread exited. " << endl;
 
 
 	}

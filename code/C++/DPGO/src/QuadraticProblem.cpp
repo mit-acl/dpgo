@@ -22,6 +22,9 @@ namespace DPGO{
 		SetDomain(M->getManifold());
 
 		SparseMatrix P = Q;	
+		for(unsigned row = 0; row < P.rows(); ++row){
+			P.coeffRef(row,row) += 1.0;
+		}
 		solver.compute(P);
 		if(solver.info() != Eigen::Success){
 			cout << "WARNING: Precon.compute() failed." << endl;
