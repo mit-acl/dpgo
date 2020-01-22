@@ -6,7 +6,8 @@
 
 namespace DPGO{
 
-	QuadraticOptimizer::QuadraticOptimizer(QuadraticProblem* p):problem(p), verbose(true){}
+	QuadraticOptimizer::QuadraticOptimizer(QuadraticProblem* p, ROPTALG alg):
+	problem(p), algorithm(alg), verbose(true){}
 
 	QuadraticOptimizer::~QuadraticOptimizer(){}
 
@@ -19,33 +20,44 @@ namespace DPGO{
 		VarInit.setData(Y);
 		VarInit.var()->NewMemoryOnWrite();
 
-		// Use RTR 
-		ROPTLIB::RTRNewton Solver(problem, VarInit.var());
-		Solver.Stop_Criterion = ROPTLIB::StopCrit::FUN_REL;
-		Solver.maximum_Delta = 1e1;
-		Solver.Debug = (verbose ? ROPTLIB::DEBUGINFO::ITERRESULT : ROPTLIB::DEBUGINFO::NOOUTPUT);
-		Solver.Max_Iteration = 10;
-		Solver.Run();
+		if(algorithm == ROPTALG::RTR)
+		{
+			ROPTLIB::RTRNewton Solver(problem, VarInit.var());
+			Solver.Stop_Criterion = ROPTLIB::StopCrit::FUN_REL;
+			Solver.maximum_Delta = 1e1;
+			Solver.Debug = (verbose ? ROPTLIB::DEBUGINFO::ITERRESULT : ROPTLIB::DEBUGINFO::NOOUTPUT);
+			Solver.Max_Iteration = 10;
+			Solver.Run();
+			
+			const ROPTLIB::ProductElement *Yopt = static_cast<const ROPTLIB::ProductElement*>(Solver.GetXopt());
+			LiftedSEVariable VarOpt(r,d,n);
+			Yopt->CopyTo(VarOpt.var());
+			if (verbose){
+				cout << "Initial objective value: " << problem->f(VarInit.var()) << endl;
+				cout << "Final objective value: " << Solver.Getfinalfun() << endl;
+				cout << "Final gradient norm: " << Solver.Getnormgf() << endl;
+			}
 
-		// Use RGD
-		// ROPTLIB::RSD Solver(problem, VarInit.var());
-		// Solver.Max_Iteration = 1;
-		// Solver.Debug = (verbose ? ROPTLIB::DEBUGINFO::ITERRESULT : ROPTLIB::DEBUGINFO::NOOUTPUT);		
-		// Solver.Run();
+			return VarOpt.getData();
 
-		// Retrieve results
-		const ROPTLIB::ProductElement *Yopt = static_cast<const ROPTLIB::ProductElement*>(Solver.GetXopt());
-		LiftedSEVariable VarOpt(r,d,n);
-		Yopt->CopyTo(VarOpt.var());
-		if (verbose){
-			cout << "Initial objective value: " << problem->f(VarInit.var()) << endl;
-			cout << "Final objective value: " << Solver.Getfinalfun() << endl;
-			cout << "Final gradient norm: " << Solver.Getnormgf() << endl;
 		}
+		else
+		{
+			ROPTLIB::RSD Solver(problem, VarInit.var());
+			Solver.Max_Iteration = 1;
+			Solver.Debug = (verbose ? ROPTLIB::DEBUGINFO::ITERRESULT : ROPTLIB::DEBUGINFO::NOOUTPUT);		
+			Solver.Run();
 
-		return VarOpt.getData();
+			const ROPTLIB::ProductElement *Yopt = static_cast<const ROPTLIB::ProductElement*>(Solver.GetXopt());
+			LiftedSEVariable VarOpt(r,d,n);
+			Yopt->CopyTo(VarOpt.var());
+			if (verbose){
+				cout << "Initial objective value: " << problem->f(VarInit.var()) << endl;
+				cout << "Final objective value: " << Solver.Getfinalfun() << endl;
+				cout << "Final gradient norm: " << Solver.Getnormgf() << endl;
+			}
+
+			return VarOpt.getData();
+		}	
 	}
-
-
-
 }

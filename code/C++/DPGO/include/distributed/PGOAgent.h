@@ -20,18 +20,45 @@ using namespace std;
 
 /*Define the namespace*/
 namespace DPGO{
-  // In distributed PGO, each pose is uniquely determined by the robot ID and pose ID
-  typedef pair<unsigned, unsigned> PoseID;
 
-  // Implement a dictionary for easy access of pose value by PoseID
-  typedef map<PoseID, Matrix, std::less<PoseID>, 
-          Eigen::aligned_allocator<std::pair<PoseID, Matrix>>> PoseDict;
+
+  /** 
+  This struct contains parameters for PGOAgent
+  */   
+  struct PGOAgentParameters {
+    
+    // Problem dimension
+    unsigned d;
+
+    // Relaxed rank in Riemanian optimization
+    unsigned r;
+
+    // Verbosility flag
+    bool verbose;
+
+    // Riemannian optimization algorithm
+    ROPTALG algorithm;
+
+    // Default constructor
+    PGOAgentParameters(unsigned dIn,
+                       unsigned rIn = 5, 
+                       bool v = true, 
+                       ROPTALG alg = ROPTALG::RTR):
+    d(dIn), r(rIn), verbose(v), algorithm(alg){}
+
+  };  
+
+
+
 
   class PGOAgent{
   public:
-    // Initialize with an empty pose graph
-    PGOAgent(unsigned ID, unsigned dIn, unsigned rIn);
-    PGOAgent(unsigned ID, unsigned dIn, unsigned rIn, bool v);
+    
+    /** Constructor that creates an empty pose graph
+    */
+    PGOAgent(unsigned ID, const PGOAgentParameters& params);
+
+
     ~PGOAgent();
 
     /** Helper function to reset the internal solution
@@ -126,6 +153,18 @@ namespace DPGO{
     Check if the optimization thread is running
     */
     bool isOptimizationRunning();
+
+
+    /**
+    Turn on/off verbose output
+    */
+    void setVerbose(bool v){verbose = v;}
+
+
+    /**
+    Set optimization algorithm
+    */ 
+    void setAlgorithm(ROPTALG alg){algorithm = alg;}
     
 
   private:
@@ -153,6 +192,9 @@ namespace DPGO{
 
     // whether there is request to terminate optimization thread
     bool mFinishRequested = false;
+
+    // Optimization algorithm 
+    ROPTALG algorithm;
 
     // Solution before rounding
     Matrix Y;

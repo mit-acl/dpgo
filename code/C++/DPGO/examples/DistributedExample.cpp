@@ -23,7 +23,12 @@ Y. Tian, K. Khosoussi, and JP How
 
 int main(int argc, char** argv)
 {
-    
+    /**
+    ###########################################
+    Parse input dataset
+    ###########################################
+    */
+
     if (argc < 3) {
         cout << "Distributed pose-graph optimization. " << endl;
         cout << "Usage: " << argv[0] << " [# robots] [input .g2o file]" << endl;
@@ -44,13 +49,28 @@ int main(int argc, char** argv)
     vector<SESync::RelativePoseMeasurement> dataset = SESync::read_g2o_file(argv[2], num_poses);
     cout << "Loaded dataset from file " << argv[2] << "." << endl;
     
+    /**
+    ###########################################
+    Set parameters for PGOAgent
+    ###########################################
+    */
+
     unsigned int n,d,r;
     SparseMatrix ConLapT = construct_connection_Laplacian_T(dataset);
     d = (!dataset.empty() ? dataset[0].t.size() : 0);
     n = num_poses;
     r = 5;
+    bool verbose = false;
+    ROPTALG algorithm = ROPTALG::RTR;
+    PGOAgentParameters options(d,r,verbose,algorithm);
 
-    // We use SE-Sync's implementation of chordal initialization
+    
+
+    /**
+    ###################################################
+    Compute initialization (currently requires SE-Sync)
+    ###################################################
+    */
     Matrix Yinit;
     SparseMatrix B1, B2, B3; 
     construct_B_matrices(dataset, B1, B2, B3);
@@ -64,6 +84,15 @@ int main(int argc, char** argv)
         Yinit.block(0,i*(d+1)+d,d,1) = tinit.block(0,i,d,1);
     }
 
+
+
+
+
+    /**
+    ###########################################
+    Initialize multiple PGOAgents
+    ###########################################
+    */
     unsigned int num_poses_per_robot = n/num_robots;
     if(num_poses_per_robot <= 0){
         cout << "More robots than total number of poses! Decrease the number of robots" << endl;
@@ -73,7 +102,6 @@ int main(int argc, char** argv)
     // create mapping from global pose index to local pose index
     map<unsigned, PoseID> PoseMap;
     for(unsigned robot = 0; robot < (unsigned) num_robots; ++robot){
-        // cout << "Poses for robot " << robot << endl;
         unsigned startIdx = robot * num_poses_per_robot;
         unsigned endIdx = (robot+1) * num_poses_per_robot; // non-inclusive
         if (robot == (unsigned) num_robots - 1) endIdx = n;
@@ -81,15 +109,15 @@ int main(int argc, char** argv)
             unsigned localIdx = idx - startIdx; // this is the local ID of this pose
             PoseID pose = make_pair(robot, localIdx);
             PoseMap[idx] = pose;
-            // cout << idx << ", ";
         }
         cout << endl;
     }
 
     
     vector<PGOAgent*> agents;
+
     for(unsigned robot = 0; robot < (unsigned) num_robots; ++robot){
-        PGOAgent* ag = new PGOAgent(robot, d, r, false);
+        PGOAgent* ag = new PGOAgent(robot, options);
         agents.push_back(ag);
     }
 
@@ -124,6 +152,11 @@ int main(int argc, char** argv)
 
     }
 
+    /**
+    ###########################################
+    Optimize!
+    ###########################################
+    */
 
     cout << "Initializing..." << endl;
     for(unsigned robot = 0; robot < (unsigned) num_robots; ++robot){

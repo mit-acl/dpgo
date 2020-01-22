@@ -17,7 +17,6 @@ int main(int argc, char** argv)
     
     cout << "Testing optimization thread of PGOAgent..." << endl;
 
-
     size_t num_poses;
     string TESTFILE = "data/smallGrid3D.g2o";
     vector<SESync::RelativePoseMeasurement> dataset = SESync::read_g2o_file(TESTFILE, num_poses);
@@ -34,8 +33,11 @@ int main(int argc, char** argv)
     unsigned int d,r;
     d = (!dataset.empty() ? dataset[0].t.size() : 0);
     r = 5;
+    bool verbose = false;
+    ROPTALG algorithm = ROPTALG::RTR;
+    PGOAgentParameters options(d,r,verbose,algorithm);
 
-    PGOAgent agent(0,d,r,true);
+    PGOAgent agent(0, options);
 
     for(size_t k = 0; k < dataset.size(); ++k){
         RelativePoseMeasurement mIn = dataset[k];

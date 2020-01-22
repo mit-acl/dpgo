@@ -10,10 +10,13 @@
 
 namespace DPGO{
 
+
 	class QuadraticOptimizer{
 	public:
-		QuadraticOptimizer(QuadraticProblem* p);
+
+		QuadraticOptimizer(QuadraticProblem* p, ROPTALG alg);
 		
+
 		~QuadraticOptimizer();
 
 		/**
@@ -26,11 +29,17 @@ namespace DPGO{
 		*/
 		Matrix optimize() const;
 
+		/**
+		Turn on/off verbose output
+		*/
 		void setVerbose(bool v) {verbose = v;}
 
 	private:
 		// Underlying Riemannian Optimization Problem
 		QuadraticProblem* problem;
+
+		// Optimization algorithm to be used
+		ROPTALG algorithm;
 
 		// Verbose flag
 		bool verbose;

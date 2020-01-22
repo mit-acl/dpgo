@@ -13,28 +13,14 @@ using namespace std;
 
 namespace DPGO{
 
-	PGOAgent::PGOAgent(unsigned ID, unsigned dIn, unsigned rIn): 
+	PGOAgent::PGOAgent(unsigned ID, const PGOAgentParameters& params): 
 	mID(ID), 
 	mCluster(ID), 
-	d(dIn), 
-	r(rIn), 
+	d(params.d), 
+	r(params.r), 
 	n(1),
-	verbose(true)
-	{
-		// automatically initialize the first pose on the Cartan group
-		LiftedSEVariable x(r,d,1);
-		x.var()->RandInManifold();
-		Y = x.getData();
-	}
-
-
-	PGOAgent::PGOAgent(unsigned ID, unsigned dIn, unsigned rIn, bool v):
-	mID(ID), 
-	mCluster(ID), 
-	d(dIn), 
-	r(rIn), 
-	n(1),
-	verbose(v)
+	verbose(params.verbose),
+	algorithm(params.algorithm)
 	{
 		// automatically initialize the first pose on the Cartan group
 		LiftedSEVariable x(r,d,1);
@@ -198,7 +184,7 @@ namespace DPGO{
 		QuadraticProblem problem(k, d, r, Q, G);
 
 		// Initialize optimizer object
-		QuadraticOptimizer optimizer(&problem);
+		QuadraticOptimizer optimizer(&problem, ROPTALG::RTR);
 		optimizer.setVerbose(verbose);
 		
 		// Optimize
