@@ -85,8 +85,8 @@ int main(int argc, char** argv)
     d = (!dataset.empty() ? dataset[0].t.size() : 0);
     n = num_poses;
     r = 5;
-    bool verbose = true;
-    ROPTALG algorithm = ROPTALG::RTR;
+    bool verbose = false;
+    ROPTALG algorithm = ROPTALG::RGD;
     
     PGOAgentParameters options(d,r,algorithm,verbose);
 

@@ -22,12 +22,12 @@ namespace DPGO{
 		/**
 		Optimize from the given initial guess
 		*/
-		Matrix optimize(const Matrix& Y) const;
+		Matrix optimize(const Matrix& Y);
 
 		/**
 		Optimize using chordal initialization
 		*/
-		Matrix optimize() const;
+		Matrix optimize();
 
 		/**
 		Turn on/off verbose output
@@ -59,7 +59,8 @@ namespace DPGO{
 		// Verbose flag
 		bool verbose;
 
-
+		// Custom implementation of constant step size RGD
+		Matrix optimizeRGD(const Matrix& Yinit);
 	};
 
 }
