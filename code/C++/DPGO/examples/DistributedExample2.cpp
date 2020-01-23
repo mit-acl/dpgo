@@ -85,8 +85,9 @@ int main(int argc, char** argv)
     d = (!dataset.empty() ? dataset[0].t.size() : 0);
     n = num_poses;
     r = 5;
-    bool verbose = false;
-    ROPTALG algorithm = ROPTALG::RGD;
+    bool verbose = true;
+    ROPTALG algorithm = ROPTALG::RTR;
+    double rate = 10; //Hz
     
     PGOAgentParameters options(d,r,algorithm,verbose);
 
@@ -196,15 +197,25 @@ int main(int argc, char** argv)
     Matrix Yopt = Yinit;
     exchangeSharedPoses(agents);
 
+    cout  << "Initial cost = " << (Yopt * ConLapT * Yopt.transpose()).trace() << endl;
+
     // Initiate optimization thread for each agent
     for(unsigned robot = 0; robot < (unsigned) num_robots; ++robot){
-        agents[robot]->startOptimizationLoop(3);
+        agents[robot]->startOptimizationLoop(rate);
         usleep(1000);
     }
 
     auto startTime = std::chrono::high_resolution_clock::now();
 
     while (true){
+        auto counter = std::chrono::high_resolution_clock::now() - startTime;
+        double elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(counter).count();
+        double elapsedSecond = elapsedMs / 1000.0;
+
+        // Evaluate
+        cout 
+        << "Time = " << elapsedSecond << " sec | "
+        << "cost = " << (Yopt * ConLapT * Yopt.transpose()).trace() << endl;
         
         exchangeSharedPoses(agents);
 
@@ -216,15 +227,6 @@ int main(int argc, char** argv)
             Yopt.block(0, startIdx*(d+1), r, (endIdx-startIdx)*(d+1)) = agents[robot]->getY();
             
         }
-
-        auto counter = std::chrono::high_resolution_clock::now() - startTime;
-        double elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(counter).count();
-        double elapsedSecond = elapsedMs / 1000.0;
-
-        // Evaluate
-        // cout 
-        // << "Time = " << elapsedSecond << " sec | "
-        // << "cost = " << 0.5 * (Yopt * ConLapT * Yopt.transpose()).trace() << endl;
 
         if (elapsedSecond > 20) break;
 

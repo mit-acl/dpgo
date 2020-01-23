@@ -2,6 +2,7 @@
 #include <iostream>
 #include <cassert>
 #include <chrono>
+#include <random>
 #include "DPGO_utils.h"
 #include "QuadraticProblem.h"
 #include "QuadraticOptimizer.h"
@@ -315,25 +316,36 @@ namespace DPGO{
 			return;
 		}
 
-		double sleepSec = 1 / freq;
-      	sleepMicroSec = (int) (sleepSec * 1000 * 1000);
+		rate = freq;	
 
       	mOptimizationThread = new thread(&PGOAgent::runOptimizationLoop,this);
 	}
 
 
 	void PGOAgent::runOptimizationLoop(){
-		cout << "Agent " << mID << " optimization thread running at " << (1e6 / sleepMicroSec) << " Hz." << endl;
+		cout << "Agent " << mID << " optimization thread running at " << rate << " Hz." << endl;
+
+		// Create exponential distribution with the desired rate
+		std::random_device rd;  //Will be used to obtain a seed for the random number engine
+	    std::mt19937 rng(rd()); //Standard mersenne_twister_engine seeded with rd()
+  		std::exponential_distribution<double> ExponentialDistribution(rate);
 
 		while(true)
 		{
+			
+			double sleepUs = 1e6 * ExponentialDistribution(rng); // sleeping time in microsecond
+
+			if(verbose) cout << "Agent " << mID << " optimization thread: sleep for " << sleepUs / 1e6 << " sec..." << endl;
+
+			usleep(sleepUs);
+
 			optimize();
 
+			// Check if finish requested
 			if(mFinishRequested){
 				break;
 			}
 
-			usleep(sleepMicroSec); 
 		}
 	}
 

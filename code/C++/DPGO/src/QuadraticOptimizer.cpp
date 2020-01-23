@@ -55,6 +55,7 @@ namespace DPGO{
 	Matrix QuadraticOptimizer::optimizeRGD(const Matrix& Yinit)
 	{
 		// TODO
+		cout << "ROPTALG::RGD is not implemented yet." << endl;
 		throw std::invalid_argument("ROPTALG::RGD is not implemented yet.");
 
 		return Matrix::Zero(1,1);

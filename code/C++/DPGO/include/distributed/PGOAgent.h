@@ -181,8 +181,8 @@ namespace DPGO{
     // Verbose flag
     bool verbose;
 
-    // Microseconds to sleep after each call to optimize()
-    int sleepMicroSec;
+    // Rate in Hz of the optimization loop
+    double rate;
 
     // whether there is request to terminate optimization thread
     bool mFinishRequested = false;

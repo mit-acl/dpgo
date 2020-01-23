@@ -61,7 +61,8 @@ int main(int argc, char** argv)
     n = num_poses;
     r = 5;
     ROPTALG algorithm = ROPTALG::RTR;
-    PGOAgentParameters options(d,r,algorithm);
+    bool verbose = false;
+    PGOAgentParameters options(d,r,algorithm,verbose);
 
     
 
@@ -199,17 +200,18 @@ int main(int argc, char** argv)
         unsigned robot = (unsigned) distribution(generator);
         agents[robot]->optimize();
 
+        // Evaluate
+        cout 
+        << "Iter = " << iter << " | "
+        << "cost = " << (Yopt * ConLapT * Yopt.transpose()).trace() << " | "
+        << "robot = " << robot << endl;
         
         unsigned startIdx = robot * num_poses_per_robot;
         unsigned endIdx = (robot+1) * num_poses_per_robot; // non-inclusive
         if (robot == (unsigned) num_robots - 1) endIdx = n;
         Yopt.block(0, startIdx*(d+1), r, (endIdx-startIdx)*(d+1)) = agents[robot]->getY();
 
-        // Evaluate
-        cout 
-        << "Iter = " << iter << " | "
-        << "cost = " << (Yopt * ConLapT * Yopt.transpose()).trace() << " | "
-        << "robot = " << robot << endl;
+        
     }
 
     exit(0);

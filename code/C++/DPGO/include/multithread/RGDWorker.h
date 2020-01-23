@@ -23,8 +23,7 @@ namespace DPGO{
     }
 
     void setUpdateRate(int freq){
-      double sleepSec = 1 / (float) freq;
-      sleepMicroSec = (int) (sleepSec * 1000 * 1000);
+      rate = freq;
     }
 
     void setStepsize(float s){
@@ -53,8 +52,8 @@ namespace DPGO{
     bool mFinishRequested;
     bool mFinished;
 
-    int sleepMicroSec;
-    float stepsize;
+    double rate;
+    double stepsize;
 
     unsigned d, r;
     vector<unsigned> updateIndices;

@@ -14,7 +14,7 @@ namespace DPGO{
 	id(pId), 
 	mFinishRequested(false), 
 	mFinished(false),
-	sleepMicroSec(5000), //default rate is 200 Hz
+	rate(200.0), //default rate is 200 Hz
 	stepsize(0.001)
 	{
 
@@ -43,7 +43,8 @@ namespace DPGO{
 	void RGDWorker::run(){
 		std::random_device rd;  //Will be used to obtain a seed for the random number engine
 	    std::mt19937 rng(rd()); //Standard mersenne_twister_engine seeded with rd()
-	    std::uniform_int_distribution<> distribution(0, updateIndices.size()-1);
+	    std::uniform_int_distribution<> UniformDistribution(0, updateIndices.size()-1);
+	    std::exponential_distribution<double> ExponentialDistribution(rate);
 
 
 	    auto startTime = std::chrono::high_resolution_clock::now();
@@ -53,7 +54,7 @@ namespace DPGO{
 		while(true){
 
 			// randomly select an index
-			unsigned i = updateIndices[distribution(rng)];
+			unsigned i = updateIndices[UniformDistribution(rng)];
 
 			Matrix Yi = readComponent(i);
 
@@ -68,7 +69,8 @@ namespace DPGO{
 			if(mFinishRequested) break;
 			
 			// use usleep for microsecond
-			usleep(sleepMicroSec); 
+			double sleepUs = 1e6 * ExponentialDistribution(rng);
+			usleep(sleepUs);
 		}
 
 		auto counter = std::chrono::high_resolution_clock::now() - startTime;

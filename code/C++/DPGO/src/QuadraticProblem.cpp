@@ -23,7 +23,7 @@ namespace DPGO{
 
 		SparseMatrix P = Q;	
 		for(unsigned row = 0; row < P.rows(); ++row){
-			P.coeffRef(row,row) += 0.01;
+			P.coeffRef(row,row) += 1.0;
 		}
 		solver.compute(P);
 		if(solver.info() != Eigen::Success){
