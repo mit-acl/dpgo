@@ -48,7 +48,7 @@ int main(int argc, char** argv)
     
     /**
     ###########################################
-    Parse input dataset
+    Parse command line inputs
     ###########################################
     */
 
@@ -85,9 +85,10 @@ int main(int argc, char** argv)
     d = (!dataset.empty() ? dataset[0].t.size() : 0);
     n = num_poses;
     r = 5;
-    bool verbose = true;
-    ROPTALG algorithm = ROPTALG::RTR;
-    double rate = 10; //Hz
+    bool verbose = false;
+    ROPTALG algorithm = ROPTALG::RGD;
+    double rate = 10; 
+    double stepsize = 1e-6;
     
     PGOAgentParameters options(d,r,algorithm,verbose);
 
@@ -142,6 +143,7 @@ int main(int argc, char** argv)
     vector<PGOAgent*> agents;
     for(unsigned robot = 0; robot < (unsigned) num_robots; ++robot){
         PGOAgent* ag = new PGOAgent(robot, options);
+        ag->setStepsize(stepsize);
         agents.push_back(ag);
     }
 

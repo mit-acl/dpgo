@@ -59,7 +59,7 @@ namespace DPGO{
 		// Verbose flag
 		bool verbose;
 
-		// Custom implementation of constant step size RGD
+		// Apply a single RGD iteration with constant step size
 		Matrix optimizeRGD(const Matrix& Yinit);
 	};
 

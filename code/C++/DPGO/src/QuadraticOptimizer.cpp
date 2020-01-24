@@ -52,12 +52,27 @@ namespace DPGO{
 		}	
 	}
 
+
 	Matrix QuadraticOptimizer::optimizeRGD(const Matrix& Yinit)
 	{
-		// TODO
-		cout << "ROPTALG::RGD is not implemented yet." << endl;
-		throw std::invalid_argument("ROPTALG::RGD is not implemented yet.");
+		unsigned r = problem->relaxation_rank();
+		unsigned d = problem->dimension();
+		unsigned n = problem->num_poses();
 
-		return Matrix::Zero(1,1);
+		LiftedSEManifold M(r,d,n);
+		LiftedSEVariable VarInit(r,d,n);
+		LiftedSEVariable VarNext(r,d,n);
+		LiftedSEVector RGrad(r,d,n);
+		VarInit.setData(Yinit);
+
+		// Euclidean gradient
+		problem->EucGrad(VarInit.var(), RGrad.vec());
+
+		// Riemannian gradient
+		M.getManifold()->Projection(VarInit.var(), RGrad.vec(), RGrad.vec());
+		M.getManifold()->ScaleTimesVector(VarInit.var(), -stepsize, RGrad.vec(), RGrad.vec());
+		M.getManifold()->Retraction(VarInit.var(), RGrad.vec(), VarNext.var());
+
+		return VarNext.getData();
 	}
 }
