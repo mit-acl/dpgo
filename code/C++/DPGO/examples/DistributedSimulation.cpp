@@ -42,77 +42,125 @@ void exchangeSharedPoses(vector<PGOAgent*>& agents){
     }
 }
 
+static void show_usage(std::string name)
+{
+        cout  << "Usage: " << name << " <option(s)> [.g2o file] \n"
+              << "Options:\n"
+              << "\t--help \t\t\t Show this help message\n"
+              << "\t--robots NUMROBOTS \t Specify number of robots to simulate\n"
+              << "\t--rate RATE \t\t Specify update rate for each robot \n"
+              << "\t--delay DELAY \t\t Simulated maximum delay in seconds \n"
+              << "\t--useRGD STEPSIZE \t Use Riemannian Gradient Descent with specified stepsize; otherwise use RTR (default) \n" 
+              << "\t--verbose \t\t Turn on verbose output"
+              << std::endl;
+}
+
 
 int main(int argc, char** argv)
 {
-    
+    cout << "Distributed pose-graph optimization simulation. " << endl;
+
     /**
     ###########################################
     Parse command line inputs
     ###########################################
     */
-
-    if (argc < 3) {
-        cout << "Distributed pose-graph optimization. " << endl;
-        cout << "Usage: " << argv[0] << " [# robots] [input .g2o file]" << endl;
+    if (argc < 2) {
+        show_usage(argv[0]);
         exit(1);
     }
 
-    cout << "Distributed pose-graph optimization demo. " << endl;
-
-    int num_robots = atoi(argv[1]);
-    if (num_robots <= 0){
-        cout << "Number of robots must be positive!" << endl;
-        exit(1);
-    }
-    cout << "Simulating " << num_robots << " robots." << endl;
-
-
-    size_t num_poses;
-    vector<SESync::RelativePoseMeasurement> dataset = SESync::read_g2o_file(argv[2], num_poses);
-    cout << "Loaded dataset from file " << argv[2] << "." << endl;
-    
-
-    /**
-    ###########################################
-    Set parameters for PGOAgent
-    ###########################################
-    */
-
-    unsigned int n,d,r;
-    SparseMatrix ConLapT = construct_connection_Laplacian_T(dataset);
-    
-    d = (!dataset.empty() ? dataset[0].t.size() : 0);
-    n = num_poses;
-    r = 5;
-    bool verbose = false;
-    ROPTALG algorithm = ROPTALG::RGD;
+    unsigned r = 5;
+    unsigned num_robots = 2;
     double rate = 10; 
-    double stepsize = 1e-6;
-    
-    PGOAgentParameters options(d,r,algorithm,verbose);
+    double stepsize = 1e-3;
+    double delay = 1.0;
+    bool verbose = false;
+    ROPTALG algorithm = ROPTALG::RTR;
+    std::string datasetFile;
 
-
-    /**
-    ###################################################
-    Compute initialization (currently requires SE-Sync)
-    ###################################################
-    */
-    Matrix Yinit;
-    SparseMatrix B1, B2, B3; 
-    construct_B_matrices(dataset, B1, B2, B3);
-    Matrix Rinit = chordal_initialization(d, B3);
-    Matrix tinit = recover_translations(B1, B2, Rinit);
-    Yinit.resize(r, n*(d+1));
-    Yinit.setZero();
-    for (size_t i=0; i<n; i++)
-    {
-        Yinit.block(0,i*(d+1),  d,d) = Rinit.block(0,i*d,d,d);
-        Yinit.block(0,i*(d+1)+d,d,1) = tinit.block(0,i,d,1);
+    for (int i = 1; i < argc; ++i) {
+        std::string arg = argv[i];
+        if (arg == "--help") {
+            show_usage(argv[0]);
+            exit(0);
+        } 
+        else if (arg == "--robots") {
+            if (i + 1 < argc) {
+                int argInt = atoi(argv[++i]);
+                if(argInt <= 0){
+                    std::cerr << "robots must be positive." << endl;
+                    exit(1);
+                }
+                num_robots = (unsigned) argInt;
+                cout << "Simulating " << num_robots << " robots." << endl;
+            } else { 
+                cerr << "--robots option requires one argument." << endl;
+                exit(1);
+            }  
+        } 
+        else if (arg == "--rate") {
+            if (i + 1 < argc) {
+                rate = stod(argv[++i]);
+                if(rate <= 0){
+                    std::cerr << "rate must be positive." << endl;
+                    exit(1);
+                }
+                cout << "Update rate set to " << rate << " Hz." << endl;
+            } else { 
+                cerr << "--rate option requires one argument." << endl;
+                exit(1);
+            }  
+        } 
+        else if (arg == "--delay") {
+            if (i + 1 < argc) {
+                delay = stod(argv[++i]);
+                if(rate <= 0){
+                    std::cerr << "delay must be positive." << endl;
+                    exit(1);
+                }
+                cout << "Max delay set to " << delay << " seconds." << endl;
+            } else { 
+                cerr << "--delay option requires one argument." << endl;
+                exit(1);
+            }  
+        } 
+        else if (arg == "--useRGD") {
+            if (i + 1 < argc) {
+                algorithm = ROPTALG::RGD;
+                stepsize = stod(argv[++i]);
+                if(rate <= 0){
+                    std::cerr << "step size must be positive." << endl;
+                    exit(1);
+                }
+                cout << "Using RGD with step size " << stepsize << "." << endl;
+            } else { 
+                cerr << "--useRGD option requires one argument." << endl;
+                exit(1);
+            }  
+        } 
+        else if (arg == "--verbose"){
+            verbose = true;
+            cout << "Turn on verbose output." << endl; 
+        }
+        else {
+            datasetFile = arg;
+        }
     }
 
 
-
+    /**
+    ###########################################
+    Read dataset
+    ###########################################
+    */
+    size_t num_poses;
+    vector<SESync::RelativePoseMeasurement> dataset = SESync::read_g2o_file(datasetFile, num_poses);
+    unsigned n = num_poses;
+    unsigned d = (!dataset.empty() ? dataset[0].t.size() : 0);
+    SparseMatrix ConLapT = construct_connection_Laplacian_T(dataset);
+    cout << "Loaded dataset from file " << datasetFile << "." << endl;
+    sleep(1);
 
     /**
     ###########################################
@@ -136,11 +184,14 @@ int main(int argc, char** argv)
             PoseID pose = make_pair(robot, localIdx);
             PoseMap[idx] = pose;
         }
-        cout << endl;
     }
 
-    
+
+    PGOAgentParameters options(d,r,algorithm,verbose);
     vector<PGOAgent*> agents;
+
+
+
     for(unsigned robot = 0; robot < (unsigned) num_robots; ++robot){
         PGOAgent* ag = new PGOAgent(robot, options);
         ag->setStepsize(stepsize);
@@ -178,15 +229,27 @@ int main(int argc, char** argv)
 
     }
 
-
-
-
     /**
-    ###########################################
-    Optimize!
-    ###########################################
+    ###################################################
+    Compute initialization (currently requires SE-Sync)
+    ###################################################
     */
     cout << "Initializing..." << endl;
+
+    Matrix Yinit;
+    SparseMatrix B1, B2, B3; 
+    construct_B_matrices(dataset, B1, B2, B3);
+    Matrix Rinit = chordal_initialization(d, B3);
+    Matrix tinit = recover_translations(B1, B2, Rinit);
+    Yinit.resize(r, n*(d+1));
+    Yinit.setZero();
+    for (size_t i=0; i<n; i++)
+    {
+        Yinit.block(0,i*(d+1),  d,d) = Rinit.block(0,i*d,d,d);
+        Yinit.block(0,i*(d+1)+d,d,1) = tinit.block(0,i,d,1);
+    }
+
+    
     for(unsigned robot = 0; robot < (unsigned) num_robots; ++robot){
         unsigned startIdx = robot * num_poses_per_robot;
         unsigned endIdx = (robot+1) * num_poses_per_robot; // non-inclusive
@@ -196,11 +259,15 @@ int main(int argc, char** argv)
         
     }
 
+    /**
+    ###########################################
+    Optimize!
+    ###########################################
+    */
+    
     Matrix Yopt = Yinit;
     exchangeSharedPoses(agents);
-
-    cout  << "Initial cost = " << (Yopt * ConLapT * Yopt.transpose()).trace() << endl;
-
+    
     // Initiate optimization thread for each agent
     for(unsigned robot = 0; robot < (unsigned) num_robots; ++robot){
         agents[robot]->startOptimizationLoop(rate);

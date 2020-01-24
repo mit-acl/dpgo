@@ -45,6 +45,6 @@ add_executable(distributed-example
 	examples/DistributedExample.cpp)
 target_link_libraries(distributed-example ${CMAKE_THREAD_LIBS_INIT} SESync DPGO)
 
-add_executable(distributed-example2
-	examples/DistributedExample2.cpp)
-target_link_libraries(distributed-example2 ${CMAKE_THREAD_LIBS_INIT} SESync DPGO)
+add_executable(distributed-simulation
+	examples/DistributedSimulation.cpp)
+target_link_libraries(distributed-simulation ${CMAKE_THREAD_LIBS_INIT} SESync DPGO)
