@@ -56,10 +56,5 @@ add_subdirectory(SE-Sync)
 # Build Distributed PGO library
 add_subdirectory(DPGO)
 
-# Export the SESync and ROPTLIB libraries to make them available to other CMake projects
-export(TARGETS roptlib SESync FILE SESync.cmake)
-
-
-
-
-
+# Export the libraries to make them available to other CMake projects
+export(TARGETS roptlib SESync DPGO FILE DPGO.cmake)
