@@ -146,6 +146,7 @@ namespace DPGO{
 
     /**
     Request to terminate optimization loop, if running
+    This function also waits until the optimization loop is finished
     */
     void endOptimizationLoop();
 

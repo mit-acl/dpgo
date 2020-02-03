@@ -31,7 +31,10 @@ namespace DPGO{
 	}
 
 
-	PGOAgent::~PGOAgent(){}
+	PGOAgent::~PGOAgent(){
+		// Make sure that optimization thread is not running, before exiting
+		endOptimizationLoop();
+	}
 
 
 	void PGOAgent::addOdometry(const RelativeSEMeasurement& factor){
@@ -157,7 +160,10 @@ namespace DPGO{
 			if(m.p1 < k && m.p2 < k) myMeasurements.push_back(m);
 		}
 		mLock.unlock();
-		if (myMeasurements.empty()) return;
+		if (myMeasurements.empty()){
+			if (verbose) cout << "No measurements. Skip optimization." << endl;
+			return;
+		} 
 
 
 		// get shared measurements
@@ -319,6 +325,7 @@ namespace DPGO{
 		rate = freq;	
 
       	mOptimizationThread = new thread(&PGOAgent::runOptimizationLoop,this);
+
 	}
 
 
@@ -350,6 +357,8 @@ namespace DPGO{
 	}
 
 	void PGOAgent::endOptimizationLoop(){
+		if(!isOptimizationRunning()) return;
+
 		mFinishRequested = true;
 
 		// wait for thread to finish
