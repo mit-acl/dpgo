@@ -1,16 +1,159 @@
 #include "DPGO_utils.h"
-
+#include <algorithm>
+#include <fstream>
+#include <iostream>
+#include <sstream>
 
 namespace DPGO{
 
 	/**
 	###############################################################
 	############################################################### 
-	The following implementations are originally from Cartan-Sync:
+	The following implementations are adapted from Cartan-Sync:
 	https://bitbucket.org/jesusbriales/cartan-sync/src
 	############################################################### 
 	############################################################### 
 	*/
+
+	std::vector<RelativeSEMeasurement>
+	read_g2o_file(const std::string &filename, size_t &num_poses) {
+
+	  // Preallocate output vector
+	  std::vector<DPGO::RelativeSEMeasurement> measurements;
+
+	  // A single measurement, whose values we will fill in
+	  DPGO::RelativeSEMeasurement measurement;
+
+	  // A string used to contain the contents of a single line
+	  std::string line;
+
+	  // A string used to extract tokens from each line one-by-one
+	  std::string token;
+
+	  // Preallocate various useful quantities
+	  double dx, dy, dz, dtheta, dqx, dqy, dqz, dqw, I11, I12, I13, I14, I15, I16,
+	      I22, I23, I24, I25, I26, I33, I34, I35, I36, I44, I45, I46, I55, I56, I66;
+
+	  size_t i, j;
+
+	  // Open the file for reading
+	  std::ifstream infile(filename);
+
+	  num_poses = 0;
+
+	  while (std::getline(infile, line)) {
+	    // Construct a stream from the string
+	    std::stringstream strstrm(line);
+
+	    // Extract the first token from the string
+	    strstrm >> token;
+
+	    if (token == "EDGE_SE2") {
+	      // This is a 2D pose measurement
+
+	      /** The g2o format specifies a 2D relative pose measurement in the
+		  * following form:
+		  *
+		  * EDGE_SE2 id1 id2 dx dy dtheta, I11, I12, I13, I22, I23, I33
+		  *
+		  */
+
+	      // Extract formatted output
+	      strstrm >> i >> j >> dx >> dy >> dtheta >> I11 >> I12 >> I13 >> I22 >>
+	          I23 >> I33;
+
+	      // Fill in elements of this measurement
+
+	      // Pose ids
+	      measurement.r1 = 0;
+	      measurement.r2 = 0;
+	      measurement.p1 = i;
+	      measurement.p2 = j;
+
+	      // Raw measurements
+	      measurement.t = Eigen::Vector2d(dx, dy);
+	      measurement.R = Eigen::Rotation2Dd(dtheta).toRotationMatrix();
+
+	      Eigen::Matrix2d TranCov;
+	      TranCov << I11, I12, I12, I22;
+	      measurement.tau = 2 / TranCov.inverse().trace();
+
+	      measurement.kappa = I33;
+
+	    } else if (token == "EDGE_SE3:QUAT") {
+	      // This is a 3D pose measurement
+
+	      /** The g2o format specifies a 3D relative pose measurement in the
+		  * following form:
+		  *
+		  * EDGE_SE3:QUAT id1, id2, dx, dy, dz, dqx, dqy, dqz, dqw
+		  *
+		  * I11 I12 I13 I14 I15 I16
+		  *     I22 I23 I24 I25 I26
+		  *         I33 I34 I35 I36
+		  *             I44 I45 I46
+		  *                 I55 I56
+		  *                     I66
+		  */
+
+	      // Extract formatted output
+	      strstrm >> i >> j >> dx >> dy >> dz >> dqx >> dqy >> dqz >> dqw >> I11 >>
+	          I12 >> I13 >> I14 >> I15 >> I16 >> I22 >> I23 >> I24 >> I25 >> I26 >>
+	          I33 >> I34 >> I35 >> I36 >> I44 >> I45 >> I46 >> I55 >> I56 >> I66;
+
+	      // Fill in elements of the measurement
+
+	      // Pose ids
+	      measurement.r1 = 0;
+	      measurement.r2 = 0;
+	      measurement.p1 = i;
+	      measurement.p2 = j;
+
+	      // Raw measurements
+	      measurement.t = Eigen::Vector3d(dx, dy, dz);
+	      measurement.R = Eigen::Quaterniond(dqw, dqx, dqy, dqz).toRotationMatrix();
+
+	      // Compute precisions
+
+	      // Compute and store the optimal (information-divergence-minimizing) value
+	      // of the parameter tau
+	      Eigen::Matrix3d TranCov;
+	      TranCov << I11, I12, I13, I12, I22, I23, I13, I23, I33;
+	      measurement.tau = 3 / TranCov.inverse().trace();
+
+	      // Compute and store the optimal (information-divergence-minimizing value
+	      // of the parameter kappa
+
+	      Eigen::Matrix3d RotCov;
+	      RotCov << I44, I45, I46, I45, I55, I56, I46, I56, I66;
+	      measurement.kappa = 3 / (2 * RotCov.inverse().trace());
+
+	    } else if ((token == "VERTEX_SE2") || (token == "VERTEX_SE3:QUAT")) {
+	      // This is just initialization information, so do nothing
+	      continue;
+	    } else {
+	      std::cout << "Error: unrecognized type: " << token << "!" << std::endl;
+	      assert(false);
+	    }
+
+	    // Update maximum value of poses found so far
+	    size_t max_pair = std::max<double>(measurement.p1, measurement.p2);
+
+	    num_poses = ((max_pair > num_poses) ? max_pair : num_poses);
+	    measurements.push_back(measurement);
+	  } // while
+
+	  infile.close();
+
+	  num_poses++; // Account for the use of zero-based indexing
+
+	  return measurements;
+	}
+
+
+
+
+
 	void constructOrientedConnectionIncidenceMatrixSE(const std::vector<RelativeSEMeasurement>& measurements, SparseMatrix& AT, DiagonalMatrix& OmegaT )
 	{
 		// Deduce graph dimensions from measurements
