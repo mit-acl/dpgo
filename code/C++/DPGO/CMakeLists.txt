@@ -32,7 +32,7 @@ add_library(DPGO SHARED
 	src/DPGO_utils.cpp
 	)
 target_include_directories(DPGO PUBLIC ${DPGO_INCLUDES})
-target_link_libraries(DPGO ${CMAKE_THREAD_LIBS_INIT} roptlib ${BLAS_LIBRARIES} ${CHOLMOD_LIBRARIES} ${SPQR_LIBRARIES} ${M} ${LAPACK})
+target_link_libraries(DPGO ${CMAKE_THREAD_LIBS_INIT} roptlib ${CHOLMOD_LIBRARIES} ${SPQR_LIBRARIES} )
 
 # Build tests
 add_executable(test-optimization-thread
