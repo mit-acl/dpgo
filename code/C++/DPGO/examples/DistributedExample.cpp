@@ -1,9 +1,6 @@
 #include <iostream>
 #include <fstream>
 #include <cstdlib>
-#include "SESync.h"
-#include "SESync_utils.h"
-#include "SESync_types.h"
 #include "QuadraticProblem.h"
 #include "distributed/PGOAgent.h"
 #include "DPGO_types.h"
@@ -11,7 +8,6 @@
 
 using namespace std;
 using namespace DPGO;
-using namespace SESync;
 
 
 /**
@@ -46,7 +42,7 @@ int main(int argc, char** argv)
 
 
     size_t num_poses;
-    vector<SESync::RelativePoseMeasurement> dataset = SESync::read_g2o_file(argv[2], num_poses);
+    vector<RelativeSEMeasurement> dataset = read_g2o_file(argv[2], num_poses);
     cout << "Loaded dataset from file " << argv[2] << "." << endl;
     
     /**
@@ -56,7 +52,7 @@ int main(int argc, char** argv)
     */
 
     unsigned int n,d,r;
-    SparseMatrix ConLapT = construct_connection_Laplacian_T(dataset);
+    SparseMatrix ConLapT = constructConnectionLaplacianSE(dataset);
     d = (!dataset.empty() ? dataset[0].t.size() : 0);
     n = num_poses;
     r = 5;
@@ -73,9 +69,9 @@ int main(int argc, char** argv)
     */
     Matrix Yinit;
     SparseMatrix B1, B2, B3; 
-    construct_B_matrices(dataset, B1, B2, B3);
-    Matrix Rinit = chordal_initialization(d, B3);
-    Matrix tinit = recover_translations(B1, B2, Rinit);
+    constructBMatrices(dataset, B1, B2, B3);
+    Matrix Rinit = chordalInitialization(d, B3);
+    Matrix tinit = recoverTranslations(B1, B2, Rinit);
     Yinit.resize(r, n*(d+1));
     Yinit.setZero();
     for (size_t i=0; i<n; i++)
@@ -123,9 +119,9 @@ int main(int argc, char** argv)
 
 
     for(size_t k = 0; k < dataset.size(); ++k){
-        RelativePoseMeasurement mIn = dataset[k];
-        PoseID src = PoseMap[mIn.i];
-        PoseID dst = PoseMap[mIn.j];
+        RelativeSEMeasurement mIn = dataset[k];
+        PoseID src = PoseMap[mIn.p1];
+        PoseID dst = PoseMap[mIn.p2];
 
         unsigned srcRobot = get<0>(src);
         unsigned srcIdx = get<1>(src);
@@ -170,7 +166,7 @@ int main(int argc, char** argv)
 
 
     Matrix Yopt = Yinit;
-    unsigned numIters = 1000;
+    unsigned numIters = 100;
     cout << "Running RBCD for " << numIters << " iterations..." << endl; 
 
 
