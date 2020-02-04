@@ -52,3 +52,8 @@ add_executable(distributed-example
 target_include_directories(distributed-example PUBLIC ${DPGO_INCLUDES})
 target_link_libraries(distributed-example DPGO)
 
+add_executable(distributed-example2
+	examples/DistributedExample2.cpp)
+target_include_directories(distributed-example2 PUBLIC ${DPGO_INCLUDES})
+target_link_libraries(distributed-example2 DPGO)
+
