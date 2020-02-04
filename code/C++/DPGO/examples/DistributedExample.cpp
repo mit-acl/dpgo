@@ -166,7 +166,7 @@ int main(int argc, char** argv)
 
 
     Matrix Yopt = Yinit;
-    unsigned numIters = 100;
+    unsigned numIters = 1000;
     cout << "Running RBCD for " << numIters << " iterations..." << endl; 
 
 

@@ -69,7 +69,6 @@ int main(int argc, char** argv)
     unsigned num_robots = 2;
     double rate = 10; 
     double stepsize = 1e-3;
-    double delay = 1.0;
     bool verbose = false;
     ROPTALG algorithm = ROPTALG::RTR;
     std::string datasetFile;
