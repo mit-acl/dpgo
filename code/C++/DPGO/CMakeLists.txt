@@ -38,17 +38,17 @@ target_link_libraries(DPGO ${CMAKE_THREAD_LIBS_INIT} roptlib ${BLAS_LIBRARIES} $
 add_executable(test-optimization-thread
 	tests/testOptimizationThread.cpp)
 target_include_directories(test-optimization-thread PUBLIC ${DPGO_INCLUDES})
-target_link_libraries(test-optimization-thread ${CMAKE_THREAD_LIBS_INIT} DPGO)
+target_link_libraries(test-optimization-thread DPGO)
 
 # Build multithread PGO example
 add_executable(multithread-example
 	examples/MultithreadExample.cpp)
 target_include_directories(multithread-example PUBLIC ${DPGO_INCLUDES})
-target_link_libraries(multithread-example ${CMAKE_THREAD_LIBS_INIT} DPGO)
+target_link_libraries(multithread-example DPGO)
 
 # Build Distributed PGO example
 add_executable(distributed-example
 	examples/DistributedExample.cpp)
 target_include_directories(distributed-example PUBLIC ${DPGO_INCLUDES})
-target_link_libraries(distributed-example ${CMAKE_THREAD_LIBS_INIT} DPGO)
+target_link_libraries(distributed-example DPGO)
 
