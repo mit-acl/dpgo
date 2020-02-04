@@ -1,4 +1,8 @@
 #include "DPGO_utils.h"
+#include <MatOp/SparseSymMatProd.h> 
+#include <SymEigsSolver.h> 
+#include <Eigen/Geometry>
+#include <Eigen/SPQRSupport>
 #include <algorithm>
 #include <fstream>
 #include <iostream>
@@ -9,8 +13,12 @@ namespace DPGO{
 	/**
 	###############################################################
 	############################################################### 
-	The following implementations are adapted from Cartan-Sync:
-	https://bitbucket.org/jesusbriales/cartan-sync/src
+	The following implementations are originally implemented in:
+	
+	SE-Sync: https://github.com/david-m-rosen/SE-Sync.git
+
+	Cartan-Sync: https://bitbucket.org/jesusbriales/cartan-sync/src
+
 	############################################################### 
 	############################################################### 
 	*/
@@ -234,15 +242,154 @@ namespace DPGO{
 	}
 
 
+	void constructBMatrices(const std::vector<RelativeSEMeasurement> &measurements, SparseMatrix &B1, SparseMatrix &B2, SparseMatrix &B3) 
+    {
+		// Clear input matrices
+		B1.setZero();
+		B2.setZero();
+		B3.setZero();
 
-	/**
-	############################################################### 
-	###############################################################  
-	The following implementations are originally from SE-Sync: 
-	https://github.com/david-m-rosen/SE-Sync.git
-	############################################################### 
-	############################################################### 
-	*/
+		size_t num_poses = 0;
+		size_t d = (!measurements.empty() ? measurements[0].t.size() : 0);
+
+		std::vector<Eigen::Triplet<double>> triplets;
+
+		// Useful quantities to cache
+		unsigned int d2 = d * d;
+		unsigned int d3 = d * d * d;
+
+		unsigned int i = 0;
+		unsigned int j = 0; // Indices for the tail and head of the given measurement
+		double sqrttau, sqrtkappa;
+		size_t max_pair; // Used for keeping track of the maximum pose that we've
+		               // encountered so far
+
+		/// Construct the matrix B1 from equation (69a) in the tech report
+		triplets.reserve(2 * d * measurements.size());
+
+		for (unsigned int e = 0; e < measurements.size(); e++) {
+			i = measurements[e].p1;
+			j = measurements[e].p2;
+			sqrttau = sqrt(measurements[e].tau);
+
+			// Block corresponding to the tail of the measurement
+			for (unsigned int l = 0; l < d; l++) {
+			  triplets.emplace_back(e * d + l, i * d + l,
+			                        -sqrttau); // Diagonal element corresponding to tail
+			  triplets.emplace_back(e * d + l, j * d + l,
+			                        sqrttau); // Diagonal element corresponding to head
+			}
+
+			// Keep track of the number of poses we've seen
+			max_pair = std::max<size_t>(i, j);
+			if (max_pair > num_poses)
+			  num_poses = max_pair;
+		}
+		num_poses++; // Account for zero-based indexing
+
+		B1.resize(d * measurements.size(), d * num_poses);
+		B1.setFromTriplets(triplets.begin(), triplets.end());
+
+		/// Construct matrix B2 from equation (69b) in the tech report
+		triplets.clear();
+		triplets.reserve(d2 * measurements.size());
+
+		for (unsigned int e = 0; e < measurements.size(); e++) {
+			i = measurements[e].p1;
+			for (unsigned int k = 0; k < d; k++)
+			  for (unsigned int r = 0; r < d; r++)
+			    triplets.emplace_back(d * e + r, d2 * i + d * k + r,
+			                          -sqrttau * measurements[e].t(k));
+		}
+
+		B2.resize(d * measurements.size(), d2 * num_poses);
+		B2.setFromTriplets(triplets.begin(), triplets.end());
+
+		/// Construct matrix B3 from equation (69c) in the tech report
+		triplets.clear();
+		triplets.reserve((d3 + d2) * measurements.size());
+
+		for (unsigned int e = 0; e < measurements.size(); e++) {
+			sqrtkappa = sqrt(measurements[e].kappa);
+			const Eigen::MatrixXd &R = measurements[e].R;
+
+			for (unsigned int r = 0; r < d; r++)
+			  for (unsigned int c = 0; c < d; c++) {
+			    i = measurements[e].p1; // Tail of measurement
+			    j = measurements[e].p2; // Head of measurement
+
+			    // Representation of the -sqrt(kappa) * Rt(i,j) \otimes I_d block
+			    for (unsigned int l = 0; l < d; l++)
+			      triplets.emplace_back(e * d2 + d * r + l, i * d2 + d * c + l,
+			                            -sqrtkappa * R(c, r));
+			  }
+
+			for (unsigned l = 0; l < d2; l++)
+			  triplets.emplace_back(e * d2 + l, j * d2 + l, sqrtkappa);
+		}
+
+		B3.resize(d2 * measurements.size(), d2 * num_poses);
+		B3.setFromTriplets(triplets.begin(), triplets.end());
+	}
+
+
+	Matrix chordalInitialization(unsigned int d, const SparseMatrix &B3) {
+		unsigned int d2 = d * d;
+		unsigned int num_poses = B3.cols() / d2;
+
+		SparseMatrix B3red = B3.rightCols((num_poses - 1) * d2);
+		B3red.makeCompressed(); // Must be in compressed format to use Eigen::SparseQR!
+
+		// Vectorization of I_d
+		Eigen::MatrixXd Id = Eigen::MatrixXd::Identity(d, d);
+		Eigen::Map<Eigen::VectorXd> Id_vec(Id.data(), d2);
+
+		Eigen::VectorXd cR = B3.leftCols(d2) * Id_vec;
+
+		Eigen::VectorXd rvec;
+		Eigen::SPQR<SparseMatrix> QR(B3red);
+		rvec = -QR.solve(cR);
+
+		Eigen::MatrixXd Rchordal(d, d * num_poses);
+		Rchordal.leftCols(d) = Id;
+		Rchordal.rightCols((num_poses - 1) * d) = Eigen::Map<Eigen::MatrixXd>(rvec.data(), d, (num_poses - 1) * d);
+
+		for (unsigned int i = 1; i < num_poses; i++)
+			Rchordal.block(0, i * d, d, d) = projectToRotationGroup(Rchordal.block(0, i * d, d, d));
+		
+		return Rchordal;
+	}
+
+
+	Matrix recoverTranslations(const SparseMatrix &B1, const SparseMatrix &B2,
+                            const Matrix &R) {
+		unsigned int d = R.rows();
+		unsigned int n = R.cols() / d;
+
+		// Vectorization of R matrix
+		Eigen::Map<Eigen::VectorXd> rvec((double *)R.data(), d * d * n);
+
+		// Form the matrix comprised of the right (n-1) block columns of B1
+		SparseMatrix B1red = B1.rightCols(d * (n - 1));
+
+		Eigen::VectorXd c = B2 * rvec;
+
+		// Solve
+		Eigen::SPQR<SparseMatrix> QR(B1red);
+		Eigen::VectorXd tred = -QR.solve(c);
+
+		// Reshape this result into a d x (n-1) matrix
+		Eigen::Map<Eigen::MatrixXd> tred_mat(tred.data(), d, n - 1);
+
+		// Allocate output matrix
+		Eigen::MatrixXd t = Eigen::MatrixXd::Zero(d, n);
+
+		// Set rightmost n-1 columns
+		t.rightCols(n - 1) = tred_mat;
+
+		return t;
+	}
+
 	Matrix projectToRotationGroup(const Matrix &M) {
 		// Compute the SVD of M
 		Eigen::JacobiSVD<Matrix> svd(M, Eigen::ComputeFullU | Eigen::ComputeFullV);
