@@ -124,6 +124,24 @@ namespace DPGO{
 
 
     /**
+    Return number of poses of this robot
+    */
+    unsigned num_poses(){return n;}
+
+
+    /**
+    Get dimension
+    */
+    unsigned dimension(){return d;}
+
+
+    /**
+    Get relaxation rank
+    */
+    unsigned relaxation_rank(){return r;}
+
+
+    /**
     Return trajectory estimate of this robot in local frame, with its first pose set to identity   
     */
     Matrix getTrajectoryInLocalFrame(); 
@@ -157,7 +175,7 @@ namespace DPGO{
 
 
     /**
-    Set maximum stepsize during Riemannian optimization
+    Set maximum stepsize during Riemannian optimization (only used by RGD)
     */
     void setStepsize(double s){stepsize = s;}
     
