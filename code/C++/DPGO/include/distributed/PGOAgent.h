@@ -62,7 +62,7 @@ namespace DPGO{
     ~PGOAgent();
 
     /** Helper function to reset the internal solution
-        In deployment, should not use this
+        In deployment, probably should not use this
      */
     void setY(const Matrix& Yin)
     {
@@ -72,8 +72,9 @@ namespace DPGO{
         assert(Y.rows() == r);
     }
 
+    
     /** Helper function to get current solution
-        In deployment, should not use this
+        In deployment, probably should not use this
      */
     Matrix getY()
     {
@@ -81,11 +82,22 @@ namespace DPGO{
         return Y;
     }
 
+
+    /** 
+    Get the ith component of the current solution
+    */
+    Matrix getYComponent(unsigned i){
+        Y = getY();
+        return Y.block(0,i*(d+1),r,d+1);
+    }
+
+    
     /**
     Add an odometric measurement of this robot.
     This function automatically initialize the new pose, by propagating odometry
     */
     void addOdometry(const RelativeSEMeasurement& factor);
+
 
     /**
     Add a private loop closure of this robot
@@ -98,6 +110,7 @@ namespace DPGO{
     */
     void addSharedLoopClosure(const RelativeSEMeasurement& factor);
 
+
     /** 
     Store the pose of a neighboring robot who shares loop closure with this robot
     TODO: if necessary (based on the cluster), realign the local frame of this robot to match the neighbor's
@@ -105,11 +118,13 @@ namespace DPGO{
     */
     void updateNeighborPose(unsigned neighborCluster, unsigned neighborID, unsigned neighborPose, const Matrix& var);
 
+
     /** 
     Optimize pose graph by a single iteration. 
     This process use both private and shared factors (communication required for the latter)
     */
     void optimize();
+
 
     /**
     Return the cluster that this robot belongs to 
@@ -146,6 +161,7 @@ namespace DPGO{
     */
     Matrix getTrajectoryInLocalFrame(); 
 
+
     /**
     Return trajectory estimate of this robot in global frame, with the first pose of robot 0 set to identity   
     */
@@ -157,16 +173,19 @@ namespace DPGO{
     */
     PoseDict getSharedPoses();
 
+
     /**
     Initiate a new thread that runs runOptimizationLoop()
     */
     void startOptimizationLoop(double freq);
+
 
     /**
     Request to terminate optimization loop, if running
     This function also waits until the optimization loop is finished
     */
     void endOptimizationLoop();
+
 
     /**
     Check if the optimization thread is running
@@ -178,6 +197,16 @@ namespace DPGO{
     Set maximum stepsize during Riemannian optimization (only used by RGD)
     */
     void setStepsize(double s){stepsize = s;}
+
+
+    /**
+    Set the global anchor, which is used during rounding to put the solution in a global reference frame
+    */
+    void setGlobalAnchor(const Matrix& anchor){
+        assert(anchor.rows() == r);
+        assert(anchor.cols() == d+1);
+        globalAnchor = anchor;
+    }
     
 
   private:
@@ -215,7 +244,7 @@ namespace DPGO{
     // Solution before rounding
     Matrix Y;
     
-    // used by getTrajectoryInGlobalFrame
+    // used during rounding to put the current solution to a global reference frame
     Matrix globalAnchor; 
 
     // Store odometric measurement of this robot

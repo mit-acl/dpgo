@@ -28,6 +28,9 @@ namespace DPGO{
 		LiftedSEVariable x(r,d,1);
 		x.var()->RandInManifold();
 		Y = x.getData();
+
+		// initialize globalAnchor
+		globalAnchor = Y;
 	}
 
 
@@ -119,6 +122,21 @@ namespace DPGO{
 		lock_guard<mutex> lock(mPosesMutex);
 
 		Matrix T = Y.block(0,0,r,d).transpose() * Y;
+		Matrix t0 = T.block(0,d,d,1);
+
+		for(unsigned i = 0; i < n; ++i){
+			T.block(0,i*(d+1),d,d) = projectToRotationGroup(T.block(0,i*(d+1),d,d));
+			T.block(0,i*(d+1)+d,d,1) = T.block(0,i*(d+1)+d,d,1) - t0;
+		}
+
+		return T;
+	}
+
+
+	Matrix PGOAgent::getTrajectoryInGlobalFrame(){
+		lock_guard<mutex> lock(mPosesMutex);
+
+		Matrix T = globalAnchor.transpose() * Y;
 		Matrix t0 = T.block(0,d,d,1);
 
 		for(unsigned i = 0; i < n; ++i){
@@ -251,7 +269,7 @@ namespace DPGO{
 				const PoseID nID = make_pair(m.r2, m.p2);
 				auto KVpair = neighborPoseDict.find(nID);
 				if(KVpair == neighborPoseDict.end()){
-					cout << "WARNING: shared pose does not exist!" << endl;
+					if(verbose) cout << "WARNING: shared pose does not exist!" << endl;
 					continue;
 				}
 				lock.lock();
@@ -286,7 +304,7 @@ namespace DPGO{
 				const PoseID nID = make_pair(m.r1, m.p1);
 				auto KVpair = neighborPoseDict.find(nID);
 				if(KVpair == neighborPoseDict.end()){
-					cout << "WARNING: shared pose does not exist!" << endl;
+					if(verbose) cout << "WARNING: shared pose does not exist!" << endl;
 					continue;
 				}
 				lock.lock();
@@ -318,7 +336,7 @@ namespace DPGO{
 
 	void PGOAgent::startOptimizationLoop(double freq){
 		if (isOptimizationRunning()){
-			cout << "WARNING: optimization thread already running! Skip..." << endl;
+			if(verbose) cout << "WARNING: optimization thread already running! Skip..." << endl;
 			return;
 		}
 
