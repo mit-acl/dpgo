@@ -26,7 +26,7 @@ namespace DPGO{
     Matrix getData();
 
     /** 
-	Set data from matrix
+	  Set data from matrix
     */
     void setData(const Matrix& Y);
 

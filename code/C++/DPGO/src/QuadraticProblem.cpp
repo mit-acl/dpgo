@@ -92,4 +92,15 @@ namespace DPGO{
 		Vector->vec()->CopyTo(outVec);
 
 	}
+
+	double QuadraticProblem::gradNorm(const Matrix& Y) const
+	{
+		Variable->setData(Y);
+		LiftedSEVector EGrad(r,d,n);
+		LiftedSEVector RGrad(r,d,n);
+		EucGrad(Variable->var(), EGrad.vec());
+		M->getManifold()->Projection(Variable->var(), EGrad.vec(), RGrad.vec());
+		return RGrad.getData().norm();
+	}
+
 }
