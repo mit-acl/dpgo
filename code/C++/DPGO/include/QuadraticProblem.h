@@ -25,20 +25,33 @@ namespace DPGO{
 	class QuadraticProblem : public ROPTLIB::Problem{
 
 	public:
+
 		/** Default constructor; doesn't actually do anything */
   		QuadraticProblem(){}
 
-		QuadraticProblem(unsigned int nIn, unsigned int dIn, unsigned int rIn, SparseMatrix& QIn, SparseMatrix& GIn);
+
+		QuadraticProblem(const unsigned int nIn, const unsigned int dIn, const unsigned int rIn, const SparseMatrix& QIn, const SparseMatrix& GIn);
+
 
 		virtual ~QuadraticProblem();
 
+
+		/** Number of pose variables */
 		unsigned int num_poses() const { return n; }
 
+
+		/** Dimension (2 or 3) of estimation problem */ 
 		unsigned int dimension() const { return d; }
 
+
+		/** Relaxation rank in Riemannian optimization problem */ 
 		unsigned int relaxation_rank() const { return r; }
 
-  		
+
+		/** Evaluates the problem objective */
+		double f(const Matrix& Y) const ;
+
+
   		/** Evaluates the problem objective */
 		double f(ROPTLIB::Variable* x) const ;
 
@@ -57,10 +70,19 @@ namespace DPGO{
                       ROPTLIB::Vector* outVec) const ;
 
   		
-  		SparseMatrix Q;
-		SparseMatrix G;
+  		/** Evaluate the norm of the Riemannian gradient for the given solution */
+  		double gradNorm(const Matrix& Y) const;
+
+
+  		/** The quadratic component of the cost function */
+  		const SparseMatrix Q;
+
+
+  		/** The linear component of the cost function */
+		const SparseMatrix G;
   		
 	private:
+
 		/** Number of poses */
 		unsigned int n = 0;
 
@@ -84,6 +106,8 @@ namespace DPGO{
 		Tangent vectors
 		*/
 		LiftedSEVector* Vector;
+
+
 		LiftedSEVector* HessianVectorProduct;
 
 		/** 

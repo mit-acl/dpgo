@@ -7,7 +7,7 @@ using namespace std;
 /*Define the namespace*/
 namespace DPGO{
 
-	QuadraticProblem::QuadraticProblem(unsigned int nIn, unsigned int dIn, unsigned int rIn, SparseMatrix& QIn, SparseMatrix& GIn):
+	QuadraticProblem::QuadraticProblem(const unsigned int nIn, const unsigned int dIn, const unsigned int rIn, const SparseMatrix& QIn, const SparseMatrix& GIn):
 	Q(QIn), G(GIn), n(nIn), d(dIn), r(rIn)
 	{
 		
@@ -31,6 +31,7 @@ namespace DPGO{
 		}
 	}
 
+
 	QuadraticProblem::~QuadraticProblem()
 	{
 		delete Variable;
@@ -39,12 +40,20 @@ namespace DPGO{
 		delete M;
 	}
 
+
+	double QuadraticProblem::f(const Matrix& Y) const 
+	{
+		return 0.5 * (Y * Q * Y.transpose()).trace() + (Y * G.transpose()).trace();
+	}
+
+
 	double QuadraticProblem::f(ROPTLIB::Variable* x) const 
 	{
 		x->CopyTo(Variable->var());
 		Matrix Y = Variable->getData();
-		return 0.5 * (Y * Q * Y.transpose()).trace() + (Y * G.transpose()).trace();
+		return f(Y);
 	}
+
 
 	void QuadraticProblem::EucGrad(ROPTLIB::Variable* x, ROPTLIB::Vector* g) const 
 	{
@@ -55,6 +64,7 @@ namespace DPGO{
 		Vector->vec()->CopyTo(g);
 	}
 
+
 	void QuadraticProblem::EucHessianEta(ROPTLIB::Variable* x, ROPTLIB::Vector* v,
                  ROPTLIB::Vector* Hv) const
 	{
@@ -64,6 +74,7 @@ namespace DPGO{
 		HessianVectorProduct->setData(outVec);
 		HessianVectorProduct->vec()->CopyTo(Hv);
 	}
+
 
 	void QuadraticProblem::PreConditioner(ROPTLIB::Variable* x, ROPTLIB::Vector* inVec,
                       ROPTLIB::Vector* outVec) const 
