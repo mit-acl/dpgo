@@ -10,6 +10,14 @@
 namespace DPGO{
 
 	/**
+	Helper function to read a matrix from a .txt file
+	File format:
+	first row contains rows and cols
+	remaining rows store data
+	*/
+	Matrix read_matrix_from_file(const std::string& filename);
+
+	/**
 	Helper function to read a dataset in .g2o format
 	*/
 	std::vector<RelativeSEMeasurement> read_g2o_file(const std::string& filename, size_t& num_poses);

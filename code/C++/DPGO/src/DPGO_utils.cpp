@@ -10,6 +10,20 @@
 
 namespace DPGO{
 
+	Matrix read_matrix_from_file(const std::string& filename){
+		std::ifstream f(filename);
+		size_t rows, cols;
+		f >> rows >> cols;
+		Matrix Mat = Matrix::Zero(rows,cols);
+		for(size_t row = 0; row < rows; ++row){
+			for(size_t col = 0; col < cols; ++col){
+				f >> Mat(row, col);
+			}
+		}
+		return Mat;
+	}
+
+
 	/**
 	###############################################################
 	############################################################### 
