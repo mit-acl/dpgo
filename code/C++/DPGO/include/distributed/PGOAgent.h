@@ -292,6 +292,14 @@ namespace DPGO{
     */
     void runOptimizationLoop();
 
+
+    /**
+    Find a shared loop closure based on neighboring robot's ID and pose
+    */
+    bool findSharedLoopClosure(unsigned neighborID, unsigned neighborPose, RelativeSEMeasurement& mOut);
+
+
+
   };
 
 } 

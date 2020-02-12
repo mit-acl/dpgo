@@ -101,11 +101,8 @@ namespace DPGO{
 
 	void PGOAgent::updateNeighborPose(unsigned neighborCluster, unsigned neighborID, unsigned neighborPose, const Matrix& var){
 		assert(neighborID != mID);
-
-		/** 
-        TODO: if necessary, realign the local frame of this robot to match the neighbor's
-        and update the cluster that this robot belongs to
-    	*/
+		assert(var.rows() == r);
+		assert(ver.cols() == d+1);
 
 		PoseID nID = std::make_pair(neighborID, neighborPose);
 
@@ -115,6 +112,48 @@ namespace DPGO{
 		lock_guard<mutex> lock(mNeighborPosesMutex);
 
 		neighborPoseDict[nID] = var;
+
+		/** 
+        If necessary, realign the local frame of this robot to match the neighbor's
+        and update the cluster that this robot belongs to
+    	*/
+
+		if(neighborCluster < mCluster){
+			cout << "Agent " << mID << " joins cluster " << neighborCluster << "!" << endl;
+
+			mCluster = neighborCluster;
+
+			// Find the corresponding inter-robot loop closure
+			RelativeSEMeasurement m;
+			assert(findSharedLoopClosure(neighborID, neighborPose,m));
+
+			// Form relative transformation matrix in homogeneous form
+			Matrix dT = Matrix::Zero(d+1, d+1);
+			dT.block(0,0,d,d) = m.R;
+			dT.block(0,d,d,1) = m.t;
+			dT(d,d) = 1;
+
+			// Pause pose update
+			lock_guard<mutex> lock(mPosesMutex);
+
+			// Incoming edge
+			if(m.r1 == neighborID){
+
+				// the pose owned by this robot that are connected by loop closure
+				unsigned index = m.p2; 
+
+				Matrix Xstar = var * dT; 
+				Matrix Ystar = Xstar.block(0,0,r,d);
+				Matrix pstar = Xstar.block(0,d,r,1);
+
+				Matrix Xcurr = Y.block(0, index*(d+1), r, d+1);
+				Matrix Ycurr = Xcurr.block(0,0,r,d);
+				Matrix pcurr = Xcurr.block(0,d,r,1)
+
+			}
+
+		}
+
 	}
 
 
@@ -396,6 +435,20 @@ namespace DPGO{
 
 	bool PGOAgent::isOptimizationRunning(){
 		return !(mOptimizationThread == nullptr);
+	}
+
+
+	bool PGOAgent::findSharedLoopClosure(unsigned neighborID, unsigned neighborPose, RelativeSEMeasurement& mOut){
+
+		for(size_t i = 0; i < sharedLoopClosures.size(); ++i){
+			RelativeSEMeasurement m = sharedLoopClosures[i];
+			if ((m.r1 == neighborID && m.p1 == neighborPose) || (m.r2 == neighborID && m.p2 == neighborPose)){
+				mOut = m;
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 
