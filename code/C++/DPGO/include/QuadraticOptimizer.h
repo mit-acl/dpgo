@@ -47,6 +47,7 @@ namespace DPGO{
 		void setStepsize(double s) {stepsize = s;}
 
 	private:
+
 		// Underlying Riemannian Optimization Problem
 		QuadraticProblem* problem;
 
@@ -59,8 +60,15 @@ namespace DPGO{
 		// Verbose flag
 		bool verbose;
 
+		// Apply RTR
+		Matrix trustRegion(const Matrix& Yinit);
+
 		// Apply a single RGD iteration with constant step size
-		Matrix optimizeRGD(const Matrix& Yinit);
+		Matrix gradientDescent(const Matrix& Yinit);
+
+		// Apply gradient descent with line search
+		Matrix gradientDescentLS(const Matrix& Yinit);
+
 	};
 
 }
