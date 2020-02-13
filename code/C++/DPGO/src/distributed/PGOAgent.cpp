@@ -21,6 +21,7 @@ namespace DPGO{
 	r(params.r), 
 	n(1),
 	verbose(params.verbose),
+	rate(1),
 	algorithm(params.algorithm),
 	stepsize(1e-3)
 	{
@@ -109,18 +110,23 @@ namespace DPGO{
 		// Do not store this pose if not needed
 		if(neighborSharedPoses.find(nID) == neighborSharedPoses.end()) return;
 
-		lock_guard<mutex> lock(mNeighborPosesMutex);
-
-		neighborPoseDict[nID] = var;
-
 		/** 
         If necessary, realign the local frame of this robot to match the neighbor's
         and update the cluster that this robot belongs to
     	*/
 
 		if(neighborCluster < mCluster){
-			cout << "Agent " << mID << " joins cluster " << neighborCluster << "!" << endl;
-			assert(r == d);
+			cout << "Agent " << mID << " joining cluster " << neighborCluster << "..." << endl;
+			if (r!=d){
+				cout << "Error: cluster merging only supports r = d!" << endl;
+				assert(r == d);
+			}
+
+			// Halt pose update
+			cout << "Agent " << mID << " halt optimization thread..." << endl;
+			endOptimizationLoop();
+			lock_guard<mutex> lock(mPosesMutex);
+			assert(Y.cols() == n*(d+1));
 
 			mCluster = neighborCluster;
 
@@ -135,23 +141,16 @@ namespace DPGO{
 
 			// Initialize matrices used later
 			Matrix Xstar, Xcurr;
-			unsigned index;
-
-			// Pause pose update
-			unique_lock<mutex> lock(mPosesMutex);
-			assert(Y.cols() == n*(d+1));
 
 			if(m.r1 == neighborID){
 				// Incoming edge
 				Xstar = var * dT; 
 				Xcurr = Y.block(0, m.p2*(d+1), d, d+1);
-				index = m.p2;
 			}
 			else{
 				// Outgoing edge
 				Xstar = var * dT.inverse();
 				Xcurr = Y.block(0, m.p1*(d+1), d, d+1);
-				index = m.p1;
 			}
 
 
@@ -172,7 +171,17 @@ namespace DPGO{
 				Matrix T2 = Tc * T1;
 				Y.block(0, i*(d+1), d, d+1) = T2.block(0,0,d,d+1);
 			}
+
+			cout << "Agent " << mID << " joined cluster " << neighborCluster << "!" << endl;
+			cout << "Agent " << mID << " restart optimization thread..." << endl;
+			startOptimizationLoop(rate);
 		}
+
+		// Do not store this pose if it comes from a different cluster
+		if(neighborCluster != mCluster) return;
+
+		lock_guard<mutex> lock(mNeighborPosesMutex);
+		neighborPoseDict[nID] = var;
 	}
 
 
