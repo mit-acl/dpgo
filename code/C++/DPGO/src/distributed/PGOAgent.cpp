@@ -50,7 +50,11 @@ namespace DPGO{
 
 		// extend trajectory by a single pose
 		lock_guard<mutex> tLock(mPosesMutex);
-		Y.conservativeResize(Eigen::NoChange, (d+1)*(n+1));
+		Matrix Y_ = Y;
+		assert(Y_.cols() == (d+1)*n);
+		assert(Y_.rows() == r);
+		Y = Matrix::Zero(r,(d+1)*(n+1));
+		Y.block(0,0,r,(d+1)*n) = Y_;
 
 		Matrix currR = Y.block(0, (n-1)*(d+1), r, d);
 		Matrix currt = Y.block(0, (n-1)*(d+1)+d,r,1);
@@ -116,8 +120,8 @@ namespace DPGO{
     	*/
 
 		if(neighborCluster < mCluster){
-			cout << "Agent " << mID << " joining cluster " << neighborCluster << "..." << endl;
-			if (r!=d){
+			cout << "Agent " << mID << " informed by agent " << neighborID << " to join cluster " << neighborCluster << "!" << endl;
+			if (r != d){
 				cout << "Error: cluster merging only supports r = d!" << endl;
 				assert(r == d);
 			}
@@ -125,8 +129,12 @@ namespace DPGO{
 			// Halt pose update
 			cout << "Agent " << mID << " halt optimization thread..." << endl;
 			endOptimizationLoop();
+
+			// Clear neighboring pose cache
 			lock_guard<mutex> lock(mPosesMutex);
 			assert(Y.cols() == n*(d+1));
+			lock_guard<mutex> lock2(mNeighborPosesMutex);
+			neighborPoseDict.clear();
 
 			mCluster = neighborCluster;
 
@@ -171,9 +179,7 @@ namespace DPGO{
 				Matrix T2 = Tc * T1;
 				Y.block(0, i*(d+1), d, d+1) = T2.block(0,0,d,d+1);
 			}
-
-			cout << "Agent " << mID << " joined cluster " << neighborCluster << "!" << endl;
-			cout << "Agent " << mID << " restart optimization thread..." << endl;
+			
 			startOptimizationLoop(rate);
 		}
 
@@ -230,6 +236,9 @@ namespace DPGO{
 	void PGOAgent::optimize(){
 		if(verbose) cout << "Agent " << mID << " optimize..." << endl;
 
+		// halt insertion of new pose
+		unique_lock<mutex> tLock(mPosesMutex);
+		
 		// number of poses updated at this time
 		unsigned k = n; 
 
@@ -267,9 +276,7 @@ namespace DPGO{
 
 
 		// Read current estimates of the first k poses
-		unique_lock<mutex> tLock(mPosesMutex);
 		Matrix Ycurr = Y.block(0,0,r,(d+1)*k);
-		tLock.unlock();
 		assert(Ycurr.cols() == Q.cols());
 
 
@@ -289,15 +296,13 @@ namespace DPGO{
 		double elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(counter).count();
 		if(verbose) cout << "Optimization time: " << elapsedMs / 1000 << " seconds." << endl;
 
-
-		// TODO: handle dynamic pose graph
-		tLock.lock();
-		Y = Ynext;
-		tLock.unlock();
+		Y.block(0,0,r,(d+1)*k) = Ynext;
+		assert(n == k);
 	}
 
 
-	void PGOAgent::constructCostMatrices(const vector<RelativeSEMeasurement>& privateMeasurements,
+	void PGOAgent::constructCostMatrices(
+			const vector<RelativeSEMeasurement>& privateMeasurements,
             const vector<RelativeSEMeasurement>& sharedMeasurements,
             SparseMatrix* Q, 
             SparseMatrix* G)
@@ -305,7 +310,6 @@ namespace DPGO{
 
 		// All private measurements appear in the quadratic term
 		*Q = constructConnectionLaplacianSE(privateMeasurements);
-
 
 		// Shared measurements modify both quadratic and linear terms
 		unique_lock<mutex> lock(mNeighborPosesMutex, std::defer_lock);
@@ -345,6 +349,7 @@ namespace DPGO{
 
 				// Modify quadratic cost
 				size_t idx = m.p1;
+
 				Matrix W = T * Omega * T.transpose();
 				for (size_t col = 0; col < d+1; ++col){
 					for(size_t row = 0; row < d+1; ++row){
@@ -380,6 +385,7 @@ namespace DPGO{
 
 				// Modify quadratic cost
 				size_t idx = m.p2;
+
 				for (size_t col = 0; col < d+1; ++col){
 					for(size_t row = 0; row < d+1; ++row){
 						Q->coeffRef(idx*(d+1)+row, idx*(d+1)+col) += Omega(row,col);
