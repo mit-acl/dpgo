@@ -129,10 +129,9 @@ namespace DPGO{
 			assert(findSharedLoopClosure(neighborID, neighborPose, m));
 
 			// Form relative transformation matrix in homogeneous form
-			Matrix dT = Matrix::Zero(d+1, d+1);
+			Matrix dT = Matrix::Identity(d+1, d+1);
 			dT.block(0,0,d,d) = m.R;
 			dT.block(0,d,d,1) = m.t;
-			dT(d,d) = 1;
 
 			// Initialize matrices used later
 			Matrix Xstar, Xcurr;
@@ -145,40 +144,35 @@ namespace DPGO{
 			if(m.r1 == neighborID){
 				// Incoming edge
 				Xstar = var * dT; 
-				Xcurr = Y.block(0, m.p2*(d+1), r, d+1);
+				Xcurr = Y.block(0, m.p2*(d+1), d, d+1);
 				index = m.p2;
 			}
 			else{
 				// Outgoing edge
 				Xstar = var * dT.inverse();
-				Xcurr = Y.block(0, m.p1*(d+1), r, d+1);
+				Xcurr = Y.block(0, m.p1*(d+1), d, d+1);
 				index = m.p1;
 			}
 
 
-			// Desired rotation and translation for index pose
-			Matrix Rstar = Xstar.block(0,0,r,d);
-			Matrix tstar = Xstar.block(0,d,r,1);
+			// Desired pose for index pose
+			Matrix Tstar = Matrix::Identity(d+1,d+1);
+			Tstar.block(0,0,d,d+1) = Xstar;
 
-			Matrix Rcurr = Xcurr.block(0,0,r,d);
-			Matrix Rc = Rstar * (Rcurr.transpose());
+			// Current pose for index pose
+			Matrix Tcurr = Matrix::Identity(d+1,d+1);
+			Tcurr.block(0,0,d,d+1) = Xcurr;
 
-			// Rotate
+			// Required transformation
+			Matrix Tc = Tstar * Tcurr.inverse();
+
+			Matrix T1 = Matrix::Identity(d+1, d+1);
 			for(size_t i = 0; i < n; ++i){
-				Y.block(0, i*(d+1), r, d) = Rc * Y.block(0, i*(d+1), r, d);
-				Y.block(0, i*(d+1)+d, r, 1) = Rc * Y.block(0, i*(d+1)+d, r, 1);
+				T1.block(0,0,d,d+1) = Y.block(0, i*(d+1), d, d+1);
+				Matrix T2 = Tc * T1;
+				Y.block(0, i*(d+1), d, d+1) = T2.block(0,0,d,d+1);
 			}
-
-			Matrix tcurr = Y.block(0, index*(d+1)+d, r, 1);
-			Matrix tc = tstar - tcurr;
-
-			// Translate
-			for(size_t i = 0; i < n; ++i){
-				Y.block(0, i*(d+1)+d, r, 1) = Y.block(0, i*(d+1)+d, r, 1) + tc;
-			}
-
 		}
-
 	}
 
 
