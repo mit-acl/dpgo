@@ -102,7 +102,7 @@ namespace DPGO{
 	void PGOAgent::updateNeighborPose(unsigned neighborCluster, unsigned neighborID, unsigned neighborPose, const Matrix& var){
 		assert(neighborID != mID);
 		assert(var.rows() == r);
-		assert(ver.cols() == d+1);
+		assert(var.cols() == d+1);
 
 		PoseID nID = std::make_pair(neighborID, neighborPose);
 
@@ -120,12 +120,13 @@ namespace DPGO{
 
 		if(neighborCluster < mCluster){
 			cout << "Agent " << mID << " joins cluster " << neighborCluster << "!" << endl;
+			assert(r == d);
 
 			mCluster = neighborCluster;
 
 			// Find the corresponding inter-robot loop closure
 			RelativeSEMeasurement m;
-			assert(findSharedLoopClosure(neighborID, neighborPose,m));
+			assert(findSharedLoopClosure(neighborID, neighborPose, m));
 
 			// Form relative transformation matrix in homogeneous form
 			Matrix dT = Matrix::Zero(d+1, d+1);
@@ -133,23 +134,47 @@ namespace DPGO{
 			dT.block(0,d,d,1) = m.t;
 			dT(d,d) = 1;
 
+			// Initialize matrices used later
+			Matrix Xstar, Xcurr;
+			unsigned index;
+
 			// Pause pose update
-			lock_guard<mutex> lock(mPosesMutex);
+			unique_lock<mutex> lock(mPosesMutex);
+			assert(Y.cols() == n*(d+1));
 
-			// Incoming edge
 			if(m.r1 == neighborID){
+				// Incoming edge
+				Xstar = var * dT; 
+				Xcurr = Y.block(0, m.p2*(d+1), r, d+1);
+				index = m.p2;
+			}
+			else{
+				// Outgoing edge
+				Xstar = var * dT.inverse();
+				Xcurr = Y.block(0, m.p1*(d+1), r, d+1);
+				index = m.p1;
+			}
 
-				// the pose owned by this robot that are connected by loop closure
-				unsigned index = m.p2; 
 
-				Matrix Xstar = var * dT; 
-				Matrix Ystar = Xstar.block(0,0,r,d);
-				Matrix pstar = Xstar.block(0,d,r,1);
+			// Desired rotation and translation for index pose
+			Matrix Rstar = Xstar.block(0,0,r,d);
+			Matrix tstar = Xstar.block(0,d,r,1);
 
-				Matrix Xcurr = Y.block(0, index*(d+1), r, d+1);
-				Matrix Ycurr = Xcurr.block(0,0,r,d);
-				Matrix pcurr = Xcurr.block(0,d,r,1)
+			Matrix Rcurr = Xcurr.block(0,0,r,d);
+			Matrix Rc = Rstar * (Rcurr.transpose());
 
+			// Rotate
+			for(size_t i = 0; i < n; ++i){
+				Y.block(0, i*(d+1), r, d) = Rc * Y.block(0, i*(d+1), r, d);
+				Y.block(0, i*(d+1)+d, r, 1) = Rc * Y.block(0, i*(d+1)+d, r, 1);
+			}
+
+			Matrix tcurr = Y.block(0, index*(d+1)+d, r, 1);
+			Matrix tc = tstar - tcurr;
+
+			// Translate
+			for(size_t i = 0; i < n; ++i){
+				Y.block(0, i*(d+1)+d, r, 1) = Y.block(0, i*(d+1)+d, r, 1) + tc;
 			}
 
 		}
