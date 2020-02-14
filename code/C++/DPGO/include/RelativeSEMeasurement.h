@@ -36,7 +36,8 @@ struct RelativeSEMeasurement {
   double tau;
 
   /** Simple default constructor; does nothing */
-  RelativeSEMeasurement() {}
+  RelativeSEMeasurement() {
+  }
 
   /** Basic constructor */
   RelativeSEMeasurement(size_t first_robot, size_t second_robot,

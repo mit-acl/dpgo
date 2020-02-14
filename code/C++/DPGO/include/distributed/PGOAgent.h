@@ -157,6 +157,12 @@ namespace DPGO{
 
 
     /**
+    Get most recent gradient norm 
+    */
+    double gradNorm(){return gradnorm;}
+
+
+    /**
     Return trajectory estimate of this robot in local frame, with its first pose set to identity   
     */
     Matrix getTrajectoryInLocalFrame(); 
@@ -243,7 +249,10 @@ namespace DPGO{
 
     // Solution before rounding
     Matrix Y;
-    
+        
+    // Gradient norm of the current solution
+    double gradnorm;
+
     // used during rounding to put the current solution to a global reference frame
     Matrix globalAnchor; 
 

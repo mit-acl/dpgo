@@ -47,6 +47,8 @@ namespace DPGO{
 		assert(factor.r2 == mID);
 		assert(factor.p1 == n-1);
 		assert(factor.p2 == n);
+		assert(factor.R.rows() == d && factor.R.cols() == d);
+		assert(factor.t.rows() == d && factor.t.cols() == 1);
 
 		// extend trajectory by a single pose
 		lock_guard<mutex> tLock(mPosesMutex);
@@ -79,6 +81,8 @@ namespace DPGO{
 		assert(factor.r2 == mID);
 		assert(factor.p1 < n);
 		assert(factor.p2 < n);
+		assert(factor.R.rows() == d && factor.R.cols() == d);
+		assert(factor.t.rows() == d && factor.t.cols() == 1);
 
 		lock_guard<mutex> lock(mMeasurementsMutex);
 		privateLoopClosures.push_back(factor);
@@ -86,6 +90,9 @@ namespace DPGO{
 
 
 	void PGOAgent::addSharedLoopClosure(const RelativeSEMeasurement& factor){
+		assert(factor.R.rows() == d && factor.R.cols() == d);
+		assert(factor.t.rows() == d && factor.t.cols() == 1);
+
 		if(factor.r1 == mID){
 			assert(factor.p1 < n);
 			assert(factor.r2 != mID);
@@ -127,7 +134,7 @@ namespace DPGO{
 			}
 
 			// Halt pose update
-			cout << "Agent " << mID << " halt optimization thread..." << endl;
+			if(verbose) cout << "Agent " << mID << " halt optimization thread..." << endl;
 			endOptimizationLoop();
 
 			// Clear neighboring pose cache
@@ -238,13 +245,15 @@ namespace DPGO{
 
 		// halt insertion of new pose
 		unique_lock<mutex> tLock(mPosesMutex);
+
+		// halt insertion of new measurements
+		unique_lock<mutex> mLock(mMeasurementsMutex);
 		
 		// number of poses updated at this time
 		unsigned k = n; 
 
 		// get private measurements
 		vector<RelativeSEMeasurement> myMeasurements;
-		unique_lock<mutex> mLock(mMeasurementsMutex);
 		for(size_t i = 0; i < odometry.size(); ++i){
 			RelativeSEMeasurement m = odometry[i];
 			if(m.p1 < k && m.p2 < k) myMeasurements.push_back(m);
@@ -253,7 +262,6 @@ namespace DPGO{
 			RelativeSEMeasurement m = privateLoopClosures[i];
 			if(m.p1 < k && m.p2 < k) myMeasurements.push_back(m);
 		}
-		mLock.unlock();
 		if (myMeasurements.empty()){
 			if (verbose) cout << "No measurements. Skip optimization." << endl;
 			return;
@@ -264,6 +272,8 @@ namespace DPGO{
 		vector<RelativeSEMeasurement> sharedMeasurements;
 		for(size_t i = 0; i < sharedLoopClosures.size(); ++i){
 			RelativeSEMeasurement m = sharedLoopClosures[i];
+			assert(m.R.size() != 0);
+			assert(m.t.size() != 0);
 			if(m.r1 == mID && m.p1 < k) sharedMeasurements.push_back(m);
 			else if(m.r2 == mID && m.p2 < k) sharedMeasurements.push_back(m);
 		}
@@ -295,6 +305,7 @@ namespace DPGO{
 		auto counter = std::chrono::high_resolution_clock::now() - startTime;
 		double elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(counter).count();
 		if(verbose) cout << "Optimization time: " << elapsedMs / 1000 << " seconds." << endl;
+		gradnorm = problem.gradNorm(Ynext);
 
 		Y.block(0,0,r,(d+1)*k) = Ynext;
 		assert(n == k);
@@ -421,7 +432,7 @@ namespace DPGO{
 
 
 	void PGOAgent::runOptimizationLoop(){
-		cout << "Agent " << mID << " optimization thread running at " << rate << " Hz." << endl;
+		if (verbose) cout << "Agent " << mID << " optimization thread running at " << rate << " Hz." << endl;
 
 		// Create exponential distribution with the desired rate
 		std::random_device rd;  //Will be used to obtain a seed for the random number engine
@@ -461,7 +472,7 @@ namespace DPGO{
 
 		mFinishRequested = false; // reset request flag
 
-		cout << "Agent " << mID << " optimization thread exited. " << endl;
+		if (verbose) cout << "Agent " << mID << " optimization thread exited. " << endl;
 
 
 	}
