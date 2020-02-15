@@ -16,7 +16,7 @@ namespace DPGO{
 
 	PGOAgent::PGOAgent(unsigned ID, const PGOAgentParameters& params): 
 	mID(ID), 
-	mCluster(ID), 
+	mCluster(0), 
 	d(params.d), 
 	r(params.r), 
 	n(1),
@@ -50,8 +50,9 @@ namespace DPGO{
 		assert(factor.R.rows() == d && factor.R.cols() == d);
 		assert(factor.t.rows() == d && factor.t.cols() == 1);
 
-		// extend trajectory by a single pose
 		lock_guard<mutex> tLock(mPosesMutex);
+		lock_guard<mutex> nLock(mNeighborPosesMutex);
+		
 		Matrix Y_ = Y;
 		assert(Y_.cols() == (d+1)*n);
 		assert(Y_.rows() == r);
@@ -137,10 +138,15 @@ namespace DPGO{
 			if(verbose) cout << "Agent " << mID << " halt optimization thread..." << endl;
 			endOptimizationLoop();
 
-			// Clear neighboring pose cache
-			lock_guard<mutex> lock(mPosesMutex);
+			// Halt insertion of new poses
+			lock_guard<mutex> tLock(mPosesMutex);
 			assert(Y.cols() == n*(d+1));
-			lock_guard<mutex> lock2(mNeighborPosesMutex);
+
+			// Halt insertion of new measurements
+			lock_guard<mutex> mLock(mMeasurementsMutex);
+
+			// Clear cache
+			lock_guard<mutex> nLock(mNeighborPosesMutex);
 			neighborPoseDict.clear();
 
 			mCluster = neighborCluster;
@@ -243,16 +249,18 @@ namespace DPGO{
 	void PGOAgent::optimize(){
 		if(verbose) cout << "Agent " << mID << " optimize..." << endl;
 
-		// halt insertion of new pose
-		unique_lock<mutex> tLock(mPosesMutex);
+		// need to lock pose later
+		unique_lock<mutex> tLock(mPosesMutex, std::defer_lock);
 
-		// halt insertion of new measurements
-		unique_lock<mutex> mLock(mMeasurementsMutex);
+		// need to lock measurements later;
+		unique_lock<mutex> mLock(mMeasurementsMutex, std::defer_lock);
 		
 		// number of poses updated at this time
 		unsigned k = n; 
 
-		// get private measurements
+
+		// read private and shared measurements 
+		mLock.lock();
 		vector<RelativeSEMeasurement> myMeasurements;
 		for(size_t i = 0; i < odometry.size(); ++i){
 			RelativeSEMeasurement m = odometry[i];
@@ -266,9 +274,6 @@ namespace DPGO{
 			if (verbose) cout << "No measurements. Skip optimization." << endl;
 			return;
 		} 
-
-
-		// get shared measurements
 		vector<RelativeSEMeasurement> sharedMeasurements;
 		for(size_t i = 0; i < sharedLoopClosures.size(); ++i){
 			RelativeSEMeasurement m = sharedLoopClosures[i];
@@ -277,6 +282,7 @@ namespace DPGO{
 			if(m.r1 == mID && m.p1 < k) sharedMeasurements.push_back(m);
 			else if(m.r2 == mID && m.p2 < k) sharedMeasurements.push_back(m);
 		}
+		mLock.unlock();
 
 
 		// construct data matrices
@@ -285,9 +291,12 @@ namespace DPGO{
 		constructCostMatrices(myMeasurements, sharedMeasurements, &Q, &G);
 
 
+		
 		// Read current estimates of the first k poses
+		tLock.lock();
 		Matrix Ycurr = Y.block(0,0,r,(d+1)*k);
 		assert(Ycurr.cols() == Q.cols());
+		tLock.unlock();
 
 
 		// Construct optimization problem
@@ -307,6 +316,7 @@ namespace DPGO{
 		if(verbose) cout << "Optimization time: " << elapsedMs / 1000 << " seconds." << endl;
 		gradnorm = problem.gradNorm(Ynext);
 
+		tLock.lock();
 		Y.block(0,0,r,(d+1)*k) = Ynext;
 		assert(n == k);
 	}
@@ -322,8 +332,9 @@ namespace DPGO{
 		// All private measurements appear in the quadratic term
 		*Q = constructConnectionLaplacianSE(privateMeasurements);
 
-		// Shared measurements modify both quadratic and linear terms
+		// Halt update of shared neighbor poses
 		unique_lock<mutex> lock(mNeighborPosesMutex, std::defer_lock);
+
 		for(size_t i = 0; i < sharedMeasurements.size(); ++i){
 			RelativeSEMeasurement m = sharedMeasurements[i];
 
