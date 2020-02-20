@@ -72,6 +72,11 @@ namespace DPGO{
 
 		// Riemannian gradient
 		M.getManifold()->Projection(VarInit.var(), RGrad.vec(), RGrad.vec());
+
+		// Preconditioning
+		// problem->PreConditioner(VarInit.var(), RGrad.vec(), RGrad.vec());
+
+		// Update
 		M.getManifold()->ScaleTimesVector(VarInit.var(), -stepsize, RGrad.vec(), RGrad.vec());
 		M.getManifold()->Retraction(VarInit.var(), RGrad.vec(), VarNext.var());
 
