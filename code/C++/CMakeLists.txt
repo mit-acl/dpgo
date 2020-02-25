@@ -1,5 +1,3 @@
-# dmrosen 18-May-2017
-
 # PROJECT CONFIGURATION
 cmake_minimum_required(VERSION 2.8)
 set(CMAKE_BUILD_TYPE Debug CACHE STRING "Choose the type of build, options are: None Debug Release RelWithDebInfo MinSizeRel.")
@@ -50,11 +48,8 @@ set(SPECTRA_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/spectra/include CACHE PATH "Path to 
 # Build ROPTLIB library
 add_subdirectory(ROPTLIB)
 
-# Build SESync　library
-add_subdirectory(SE-Sync)
-
 # Build Distributed PGO library
 add_subdirectory(DPGO)
 
 # Export the libraries to make them available to other CMake projects
-export(TARGETS roptlib SESync DPGO FILE DPGO.cmake)
+export(TARGETS roptlib DPGO FILE DPGO.cmake)
