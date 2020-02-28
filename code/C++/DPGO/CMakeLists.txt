@@ -74,6 +74,24 @@ target_link_libraries(distributed-example2 DPGO)
 
 
 # Install
+export(TARGETS DPGO FILE DPGOTargets.cmake)
+
+set(INSTALL_CONFIGDIR ${CMAKE_INSTALL_LIBDIR}/cmake/DPGO)
+
+include(CMakePackageConfigHelpers)
+write_basic_package_version_file(${CMAKE_CURRENT_BINARY_DIR}/DPGOConfigVersion.cmake
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY AnyNewerVersion
+)
+
+# Create KimeraRPGOConfig.cmake with extra info from KimeraRPGOConfig.cmake.in
+# This file is necessary to find_package the library KimeraRPGO.
+configure_package_config_file(${CMAKE_CURRENT_LIST_DIR}/cmake/DPGOConfig.cmake.in
+    ${CMAKE_CURRENT_BINARY_DIR}/DPGOConfig.cmake
+    INSTALL_DESTINATION ${INSTALL_CONFIGDIR}
+)
+
+
 include(GNUInstallDirs)
 
 install(TARGETS DPGO
@@ -84,6 +102,6 @@ install(TARGETS DPGO
 
 install(EXPORT DPGOTargets
   FILE DPGOTargets.cmake
-  DESTINATION lib/cmake/DPGO
+  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/DPGO
 )
 

@@ -52,5 +52,5 @@ add_subdirectory(ROPTLIB)
 add_subdirectory(DPGO)
 
 # Export the libraries to make them available to other CMake projects
-export(TARGETS roptlib DPGO FILE DPGO.cmake)
+# export(TARGETS roptlib DPGO FILE DPGO.cmake)
 
