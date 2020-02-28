@@ -3,8 +3,6 @@
 # PROJECT CONFIGURATION
 cmake_minimum_required(VERSION 2.8)
 
-set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build, options are: None Debug Release RelWithDebInfo MinSizeRel.")
-
 project(ROPTLIB C CXX)
 set (CMAKE_CXX_FLAGS "-std=c++11 ${CMAKE_CXX_FLAGS}")
 add_compile_options(-march=native) # Enable faster instruction sets
@@ -100,8 +98,32 @@ Problems/StieSparseBrockett/StieSparseBrockett.cpp
 Problems/StieSumBrockett/StieSumBrockett.cpp 
 Problems/WeightedLowrank/WeightedLowRank.cpp 
 Solvers/LRBFGS.cpp Solvers/LRBFGSLPSub.cpp Solvers/LRTRSR1.cpp Solvers/MRankAdaptive.cpp Solvers/QuasiNewton.cpp Solvers/RBFGS.cpp Solvers/RBFGSLPSub.cpp Solvers/RBroydenFamily.cpp Solvers/RCG.cpp Solvers/RGS.cpp Solvers/RNewton.cpp Solvers/RSD.cpp Solvers/RTRNewton.cpp Solvers/RTRSD.cpp Solvers/RTRSR1.cpp Solvers/RWRBFGS.cpp Solvers/Solvers.cpp Solvers/SolversLS.cpp Solvers/SolversLSLPSub.cpp Solvers/SolversTR.cpp)
-target_include_directories(roptlib PUBLIC ${ROPTLIB_INCLUDE_DIRECTORIES})
+
+target_include_directories(roptlib PUBLIC 
+	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Manifolds>
+	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Manifolds/CpxNStQOrth>
+	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Manifolds/EucPositive>
+	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Manifolds/Euclidean>
+	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Manifolds/Grassmann>
+	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Manifolds/L2Sphere>
+	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Manifolds/LowRank>
+	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Manifolds/Oblique>
+	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Manifolds/OrthGroup>
+	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Manifolds/SPDManifold>
+	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Manifolds/Sphere>
+	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Manifolds/Stiefel>
+	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Others>
+	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Others/SparseBLAS>
+	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Problems>
+	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Solvers>
+	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/cwrapper>
+	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/cwrapper/blas>
+	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/cwrapper/lapack>)
+
 target_link_libraries(roptlib ${LAPACK} ${BLAS} ${M})
+
+
 if(${CODE_PROFILING})
 set_target_properties(roptlib PROPERTIES COMPILE_FLAGS "-pg -g" LINK_FLAGS "-pg -g")
 endif()
@@ -121,3 +143,16 @@ endif()
 #target_link_libraries(TestProductBrockett roptlib)
 
 export(TARGETS roptlib FILE ROPTLIB.cmake)
+
+# Install
+install(TARGETS roptlib
+        DESTINATION lib
+        EXPORT roptlibTargets)
+
+install(EXPORT roptlibTargets
+  FILE roptlibTargets.cmake
+  DESTINATION lib/cmake/roptlib
+)
+
+
+
