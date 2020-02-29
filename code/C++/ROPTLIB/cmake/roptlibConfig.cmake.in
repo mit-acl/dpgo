@@ -1,3 +1,5 @@
-@PACKAGE_INIT@
+get_filename_component(roptlib_CMAKE_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
 
-include ("/usr/local/lib/cmake/roptlib/roptlibTargets.cmake")
+if(NOT TARGET roptlib)
+    include("${roptlib_CMAKE_DIR}/roptlibTargets.cmake")
+endif()

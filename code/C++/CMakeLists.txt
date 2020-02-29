@@ -7,6 +7,8 @@ project(DistributedPGO C CXX)
 set (CMAKE_CXX_FLAGS "-std=c++11 ${CMAKE_CXX_FLAGS}")
 add_compile_options(-march=native) # Enable faster instruction sets
 
+include(GNUInstallDirs)
+set(DPGO_INSTALL_INCLUDEDIR ${CMAKE_INSTALL_INCLUDEDIR}/DPGO)
 
 # Directory for built libraries
 set(LIBRARY_OUTPUT_PATH ${CMAKE_CURRENT_BINARY_DIR}/lib CACHE PATH "The directory in which to place libraries built by this project")
@@ -15,11 +17,6 @@ set(EXECUTABLE_OUTPUT_PATH ${CMAKE_CURRENT_BINARY_DIR}/bin CACHE PATH "The direc
 
 # BUILD CONFIGURATIONS
 option(CMAKE_VERBOSE_MAKEFILE "Generate verbose makefiles?" OFF)
-
-set(CODE_PROFILING OFF CACHE BOOL "Turn on code profiling?")
-if(${CODE_PROFILING})
-message(STATUS "Turning on code profiling for SE-Sync")
-endif()
 
 # Add the .cmake files that ship with Eigen3 to the CMake module path (useful for finding other stuff)
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/eigen/cmake" CACHE STRING "The CMake module path used for this project")

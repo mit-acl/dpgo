@@ -120,6 +120,27 @@ target_include_directories(roptlib PUBLIC
 	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/cwrapper>
 	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/cwrapper/blas>
 	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/cwrapper/lapack>
+	# Install
+	$<INSTALL_INTERFACE:${DPGO_INSTALL_INCLUDEDIR}/roptlib>
+	$<INSTALL_INTERFACE:${DPGO_INSTALL_INCLUDEDIR}/roptlib/Manifolds>
+	$<INSTALL_INTERFACE:${DPGO_INSTALL_INCLUDEDIR}/roptlib/Manifolds/CpxNStQOrth>
+	$<INSTALL_INTERFACE:${DPGO_INSTALL_INCLUDEDIR}/roptlib/Manifolds/EucPositive>
+	$<INSTALL_INTERFACE:${DPGO_INSTALL_INCLUDEDIR}/roptlib/Manifolds/Euclidean>
+	$<INSTALL_INTERFACE:${DPGO_INSTALL_INCLUDEDIR}/roptlib/Manifolds/Grassmann>
+	$<INSTALL_INTERFACE:${DPGO_INSTALL_INCLUDEDIR}/roptlib/Manifolds/L2Sphere>
+	$<INSTALL_INTERFACE:${DPGO_INSTALL_INCLUDEDIR}/roptlib/Manifolds/LowRank>
+	$<INSTALL_INTERFACE:${DPGO_INSTALL_INCLUDEDIR}/roptlib/Manifolds/Oblique>
+	$<INSTALL_INTERFACE:${DPGO_INSTALL_INCLUDEDIR}/roptlib/Manifolds/OrthGroup>
+	$<INSTALL_INTERFACE:${DPGO_INSTALL_INCLUDEDIR}/roptlib/Manifolds/SPDManifold>
+	$<INSTALL_INTERFACE:${DPGO_INSTALL_INCLUDEDIR}/roptlib/Manifolds/Sphere>
+	$<INSTALL_INTERFACE:${DPGO_INSTALL_INCLUDEDIR}/roptlib/Manifolds/Stiefel>
+	$<INSTALL_INTERFACE:${DPGO_INSTALL_INCLUDEDIR}/roptlib/Others>
+	$<INSTALL_INTERFACE:${DPGO_INSTALL_INCLUDEDIR}/roptlib/Others/SparseBLAS>
+	$<INSTALL_INTERFACE:${DPGO_INSTALL_INCLUDEDIR}/roptlib/Problems>
+	$<INSTALL_INTERFACE:${DPGO_INSTALL_INCLUDEDIR}/roptlib/Solvers>
+	$<INSTALL_INTERFACE:${DPGO_INSTALL_INCLUDEDIR}/roptlib/cwrapper>
+	$<INSTALL_INTERFACE:${DPGO_INSTALL_INCLUDEDIR}/roptlib/cwrapper/blas>
+	$<INSTALL_INTERFACE:${DPGO_INSTALL_INCLUDEDIR}/roptlib/cwrapper/lapack>	
 )
 
 target_link_libraries(roptlib ${LAPACK} ${BLAS} ${M})
@@ -145,7 +166,6 @@ endif()
 
 
 # Install
-include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 set(INSTALL_CONFIGDIR ${CMAKE_INSTALL_LIBDIR}/cmake/roptlib)
 
@@ -176,6 +196,12 @@ configure_package_config_file(${CMAKE_CURRENT_LIST_DIR}/cmake/roptlibConfig.cmak
 install(FILES
   ${CMAKE_CURRENT_BINARY_DIR}/roptlibConfig.cmake
   DESTINATION ${INSTALL_CONFIGDIR}
+)
+
+# install header files
+install(DIRECTORY ${CMAKE_SOURCE_DIR}/ROPTLIB/
+  DESTINATION ${DPGO_INSTALL_INCLUDEDIR}/roptlib
+  FILES_MATCHING PATTERN "*.h"
 )
 
 export(TARGETS roptlib FILE roptlibTargets.cmake)
