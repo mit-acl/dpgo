@@ -1,0 +1,3 @@
+@PACKAGE_INIT@
+
+include ("/usr/local/lib/cmake/roptlib/roptlibTargets.cmake")

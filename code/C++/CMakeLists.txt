@@ -27,11 +27,11 @@ set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/eigen/cmake" CACHE STRING "The CMake 
 
 # SESYNC DEPENDENCIES
 # FIND EIGEN3
-# set( ENV{EIGEN3_ROOT_DIR} ${CMAKE_SOURCE_DIR}/eigen)
+set( ENV{EIGEN3_ROOT_DIR} ${CMAKE_SOURCE_DIR}/eigen)
 find_package(Eigen3 3.3 REQUIRED)
 if(EIGEN3_FOUND)
-message(STATUS "Found Eigen3 library (version ${EIGEN3_VERSION_STRING})")
-message(STATUS "Eigen3 include directory: ${EIGEN3_INCLUDE_DIR}\n")
+message(STATUS "Found Eigen3 library.")
+message(STATUS "Eigen3 include directory: ${EIGEN3_INCLUDE_DIR}")
 else()
 message(STATUS "Eigen library not found!")
 endif()
@@ -51,6 +51,4 @@ add_subdirectory(ROPTLIB)
 # Build Distributed PGO library
 add_subdirectory(DPGO)
 
-# Export the libraries to make them available to other CMake projects
-# export(TARGETS roptlib DPGO FILE DPGO.cmake)
 

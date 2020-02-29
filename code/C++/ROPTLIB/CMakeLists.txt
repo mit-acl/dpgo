@@ -29,31 +29,31 @@ find_library(BLAS blas DOC "BLAS library to link against")
 find_library(M m "M library to link against")
 
 # Directories of ROPTLIB header files
-set(ROPTLIB_INCLUDE_DIRECTORIES 
-${CMAKE_CURRENT_SOURCE_DIR}
-${CMAKE_CURRENT_SOURCE_DIR}/Manifolds 
-${CMAKE_CURRENT_SOURCE_DIR}/Manifolds/CpxNStQOrth 
-#${CMAKE_CURRENT_SOURCE_DIR}/Manifolds/ElasticShape 
-${CMAKE_CURRENT_SOURCE_DIR}/Manifolds/EucPositive 
-${CMAKE_CURRENT_SOURCE_DIR}/Manifolds/Euclidean 
-${CMAKE_CURRENT_SOURCE_DIR}/Manifolds/Grassmann
-${CMAKE_CURRENT_SOURCE_DIR}/Manifolds/L2Sphere
-${CMAKE_CURRENT_SOURCE_DIR}/Manifolds/LowRank
-${CMAKE_CURRENT_SOURCE_DIR}/Manifolds/Oblique
-${CMAKE_CURRENT_SOURCE_DIR}/Manifolds/OrthGroup
-#${CMAKE_CURRENT_SOURCE_DIR}/Manifolds/PreShapeCurves
-${CMAKE_CURRENT_SOURCE_DIR}/Manifolds/SPDManifold
-${CMAKE_CURRENT_SOURCE_DIR}/Manifolds/Sphere
-${CMAKE_CURRENT_SOURCE_DIR}/Manifolds/Stiefel
-${CMAKE_CURRENT_SOURCE_DIR}/Others
-${CMAKE_CURRENT_SOURCE_DIR}/Others/SparseBLAS
-${CMAKE_CURRENT_SOURCE_DIR}/Problems
-${CMAKE_CURRENT_SOURCE_DIR}/Solvers
-${CMAKE_CURRENT_SOURCE_DIR}/cwrapper
-${CMAKE_CURRENT_SOURCE_DIR}/cwrapper/blas
-${CMAKE_CURRENT_SOURCE_DIR}/cwrapper/lapack
-CACHE INTERNAL ""
-)
+# set(ROPTLIB_INCLUDE_DIRECTORIES 
+# ${CMAKE_CURRENT_SOURCE_DIR}
+# ${CMAKE_CURRENT_SOURCE_DIR}/Manifolds 
+# ${CMAKE_CURRENT_SOURCE_DIR}/Manifolds/CpxNStQOrth 
+# #${CMAKE_CURRENT_SOURCE_DIR}/Manifolds/ElasticShape 
+# ${CMAKE_CURRENT_SOURCE_DIR}/Manifolds/EucPositive 
+# ${CMAKE_CURRENT_SOURCE_DIR}/Manifolds/Euclidean 
+# ${CMAKE_CURRENT_SOURCE_DIR}/Manifolds/Grassmann
+# ${CMAKE_CURRENT_SOURCE_DIR}/Manifolds/L2Sphere
+# ${CMAKE_CURRENT_SOURCE_DIR}/Manifolds/LowRank
+# ${CMAKE_CURRENT_SOURCE_DIR}/Manifolds/Oblique
+# ${CMAKE_CURRENT_SOURCE_DIR}/Manifolds/OrthGroup
+# #${CMAKE_CURRENT_SOURCE_DIR}/Manifolds/PreShapeCurves
+# ${CMAKE_CURRENT_SOURCE_DIR}/Manifolds/SPDManifold
+# ${CMAKE_CURRENT_SOURCE_DIR}/Manifolds/Sphere
+# ${CMAKE_CURRENT_SOURCE_DIR}/Manifolds/Stiefel
+# ${CMAKE_CURRENT_SOURCE_DIR}/Others
+# ${CMAKE_CURRENT_SOURCE_DIR}/Others/SparseBLAS
+# ${CMAKE_CURRENT_SOURCE_DIR}/Problems
+# ${CMAKE_CURRENT_SOURCE_DIR}/Solvers
+# ${CMAKE_CURRENT_SOURCE_DIR}/cwrapper
+# ${CMAKE_CURRENT_SOURCE_DIR}/cwrapper/blas
+# ${CMAKE_CURRENT_SOURCE_DIR}/cwrapper/lapack
+# CACHE INTERNAL ""
+# )
 
 # COMPILE THE ROPTLIB LIBRARY
 add_library(roptlib SHARED
@@ -119,13 +119,14 @@ target_include_directories(roptlib PUBLIC
 	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Solvers>
 	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/cwrapper>
 	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/cwrapper/blas>
-	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/cwrapper/lapack>)
+	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/cwrapper/lapack>
+)
 
 target_link_libraries(roptlib ${LAPACK} ${BLAS} ${M})
 
 
 if(${CODE_PROFILING})
-set_target_properties(roptlib PROPERTIES COMPILE_FLAGS "-pg -g" LINK_FLAGS "-pg -g")
+	set_target_properties(roptlib PROPERTIES COMPILE_FLAGS "-pg -g" LINK_FLAGS "-pg -g")
 endif()
 
 # COMPILE EXECUTABLES
@@ -142,17 +143,40 @@ endif()
 #add_executable(TestProductBrockett test/TestProductExample.cpp test/TestProductExample.cpp)
 #target_link_libraries(TestProductBrockett roptlib)
 
-export(TARGETS roptlib FILE ROPTLIB.cmake)
 
 # Install
-install(TARGETS roptlib
-        DESTINATION lib
-        EXPORT roptlibTargets)
+include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
+set(INSTALL_CONFIGDIR ${CMAKE_INSTALL_LIBDIR}/cmake/roptlib)
 
-install(EXPORT roptlibTargets
+install(
+  TARGETS roptlib
+  EXPORT roptlibTargets
+  LIBRARY  DESTINATION ${CMAKE_INSTALL_LIBDIR}
+)
+
+install(
+  EXPORT roptlibTargets
   FILE roptlibTargets.cmake
-  DESTINATION lib/cmake/roptlib
+  DESTINATION ${INSTALL_CONFIGDIR}
 )
 
 
+write_basic_package_version_file(${CMAKE_CURRENT_BINARY_DIR}/roptlibConfigVersion.cmake
+  VERSION 1.0
+  COMPATIBILITY AnyNewerVersion
+)
+
+configure_package_config_file(${CMAKE_CURRENT_LIST_DIR}/cmake/roptlibConfig.cmake.in
+  ${CMAKE_CURRENT_BINARY_DIR}/roptlibConfig.cmake
+  INSTALL_DESTINATION ${INSTALL_CONFIGDIR}
+)
+
+# install the configuration file
+install(FILES
+  ${CMAKE_CURRENT_BINARY_DIR}/roptlibConfig.cmake
+  DESTINATION ${INSTALL_CONFIGDIR}
+)
+
+export(TARGETS roptlib FILE roptlibTargets.cmake)
 
