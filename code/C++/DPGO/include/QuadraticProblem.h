@@ -2,7 +2,7 @@
 #define QUADRATICPROBLEM_H
 
 #include <vector>
-#include "Problem.h"
+#include "Problems/Problem.h"
 #include "manifold/LiftedSEManifold.h"
 #include "manifold/LiftedSEVariable.h"
 #include "manifold/LiftedSEVector.h"

@@ -2,8 +2,8 @@
 #define LIFTEDSEVARIABLE_H
 
 #include "Manifolds/ProductElement.h"
-#include "Stiefel.h"
-#include "Euclidean.h"
+#include "Manifolds/Stiefel/Stiefel.h"
+#include "Manifolds/Euclidean/Euclidean.h"
 #include "DPGO_types.h"
 #include <Eigen/Dense>
 

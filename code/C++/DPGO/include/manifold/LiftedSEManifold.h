@@ -1,9 +1,9 @@
 #ifndef LIFTEDSEMANIFOLD_H
 #define LIFTEDSEMANIFOLD_H
 
-#include "ProductManifold.h"
-#include "Stiefel.h"
-#include "Euclidean.h"
+#include "Manifolds/ProductManifold.h"
+#include "Manifolds/Stiefel/Stiefel.h"
+#include "Manifolds/Euclidean/Euclidean.h"
 
 /*Define the namespace*/
 namespace DPGO{

@@ -1,9 +1,9 @@
 #ifndef LIFTEDSEVECTOR_H
 #define LIFTEDSEVECTOR_H
 
-#include "ProductManifold.h"
-#include "Stiefel.h"
-#include "Euclidean.h"
+#include "Manifolds/ProductManifold.h"
+#include "Manifolds/Stiefel/Stiefel.h"
+#include "Manifolds/Euclidean/Euclidean.h"
 #include "DPGO_types.h"
 
 /*Define the namespace*/
