@@ -28,33 +28,6 @@ find_library(LAPACK lapack DOC "LAPACK library to link against")
 find_library(BLAS blas DOC "BLAS library to link against")
 find_library(M m "M library to link against")
 
-# Directories of ROPTLIB header files
-# set(ROPTLIB_INCLUDE_DIRECTORIES 
-# ${CMAKE_CURRENT_SOURCE_DIR}
-# ${CMAKE_CURRENT_SOURCE_DIR}/Manifolds 
-# ${CMAKE_CURRENT_SOURCE_DIR}/Manifolds/CpxNStQOrth 
-# #${CMAKE_CURRENT_SOURCE_DIR}/Manifolds/ElasticShape 
-# ${CMAKE_CURRENT_SOURCE_DIR}/Manifolds/EucPositive 
-# ${CMAKE_CURRENT_SOURCE_DIR}/Manifolds/Euclidean 
-# ${CMAKE_CURRENT_SOURCE_DIR}/Manifolds/Grassmann
-# ${CMAKE_CURRENT_SOURCE_DIR}/Manifolds/L2Sphere
-# ${CMAKE_CURRENT_SOURCE_DIR}/Manifolds/LowRank
-# ${CMAKE_CURRENT_SOURCE_DIR}/Manifolds/Oblique
-# ${CMAKE_CURRENT_SOURCE_DIR}/Manifolds/OrthGroup
-# #${CMAKE_CURRENT_SOURCE_DIR}/Manifolds/PreShapeCurves
-# ${CMAKE_CURRENT_SOURCE_DIR}/Manifolds/SPDManifold
-# ${CMAKE_CURRENT_SOURCE_DIR}/Manifolds/Sphere
-# ${CMAKE_CURRENT_SOURCE_DIR}/Manifolds/Stiefel
-# ${CMAKE_CURRENT_SOURCE_DIR}/Others
-# ${CMAKE_CURRENT_SOURCE_DIR}/Others/SparseBLAS
-# ${CMAKE_CURRENT_SOURCE_DIR}/Problems
-# ${CMAKE_CURRENT_SOURCE_DIR}/Solvers
-# ${CMAKE_CURRENT_SOURCE_DIR}/cwrapper
-# ${CMAKE_CURRENT_SOURCE_DIR}/cwrapper/blas
-# ${CMAKE_CURRENT_SOURCE_DIR}/cwrapper/lapack
-# CACHE INTERNAL ""
-# )
-
 # COMPILE THE ROPTLIB LIBRARY
 add_library(roptlib SHARED
 Manifolds/Element.cpp Manifolds/LinearOPE.cpp Manifolds/Manifold.cpp Manifolds/ProductElement.cpp Manifolds/ProductManifold.cpp Manifolds/SharedSpace.cpp Manifolds/SmartSpace.cpp 

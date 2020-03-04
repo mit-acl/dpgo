@@ -22,16 +22,6 @@ option(CMAKE_VERBOSE_MAKEFILE "Generate verbose makefiles?" OFF)
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/eigen/cmake" CACHE STRING "The CMake module path used for this project")
 
 
-# SESYNC DEPENDENCIES
-# FIND EIGEN3
-set( ENV{EIGEN3_ROOT_DIR} ${CMAKE_SOURCE_DIR}/eigen)
-find_package(Eigen3 3.3 REQUIRED)
-if(EIGEN3_FOUND)
-message(STATUS "Found Eigen3 library.")
-message(STATUS "Eigen3 include directory: ${EIGEN3_INCLUDE_DIR}")
-else()
-message(STATUS "Eigen library not found!")
-endif()
 # FIND ADDITIONAL LIBRARIES
 # These next operations make use of the .cmake files shipped with Eigen3 
 find_package(SPQR REQUIRED)
