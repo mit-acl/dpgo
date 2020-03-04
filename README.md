@@ -1,11 +1,12 @@
 # DPGO
 
-Distributed (Asynchronous) Pose-Graph Optimization
+This repository contains implementation of synchronous and asynchronous Distributed Pose Graph Optimization (DPGO).  The algorithms are described in the following papers:
 
-## MATLAB
-TODO.
+ - Y. Tian, K. Khosoussi, J. P. How. [**Block-Coordinate Descent on the Riemannian Staircase for Certifiably Correct Distributed Rotation and Pose Synchronization**](https://arxiv.org/abs/1911.03721). arXiv preprint [arXiv:1911.03721](https://arxiv.org/abs/1911.03721).
+ 
+ - Y.Tian, A. Koppel, A. S. Bedi, J. P. How.  **Asynchronous and Parallel Distributed Pose Graph Optimization**.
 
-## C++ 
+## Building the C++ Library 
 
 Install dependencies.
 
@@ -22,19 +23,18 @@ cmake ../
 make
 ```
 
-The built executables are located in directory build/bin. 
-
-For a demo of multithreaded PGO, run:
-```
-./C++/build/bin/multithread-example data/smallGrid3D.g2o
-```
-
-For a serialized demo of distributed PGO, run:
+The built executables are located in directory build/bin. For a serialized demo of distributed PGO, run:
 ```
 ./C++/build/bin/distributed-example 5 data/smallGrid3D.g2o
 ```
 
-For a parallel demo of distributed PGO (where agents optimize local pose graphs concurrently in multiple threads), run:
+Optionally, install the C++ library via,
 ```
-./C++/build/bin/distributed-example2 5 data/smallGrid3D.g2o
+sudo make install
 ```
+The installation is required for using the ROS wrapper. 
+
+## ROS support
+
+A ROS wrapper for DPGO is provided in https://yuluntian@bitbucket.org/yuluntian/dpgo_ros . 
+
