@@ -15,7 +15,6 @@ template<typename MatrixType> void product_notemporary(const MatrixType& m)
 {
   /* This test checks the number of temporaries created
    * during the evaluation of a complex expression */
-  typedef typename MatrixType::Index Index;
   typedef typename MatrixType::Scalar Scalar;
   typedef typename MatrixType::RealScalar RealScalar;
   typedef Matrix<Scalar, 1, Dynamic> RowVectorType;
@@ -51,6 +50,7 @@ template<typename MatrixType> void product_notemporary(const MatrixType& m)
   VERIFY_EVALUATION_COUNT( m3.noalias() = s1 * (m1 * m2.transpose()), 0);
 
   VERIFY_EVALUATION_COUNT( m3 = m3 + (m1 * m2.adjoint()), 1);
+  VERIFY_EVALUATION_COUNT( m3 = m3 - (m1 * m2.adjoint()), 1);
 
   VERIFY_EVALUATION_COUNT( m3 = m3 + (m1 * m2.adjoint()).transpose(), 1);
   VERIFY_EVALUATION_COUNT( m3.noalias() = m3 + m1 * m2.transpose(), 0);

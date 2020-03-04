@@ -324,7 +324,7 @@ public:
   
   /** \brief Compute the matrix logarithm.
     *
-    * \param[out]  result  Logarithm of \p A, where \A is as specified in the constructor.
+    * \param[out]  result  Logarithm of \c A, where \c A is as specified in the constructor.
     */
   template <typename ResultType>
   inline void evalTo(ResultType& result) const
@@ -339,7 +339,7 @@ public:
     typedef internal::MatrixLogarithmAtomic<DynMatrixType> AtomicType;
     AtomicType atomic;
     
-    internal::matrix_function_compute<DerivedEvalTypeClean>::run(m_A, atomic, result);
+    internal::matrix_function_compute<typename DerivedEvalTypeClean::PlainObject>::run(m_A, atomic, result);
   }
 
   Index rows() const { return m_A.rows(); }

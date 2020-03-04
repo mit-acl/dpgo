@@ -11,7 +11,6 @@
 
 template<typename MatrixType> void array_for_matrix(const MatrixType& m)
 {
-  typedef typename MatrixType::Index Index;
   typedef typename MatrixType::Scalar Scalar;
   typedef Matrix<Scalar, MatrixType::RowsAtCompileTime, 1> ColVectorType;
   typedef Matrix<Scalar, 1, MatrixType::ColsAtCompileTime> RowVectorType; 
@@ -83,7 +82,6 @@ template<typename MatrixType> void array_for_matrix(const MatrixType& m)
 template<typename MatrixType> void comparisons(const MatrixType& m)
 {
   using std::abs;
-  typedef typename MatrixType::Index Index;
   typedef typename MatrixType::Scalar Scalar;
   typedef typename NumTraits<Scalar>::Real RealScalar;
 
@@ -172,7 +170,6 @@ template<typename VectorType> void lpNorm(const VectorType& v)
 
 template<typename MatrixType> void cwise_min_max(const MatrixType& m)
 {
-  typedef typename MatrixType::Index Index;
   typedef typename MatrixType::Scalar Scalar;
 
   Index rows = m.rows();
@@ -211,7 +208,6 @@ template<typename MatrixType> void cwise_min_max(const MatrixType& m)
 
 template<typename MatrixTraits> void resize(const MatrixTraits& t)
 {
-  typedef typename MatrixTraits::Index Index;
   typedef typename MatrixTraits::Scalar Scalar;
   typedef Matrix<Scalar,Dynamic,Dynamic> MatrixType;
   typedef Array<Scalar,Dynamic,Dynamic> Array2DType;
@@ -235,10 +231,29 @@ template<typename MatrixTraits> void resize(const MatrixTraits& t)
   VERIFY(a1.size()==cols);
 }
 
+template<int>
 void regression_bug_654()
 {
   ArrayXf a = RowVectorXf(3);
   VectorXf v = Array<float,1,Dynamic>(3);
+}
+
+// Check propagation of LvalueBit through Array/Matrix-Wrapper
+template<int>
+void regrrssion_bug_1410()
+{
+  const Matrix4i M;
+  const Array4i A;
+  ArrayWrapper<const Matrix4i> MA = M.array();
+  MA.row(0);
+  MatrixWrapper<const Array4i> AM = A.matrix();
+  AM.row(0);
+
+  VERIFY((internal::traits<ArrayWrapper<const Matrix4i> >::Flags&LvalueBit)==0);
+  VERIFY((internal::traits<MatrixWrapper<const Array4i> >::Flags&LvalueBit)==0);
+
+  VERIFY((internal::traits<ArrayWrapper<Matrix4i> >::Flags&LvalueBit)==LvalueBit);
+  VERIFY((internal::traits<MatrixWrapper<Array4i> >::Flags&LvalueBit)==LvalueBit);
 }
 
 void test_array_for_matrix()
@@ -280,5 +295,6 @@ void test_array_for_matrix()
     CALL_SUBTEST_5( resize(MatrixXf(internal::random<int>(1,EIGEN_TEST_MAX_SIZE), internal::random<int>(1,EIGEN_TEST_MAX_SIZE))) );
     CALL_SUBTEST_6( resize(MatrixXi(internal::random<int>(1,EIGEN_TEST_MAX_SIZE), internal::random<int>(1,EIGEN_TEST_MAX_SIZE))) );
   }
-  CALL_SUBTEST_6( regression_bug_654() );
+  CALL_SUBTEST_6( regression_bug_654<0>() );
+  CALL_SUBTEST_6( regrrssion_bug_1410<0>() );
 }
