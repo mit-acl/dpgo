@@ -274,7 +274,8 @@ namespace DPGO{
 
 		unsigned int i = 0;
 		unsigned int j = 0; // Indices for the tail and head of the given measurement
-		double sqrttau, sqrtkappa;
+		double sqrttau = 0;
+		double sqrtkappa = 0;
 		size_t max_pair; // Used for keeping track of the maximum pose that we've
 		               // encountered so far
 
