@@ -6,7 +6,7 @@ This repository contains implementation of synchronous and asynchronous Distribu
 
  - Y. Tian, K. Khosoussi, J. P. How. [**Block-Coordinate Descent on the Riemannian Staircase for Certifiably Correct Distributed Rotation and Pose Synchronization**](https://arxiv.org/abs/1911.03721). arXiv preprint [arXiv:1911.03721](https://arxiv.org/abs/1911.03721).
  
- - Y.Tian, A. Koppel, A. S. Bedi, J. P. How.  **Asynchronous and Parallel Distributed Pose Graph Optimization**.
+ - Y.Tian, A. Koppel, A. S. Bedi, J. P. How.  [**Asynchronous and Parallel Distributed Pose Graph Optimization**](https://arxiv.org/abs/2003.03281). arXiv preprint [arXiv:2003.03281](https://arxiv.org/abs/2003.03281).
 
 ## Building the C++ Library 
 
