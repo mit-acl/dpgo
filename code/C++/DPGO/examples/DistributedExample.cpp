@@ -1,3 +1,11 @@
+ 
+/* ----------------------------------------------------------------------------
+ * Copyright 2020, Massachusetts Institute of Technology, * Cambridge, MA 02139
+ * All Rights Reserved
+ * Authors: Yulun Tian, et al. (see README for the full author list)
+ * See LICENSE for the license information
+ * -------------------------------------------------------------------------- */
+
 #include <iostream>
 #include <fstream>
 #include <cstdlib>
