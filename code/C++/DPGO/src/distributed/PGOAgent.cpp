@@ -16,7 +16,7 @@ namespace DPGO{
 
 	PGOAgent::PGOAgent(unsigned ID, const PGOAgentParameters& params): 
 	mID(ID), 
-	mCluster(0), 
+	mCluster(ID), 
 	d(params.d), 
 	r(params.r), 
 	n(1),
@@ -130,7 +130,7 @@ namespace DPGO{
 		if(neighborCluster < mCluster){
 			cout << "Agent " << mID << " informed by agent " << neighborID << " to join cluster " << neighborCluster << "!" << endl;
 			if (r != d){
-				cout << "Error: cluster merging only supports r = d!" << endl;
+				cout << "Error: online feature only supports r = d!" << endl;
 				assert(r == d);
 			}
 
@@ -249,8 +249,8 @@ namespace DPGO{
 	void PGOAgent::optimize(){
 		if(verbose) cout << "Agent " << mID << " optimize..." << endl;
 
-		// need to lock pose later
-		unique_lock<mutex> tLock(mPosesMutex, std::defer_lock);
+		// lock pose update
+		unique_lock<mutex> tLock(mPosesMutex);
 
 		// need to lock measurements later;
 		unique_lock<mutex> mLock(mMeasurementsMutex, std::defer_lock);
@@ -293,10 +293,8 @@ namespace DPGO{
 
 		
 		// Read current estimates of the first k poses
-		tLock.lock();
 		Matrix Ycurr = Y.block(0,0,r,(d+1)*k);
 		assert(Ycurr.cols() == Q.cols());
-		tLock.unlock();
 
 
 		// Construct optimization problem
@@ -316,9 +314,8 @@ namespace DPGO{
 		if(verbose) cout << "Optimization time: " << elapsedMs / 1000 << " seconds." << endl;
 		gradnorm = problem.gradNorm(Ynext);
 
-		tLock.lock();
 		Y.block(0,0,r,(d+1)*k) = Ynext;
-		assert(n == k);
+		assert(k == n);
 	}
 
 
