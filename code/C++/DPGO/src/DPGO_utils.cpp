@@ -6,8 +6,6 @@
  * -------------------------------------------------------------------------- */
 
 #include "DPGO_utils.h"
-#include <MatOp/SparseSymMatProd.h> 
-#include <SymEigsSolver.h> 
 #include <Eigen/Geometry>
 #include <Eigen/SPQRSupport>
 #include <algorithm>
