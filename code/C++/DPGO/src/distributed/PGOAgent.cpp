@@ -230,11 +230,11 @@ namespace DPGO{
 		lock_guard<mutex> lock(mPosesMutex);
 
 		Matrix T = globalAnchor.block(0,0,r,d).transpose() * Y;
-		Matrix t0 = T.block(0,d,d,1);
+		Matrix t0 = globalAnchor.block(0,0,r,d).transpose() * globalAnchor.block(0,d,r,1);
 
 		for(unsigned i = 0; i < n; ++i){
 			T.block(0,i*(d+1),d,d) = projectToRotationGroup(T.block(0,i*(d+1),d,d));
-			T.block(0,i*(d+1)+d,d,1) = T.block(0,i*(d+1)+d,d,1);
+			T.block(0,i*(d+1)+d,d,1) = T.block(0,i*(d+1)+d,d,1) - t0;
 		}
 
 		return T;
