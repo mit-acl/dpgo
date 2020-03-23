@@ -514,14 +514,12 @@ namespace DPGO{
 
 	RelativeSEMeasurement PGOAgent::robustifyMeasurement(const RelativeSEMeasurement& m){
 		RelativeSEMeasurement mOut = m;
-		
 
 		// form the relative SE(d) transformation in homogeneous form 
 		Matrix Tij = Matrix::Zero(d+1,d+1);
 		Tij.block(0,0,d,d) = m.R;
 		Tij.block(0,d,d,1) = m.t;
 		Tij(d,d) = 1;
-
 
 		// form the diagonal weight matrix 
 		Matrix Omega = Matrix::Zero(d+1,d+1);
@@ -533,8 +531,8 @@ namespace DPGO{
 		Matrix Yi, Yj;
 		if (m.r1 == mID && m.r2 == mID){
 			// private factor
-			Yi = getYComponent(m.p1);
-			Yj = getYComponent(m.p2); 
+			Yi = Y.block(0,m.p1*(d+1),r,d+1);
+			Yj = Y.block(0,m.p2*(d+1),r,d+1);
 		}
 		else if (m.r1 != mID && m.r2 != mID){
 			// discard
@@ -543,7 +541,7 @@ namespace DPGO{
 		else{
 			// shared factor
 			if (m.r1 == mID){
-				Yi = getYComponent(m.p1);
+				Yi = Y.block(0,m.p1*(d+1),r,d+1);
 				// neighbor ID
 				const PoseID nID = make_pair(m.r2, m.p2);
 				auto KVpair = neighborPoseDict.find(nID);
@@ -553,7 +551,7 @@ namespace DPGO{
 				Yj = KVpair->second;
 
 			}else{
-				Yj = getYComponent(m.p2);
+				Y.block(0,m.p2*(d+1),r,d+1);
 				// neighbor ID
 				const PoseID nID = make_pair(m.r1, m.p1);
 				auto KVpair = neighborPoseDict.find(nID);
