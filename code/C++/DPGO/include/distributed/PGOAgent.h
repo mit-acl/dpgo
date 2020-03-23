@@ -75,8 +75,10 @@ namespace DPGO{
     {
         lock_guard<mutex> lock(mPosesMutex);
         Y = Yin;
+        n = Y.cols() / (d+1);
         assert(Y.cols() == n * (d+1));
         assert(Y.rows() == r);
+        std::cout << "WARNING: Agent " << mID << " resets trajectory. New trajectory length: " << n << std:: endl;
     }
 
     
