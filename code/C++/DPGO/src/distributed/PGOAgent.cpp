@@ -275,7 +275,7 @@ namespace DPGO{
 		}
 		for(size_t i = 0; i < privateLoopClosures.size(); ++i){
 			RelativeSEMeasurement m = privateLoopClosures[i];
-			if(m.p1 < k && m.p2 < k) myMeasurements.push_back(m);
+			if(m.p1 < k && m.p2 < k) myMeasurements.push_back(robustifyMeasurement(m));
 		}
 		if (myMeasurements.empty()){
 			if (verbose) cout << "No measurements. Skip optimization." << endl;
@@ -286,8 +286,8 @@ namespace DPGO{
 			RelativeSEMeasurement m = sharedLoopClosures[i];
 			assert(m.R.size() != 0);
 			assert(m.t.size() != 0);
-			if(m.r1 == mID && m.p1 < k) sharedMeasurements.push_back(m);
-			else if(m.r2 == mID && m.p2 < k) sharedMeasurements.push_back(m);
+			if(m.r1 == mID && m.p1 < k) sharedMeasurements.push_back(robustifyMeasurement(m));
+			else if(m.r2 == mID && m.p2 < k) sharedMeasurements.push_back(robustifyMeasurement(m));
 		}
 		mLock.unlock();
 
@@ -509,6 +509,68 @@ namespace DPGO{
 		}
 
 		return false;
+	}
+
+
+	RelativeSEMeasurement PGOAgent::robustifyMeasurement(const RelativeSEMeasurement& m){
+		RelativeSEMeasurement mOut = m;
+		
+
+		// form the relative SE(d) transformation in homogeneous form 
+		Matrix Tij = Matrix::Zero(d+1,d+1);
+		Tij.block(0,0,d,d) = m.R;
+		Tij.block(0,d,d,1) = m.t;
+		Tij(d,d) = 1;
+
+
+		// form the diagonal weight matrix 
+		Matrix Omega = Matrix::Zero(d+1,d+1);
+		for(size_t i = 0; i < d; ++i) Omega(i,i) = m.kappa;
+		Omega(d,d) = m.tau;
+
+
+		// retrieve involved variables
+		Matrix Yi, Yj;
+		if (m.r1 == mID && m.r2 == mID){
+			// private factor
+			Yi = getYComponent(m.p1);
+			Yj = getYComponent(m.p2); 
+		}
+		else if (m.r1 != mID && m.r2 != mID){
+			// discard
+			if(verbose) cout << "WARNING: robustified measurement does not belong to this robot! " << endl;
+		}
+		else{
+			// shared factor
+			if (m.r1 == mID){
+				Yi = getYComponent(m.p1);
+				// neighbor ID
+				const PoseID nID = make_pair(m.r2, m.p2);
+				auto KVpair = neighborPoseDict.find(nID);
+				if(KVpair == neighborPoseDict.end()){
+					if(verbose) cout << "WARNING: shared pose does not exist!" << endl;
+				}
+				Yj = KVpair->second;
+
+			}else{
+				Yj = getYComponent(m.p2);
+				// neighbor ID
+				const PoseID nID = make_pair(m.r1, m.p1);
+				auto KVpair = neighborPoseDict.find(nID);
+				if(KVpair == neighborPoseDict.end()){
+					if(verbose) cout << "WARNING: shared pose does not exist!" << endl;
+				}
+				Yi = KVpair->second;
+			}
+		}
+
+
+		// compute scalar residual
+		Matrix Yerror = Yj - Yi * Tij;
+		double residual = (Yerror * Omega * Yerror.transpose()).trace();
+		cout << "Residual = " << residual << endl;
+
+		return mOut;
 	}
 
 

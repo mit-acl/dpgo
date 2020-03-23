@@ -78,7 +78,7 @@ namespace DPGO{
         n = Y.cols() / (d+1);
         assert(Y.cols() == n * (d+1));
         assert(Y.rows() == r);
-        std::cout << "WARNING: Agent " << mID << " resets trajectory. New trajectory length: " << n << std:: endl;
+        if (verbose) std::cout << "WARNING: Agent " << mID << " resets trajectory. New trajectory length: " << n << std:: endl;
     }
 
     
@@ -316,6 +316,13 @@ namespace DPGO{
     Find a shared loop closure based on neighboring robot's ID and pose
     */
     bool findSharedLoopClosure(unsigned neighborID, unsigned neighborPose, RelativeSEMeasurement& mOut);
+
+
+    /**
+    Robustify measurement for Iterative Reweighted Least Squares (IRLS)
+    by passing the residual through a specified robust kernel
+    */
+    RelativeSEMeasurement robustifyMeasurement(const RelativeSEMeasurement& m);
 
 
 
