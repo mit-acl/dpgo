@@ -28,6 +28,7 @@ namespace DPGO{
 	r(params.r), 
 	n(1),
 	verbose(params.verbose),
+	online(params.online),
 	rate(1),
 	algorithm(params.algorithm),
 	stepsize(1e-3)
@@ -39,6 +40,13 @@ namespace DPGO{
 
 		// initialize globalAnchor
 		globalAnchor = Y;
+
+		// online mode
+		if(online) mCluster = mID;
+		if(online && r != d){
+			cout << "Error: online feature only supports r = d!" << endl;
+			assert(r == d);
+		}
 	}
 
 
@@ -569,13 +577,7 @@ namespace DPGO{
 		// compute scalar residual
 		Matrix Yerror = Yj - Yi * Tij;
 		double residual = (Yerror * Omega * Yerror.transpose()).trace();
-		cout << "Measurement: " << endl;
-		cout << m << endl;
-		cout << "Residual = " << residual << endl;
-		cout << "==========================================" << endl;
 
-		mOut.kappa = 0;
-		mOut.tau = 0;
 		return mOut;
 	}
 

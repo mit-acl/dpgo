@@ -66,7 +66,8 @@ int main(int argc, char** argv)
     r = 5;
     ROPTALG algorithm = ROPTALG::RTR;
     bool verbose = false;
-    PGOAgentParameters options(d,r,algorithm,verbose);
+    bool online = false;
+    PGOAgentParameters options(d,r,algorithm,verbose,online);
 
     
 

@@ -77,6 +77,7 @@ int main(int argc, char** argv)
     double rate = 10; 
     double stepsize = 1e-3;
     bool verbose = false;
+    bool online = false;
     ROPTALG algorithm = ROPTALG::RTR;
     std::string datasetFile;
 
@@ -175,7 +176,7 @@ int main(int argc, char** argv)
     }
 
 
-    PGOAgentParameters options(d,r,algorithm,verbose);
+    PGOAgentParameters options(d,r,algorithm,verbose,online);
     vector<PGOAgent*> agents;
 
 
