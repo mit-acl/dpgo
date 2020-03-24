@@ -551,7 +551,7 @@ namespace DPGO{
 				Yj = KVpair->second;
 
 			}else{
-				Y.block(0,m.p2*(d+1),r,d+1);
+				Yj = Y.block(0,m.p2*(d+1),r,d+1);
 				// neighbor ID
 				const PoseID nID = make_pair(m.r1, m.p1);
 				auto KVpair = neighborPoseDict.find(nID);
