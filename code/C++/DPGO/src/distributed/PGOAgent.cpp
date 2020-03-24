@@ -23,7 +23,7 @@ namespace DPGO{
 
 	PGOAgent::PGOAgent(unsigned ID, const PGOAgentParameters& params): 
 	mID(ID), 
-	mCluster(ID), 
+	mCluster(0), 
 	d(params.d), 
 	r(params.r), 
 	n(1),
@@ -548,6 +548,7 @@ namespace DPGO{
 				auto KVpair = neighborPoseDict.find(nID);
 				if(KVpair == neighborPoseDict.end()){
 					if(verbose) cout << "WARNING: shared pose does not exist!" << endl;
+					return mOut;
 				}
 				Yj = KVpair->second;
 
@@ -558,6 +559,7 @@ namespace DPGO{
 				auto KVpair = neighborPoseDict.find(nID);
 				if(KVpair == neighborPoseDict.end()){
 					if(verbose) cout << "WARNING: shared pose does not exist!" << endl;
+					return mOut;
 				}
 				Yi = KVpair->second;
 			}
@@ -567,8 +569,13 @@ namespace DPGO{
 		// compute scalar residual
 		Matrix Yerror = Yj - Yi * Tij;
 		double residual = (Yerror * Omega * Yerror.transpose()).trace();
+		cout << "Measurement: " << endl;
+		cout << m << endl;
 		cout << "Residual = " << residual << endl;
+		cout << "==========================================" << endl;
 
+		mOut.kappa = 0;
+		mOut.tau = 0;
 		return mOut;
 	}
 
