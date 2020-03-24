@@ -17,6 +17,7 @@
 #include "manifold/LiftedSEVariable.h"
 #include "manifold/LiftedSEVector.h"
 #include "DPGO_types.h"
+#include "DPGO_robust.h"
 #include "RelativeSEMeasurement.h"
 #include <Eigen/Dense>
 #include "Manifolds/Element.h"
@@ -302,6 +303,8 @@ namespace DPGO{
     // Thread that runs optimization loop
     thread* mOptimizationThread = nullptr;
 
+    // M-Estimator
+    MEstimator* mEstimator = nullptr;
 
     /** Compute the cost matrices that define the local PGO problem
         f(X) = 0.5<Q, XtX> + <X, G>

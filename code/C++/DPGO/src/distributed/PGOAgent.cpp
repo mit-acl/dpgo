@@ -47,12 +47,17 @@ namespace DPGO{
 			cout << "Error: online feature only supports r = d!" << endl;
 			assert(r == d);
 		}
+
+		// robustify DPGO (see DPGO_robust.h for implemented M-estimators)
+		// use MEstimatorL2 to recover original least squares cost
+		mEstimator = new MEstimatorCauchy();
 	}
 
 
 	PGOAgent::~PGOAgent(){
 		// Make sure that optimization thread is not running, before exiting
 		endOptimizationLoop();
+		delete mEstimator;
 	}
 
 
@@ -577,6 +582,10 @@ namespace DPGO{
 		// compute scalar residual
 		Matrix Yerror = Yj - Yi * Tij;
 		double residual = (Yerror * Omega * Yerror.transpose()).trace();
+		double weight = mEstimator->weight(residual);
+
+		mOut.kappa = weight * mOut.kappa;
+		mOut.tau = weight * mOut.tau;
 
 		return mOut;
 	}
