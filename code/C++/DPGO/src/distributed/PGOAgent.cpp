@@ -528,7 +528,8 @@ namespace DPGO{
 
 
 		// retrieve involved variables
-		Matrix Yi, Yj;
+		Matrix Yi = Matrix::Zero(r,d+1);
+		Matrix Yj = Matrix::Zero(r,d+1);
 		if (m.r1 == mID && m.r2 == mID){
 			// private factor
 			Yi = Y.block(0,m.p1*(d+1),r,d+1);
