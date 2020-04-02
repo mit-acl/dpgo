@@ -66,6 +66,20 @@ namespace DPGO{
 
 	};
 
+
+	class MEstimatorTruncatedL2: public MEstimator{
+		public:
+			MEstimatorTruncatedL2():c(2.0){}
+			MEstimatorTruncatedL2(double cIn):c(cIn){}
+
+			virtual double cost(double x) const;
+			virtual double influence(double x) const;
+			virtual double weight(double x) const;
+
+		private:
+			double c;
+	};
+
 }
 
 

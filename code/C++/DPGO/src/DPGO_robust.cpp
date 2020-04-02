@@ -44,7 +44,29 @@ namespace DPGO{
 	}
 
 
+	/**
+	Truncated L2
+	*/ 
+	double MEstimatorTruncatedL2::cost(double x) const{
+		if (x > c){
+			return 0;
+		}
+		return x*x/2;
+	}
 
+	double MEstimatorTruncatedL2::influence(double x) const{
+		if (x > c){
+			return 0;
+		}
+		return x;
+	}
+
+	double MEstimatorTruncatedL2::weight(double x) const{
+		if (x > c){
+			return 0;
+		}
+		return 1;
+	}
 
 
 
