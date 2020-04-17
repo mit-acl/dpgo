@@ -51,7 +51,7 @@ namespace DPGO{
 
 		// robustify DPGO (see DPGO_robust.h for implemented M-estimators)
 		// use MEstimatorL2 to recover original least squares cost
-		mEstimator = new MEstimatorTruncatedL2();
+		mEstimator = new MEstimatorL2();
 	}
 
 
@@ -584,15 +584,6 @@ namespace DPGO{
 		Matrix Yerror = Yj - Yi * Tij;
 		double residual = sqrt((Yerror * Omega * Yerror.transpose()).trace());
 		double weight = mEstimator->weight(residual);
-
-		if (weight > 0){
-			cout << "Accept loop closure (" << m.r1 << ", " << m.p1 << ") to (" << m.r2 << ", " << m.p2 << ")" << endl;
-		}
-
-		// cout << "Residual: " << residual << endl;
-		// cout << "M-estimator weight: " << weight << endl;
-		// cout << m << endl;
-		// cout << "===========================" << endl;
 
 		mOut.kappa = weight * mOut.kappa;
 		mOut.tau = weight * mOut.tau;
