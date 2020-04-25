@@ -44,19 +44,20 @@ namespace DPGO{
 		Solver.Stop_Criterion = ROPTLIB::StopCrit::GRAD_F; // Stoping criterion based on gradient norm
 		Solver.Tolerance = 1e-2; // Tolerance associated with stopping criterion
 		Solver.maximum_Delta = 1e3; // Maximum trust-region radius
-		Solver.Debug = (verbose ? ROPTLIB::DEBUGINFO::DETAILED : ROPTLIB::DEBUGINFO::NOOUTPUT);
-		Solver.Max_Iteration = 10; // Max RTR iterations
-		Solver.Max_Inner_Iter = 100; // Max tCG iterations
+		Solver.initial_Delta = 1e2;
+		if (verbose){
+			Solver.Debug = ROPTLIB::DEBUGINFO::ITERRESULT;
+		}else{
+			Solver.Debug = ROPTLIB::DEBUGINFO::NOOUTPUT;
+		}
+		Solver.Max_Iteration = 50; // Max RTR iterations
+		Solver.Max_Inner_Iter = 500; // Max tCG iterations
+		Solver.TimeBound = 1;
 		Solver.Run();
 		
 		const ROPTLIB::ProductElement *Yopt = static_cast<const ROPTLIB::ProductElement*>(Solver.GetXopt());
 		LiftedSEVariable VarOpt(r,d,n);
 		Yopt->CopyTo(VarOpt.var());
-		if (verbose){
-			cout << "Initial objective value: " << problem->f(VarInit.var()) << endl;
-			cout << "Final objective value: " << Solver.Getfinalfun() << endl;
-			cout << "Final gradient norm: " << Solver.Getnormgf() << endl;
-		}
 
 		return VarOpt.getData();
 	}

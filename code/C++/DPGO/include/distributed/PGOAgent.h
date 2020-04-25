@@ -309,7 +309,7 @@ namespace DPGO{
     /** Compute the cost matrices that define the local PGO problem
         f(X) = 0.5<Q, XtX> + <X, G>
     */
-    void constructCostMatrices(
+    bool constructCostMatrices(
             const vector<RelativeSEMeasurement>& privateMeasurements,
             const vector<RelativeSEMeasurement>& sharedMeasurements,
             SparseMatrix* Q, 

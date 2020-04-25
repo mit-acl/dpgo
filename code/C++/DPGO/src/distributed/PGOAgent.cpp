@@ -91,7 +91,6 @@ namespace DPGO{
 
 		n++;
 		assert((d+1)*n == Y.cols());
-		if(verbose) cout << "Agent " << mID << " initialized pose " << n << endl;
 
 		lock_guard<mutex> mLock(mMeasurementsMutex);
 		odometry.push_back(factor);
@@ -155,9 +154,13 @@ namespace DPGO{
 				assert(r == d);
 			}
 
-			// Halt pose update
-			if(verbose) cout << "Agent " << mID << " halt optimization thread..." << endl;
-			endOptimizationLoop();
+			// Halt optimization
+			bool optimizationHalted = false;
+			if (isOptimizationRunning()){
+				if(verbose) cout << "Agent " << mID << " halt optimization thread..." << endl;
+				optimizationHalted = true;
+				endOptimizationLoop();
+			}
 
 			// Halt insertion of new poses
 			lock_guard<mutex> tLock(mPosesMutex);
@@ -214,7 +217,7 @@ namespace DPGO{
 				Y.block(0, i*(d+1), d, d+1) = T2.block(0,0,d,d+1);
 			}
 			
-			startOptimizationLoop(rate);
+			if(optimizationHalted) startOptimizationLoop(rate);
 		}
 
 		// Do not store this pose if it comes from a different cluster
@@ -292,7 +295,7 @@ namespace DPGO{
 			if(m.p1 < k && m.p2 < k) myMeasurements.push_back(robustifyMeasurement(m));
 		}
 		if (myMeasurements.empty()){
-			if (verbose) cout << "No measurements. Skip optimization." << endl;
+			if (verbose) cout << "No measurements. Skip optimization!" << endl;
 			return;
 		} 
 		vector<RelativeSEMeasurement> sharedMeasurements;
@@ -309,7 +312,11 @@ namespace DPGO{
 		// construct data matrices
 		SparseMatrix Q((d+1)*k, (d+1)*k);
 		SparseMatrix G(r,(d+1)*k);
-		constructCostMatrices(myMeasurements, sharedMeasurements, &Q, &G);
+		bool success = constructCostMatrices(myMeasurements, sharedMeasurements, &Q, &G);
+		if(!success){
+			if (verbose) cout << "Has not received shared pose yet. Skip optimization!" << endl;
+			return;
+		}
 
 
 		
@@ -332,7 +339,11 @@ namespace DPGO{
 		Matrix Ynext = optimizer.optimize(Ycurr);
 		auto counter = std::chrono::high_resolution_clock::now() - startTime;
 		double elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(counter).count();
-		if(verbose) cout << "Optimization time: " << elapsedMs / 1000 << " seconds." << endl;
+		if(verbose) {
+			cout << "Optimization time: " << elapsedMs / 1000 << " seconds." << endl;
+			Matrix Ydiff = Ynext - Ycurr;
+			cout << "Relative change: " << Ydiff.norm() << endl;
+		}
 		gradnorm = problem.gradNorm(Ynext);
 
 		Y.block(0,0,r,(d+1)*k) = Ynext;
@@ -340,7 +351,7 @@ namespace DPGO{
 	}
 
 
-	void PGOAgent::constructCostMatrices(
+	bool PGOAgent::constructCostMatrices(
 			const vector<RelativeSEMeasurement>& privateMeasurements,
             const vector<RelativeSEMeasurement>& sharedMeasurements,
             SparseMatrix* Q, 
@@ -380,8 +391,7 @@ namespace DPGO{
 				const PoseID nID = make_pair(m.r2, m.p2);
 				auto KVpair = neighborPoseDict.find(nID);
 				if(KVpair == neighborPoseDict.end()){
-					if(verbose) cout << "WARNING: shared pose does not exist!" << endl;
-					continue;
+					return false;
 				}
 				lock.lock();
 				Matrix Yj = KVpair->second;
@@ -416,8 +426,7 @@ namespace DPGO{
 				const PoseID nID = make_pair(m.r1, m.p1);
 				auto KVpair = neighborPoseDict.find(nID);
 				if(KVpair == neighborPoseDict.end()){
-					if(verbose) cout << "WARNING: shared pose does not exist!" << endl;
-					continue;
+					return false;
 				}
 				lock.lock();
 				Matrix Yi = KVpair->second;
@@ -443,6 +452,8 @@ namespace DPGO{
 			}
 
 		}
+
+		return true;
 
 	}
 
@@ -472,8 +483,6 @@ namespace DPGO{
 		{
 			
 			double sleepUs = 1e6 * ExponentialDistribution(rng); // sleeping time in microsecond
-
-			if(verbose) cout << "Agent " << mID << " optimization thread: sleep for " << sleepUs / 1e6 << " sec..." << endl;
 
 			usleep(sleepUs);
 
@@ -561,7 +570,7 @@ namespace DPGO{
 				const PoseID nID = make_pair(m.r2, m.p2);
 				auto KVpair = neighborPoseDict.find(nID);
 				if(KVpair == neighborPoseDict.end()){
-					if(verbose) cout << "WARNING: shared pose does not exist!" << endl;
+					// if(verbose) cout << "Has not received shared pose yet. Return original measurement." << endl;
 					return mOut;
 				}
 				Yj = KVpair->second;
@@ -572,7 +581,7 @@ namespace DPGO{
 				const PoseID nID = make_pair(m.r1, m.p1);
 				auto KVpair = neighborPoseDict.find(nID);
 				if(KVpair == neighborPoseDict.end()){
-					if(verbose) cout << "WARNING: shared pose does not exist!" << endl;
+					// if(verbose) cout << "Has not received shared pose yet. Return original measurement." << endl;
 					return mOut;
 				}
 				Yi = KVpair->second;
