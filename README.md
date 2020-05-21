@@ -25,7 +25,7 @@ cmake ../
 make
 ```
 
-The built executables are located in directory build/bin. For a serialized demo of distributed PGO, run:
+The built executables are located in directory build/bin. For a serialized demo of distributed PGO on one of the benchmark datasets, move to the top-level directory and run:
 ```
 ./C++/build/bin/distributed-example 5 data/smallGrid3D.g2o
 ```
@@ -38,7 +38,7 @@ The installation is required for using the ROS wrapper.
 
 ## ROS support
 
-A ROS wrapper for DPGO is provided in https://yuluntian@bitbucket.org/yuluntian/dpgo_ros . 
+A ROS wrapper for DPGO is provided in https://gitlab.com/mit-acl/dpgo/dpgo_ros.git . 
 
 ## License
 DPGO is released under the GNU GENERAL PUBLIC LICENSE Version 3 (GPLv3). Please see LICENSE for more information.
