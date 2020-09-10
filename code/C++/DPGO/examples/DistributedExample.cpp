@@ -76,17 +76,17 @@ int main(int argc, char** argv)
     Compute initialization (currently requires SE-Sync)
     ###################################################
     */
-    Matrix Yinit;
+    Matrix Xinit;
     SparseMatrix B1, B2, B3; 
     constructBMatrices(dataset, B1, B2, B3);
     Matrix Rinit = chordalInitialization(d, B3);
     Matrix tinit = recoverTranslations(B1, B2, Rinit);
-    Yinit.resize(r, n*(d+1));
-    Yinit.setZero();
+    Xinit.resize(r, n*(d+1));
+    Xinit.setZero();
     for (size_t i=0; i<n; i++)
     {
-        Yinit.block(0,i*(d+1),  d,d) = Rinit.block(0,i*d,d,d);
-        Yinit.block(0,i*(d+1)+d,d,1) = tinit.block(0,i,d,1);
+        Xinit.block(0,i*(d+1),  d,d) = Rinit.block(0,i*d,d,d);
+        Xinit.block(0,i*(d+1)+d,d,1) = tinit.block(0,i,d,1);
     }
 
 
@@ -169,12 +169,12 @@ int main(int argc, char** argv)
         unsigned endIdx = (robot+1) * num_poses_per_robot; // non-inclusive
         if (robot == (unsigned) num_robots - 1) endIdx = n;
 
-        agents[robot]->setY(Yinit.block(0, startIdx*(d+1), r, (endIdx-startIdx)*(d+1)));
+        agents[robot]->setX(Xinit.block(0, startIdx*(d+1), r, (endIdx-startIdx)*(d+1)));
         
     }
 
 
-    Matrix Yopt = Yinit;
+    Matrix Xopt = Xinit;
     unsigned numIters = 1000;
     cout << "Running RBCD for " << numIters << " iterations..." << endl; 
 
@@ -208,13 +208,13 @@ int main(int argc, char** argv)
         // Evaluate
         cout 
         << "Iter = " << iter << " | "
-        << "cost = " << (Yopt * ConLapT * Yopt.transpose()).trace() << " | "
+        << "cost = " << (Xopt * ConLapT * Xopt.transpose()).trace() << " | "
         << "robot = " << robot << endl;
         
         unsigned startIdx = robot * num_poses_per_robot;
         unsigned endIdx = (robot+1) * num_poses_per_robot; // non-inclusive
         if (robot == (unsigned) num_robots - 1) endIdx = n;
-        Yopt.block(0, startIdx*(d+1), r, (endIdx-startIdx)*(d+1)) = agents[robot]->getY();
+        Xopt.block(0, startIdx*(d+1), r, (endIdx-startIdx)*(d+1)) = agents[robot]->getX();
 
         
     }

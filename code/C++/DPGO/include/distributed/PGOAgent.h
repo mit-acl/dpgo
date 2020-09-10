@@ -76,13 +76,13 @@ namespace DPGO{
     /** Helper function to reset the internal solution
         In deployment, probably should not use this
      */
-    void setY(const Matrix& Yin)
+    void setX(const Matrix& Xin)
     {
         lock_guard<mutex> lock(mPosesMutex);
-        Y = Yin;
-        n = Y.cols() / (d+1);
-        assert(Y.cols() == n * (d+1));
-        assert(Y.rows() == r);
+        X = Xin;
+        n = X.cols() / (d+1);
+        assert(X.cols() == n * (d+1));
+        assert(X.rows() == r);
         if (verbose) std::cout << "WARNING: Agent " << mID << " resets trajectory. New trajectory length: " << n << std:: endl;
     }
 
@@ -90,19 +90,19 @@ namespace DPGO{
     /** Helper function to get current solution
         In deployment, probably should not use this
      */
-    Matrix getY()
+    Matrix getX()
     {
         lock_guard<mutex> lock(mPosesMutex);
-        return Y;
+        return X;
     }
 
 
     /** 
     Get the ith component of the current solution
     */
-    Matrix getYComponent(unsigned i){
-        Y = getY();
-        return Y.block(0,i*(d+1),r,d+1);
+    Matrix getXComponent(unsigned i){
+        X = getX();
+        return X.block(0,i*(d+1),r,d+1);
     }
 
     
@@ -265,7 +265,7 @@ namespace DPGO{
     double stepsize;
 
     // Solution before rounding
-    Matrix Y;
+    Matrix X;
         
     // Gradient norm of the current solution
     double gradnorm;

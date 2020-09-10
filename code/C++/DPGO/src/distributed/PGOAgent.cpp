@@ -37,10 +37,10 @@ namespace DPGO{
 		// automatically initialize the first pose on the Cartan group
 		LiftedSEVariable x(r,d,1);
 		x.var()->RandInManifold();
-		Y = x.getData();
+		X = x.getData();
 
 		// initialize globalAnchor
-		globalAnchor = Y;
+		globalAnchor = X;
 
 		// online mode
 		if(online) mCluster = mID;
@@ -74,23 +74,23 @@ namespace DPGO{
 		lock_guard<mutex> tLock(mPosesMutex);
 		lock_guard<mutex> nLock(mNeighborPosesMutex);
 		
-		Matrix Y_ = Y;
-		assert(Y_.cols() == (d+1)*n);
-		assert(Y_.rows() == r);
-		Y = Matrix::Zero(r,(d+1)*(n+1));
-		Y.block(0,0,r,(d+1)*n) = Y_;
+		Matrix X_ = X;
+		assert(X_.cols() == (d+1)*n);
+		assert(X_.rows() == r);
+		X = Matrix::Zero(r,(d+1)*(n+1));
+		X.block(0,0,r,(d+1)*n) = X_;
 
-		Matrix currR = Y.block(0, (n-1)*(d+1), r, d);
-		Matrix currt = Y.block(0, (n-1)*(d+1)+d,r,1);
+		Matrix currR = X.block(0, (n-1)*(d+1), r, d);
+		Matrix currt = X.block(0, (n-1)*(d+1)+d,r,1);
 
 		// initialize next pose by propagating odometry
 		Matrix nextR = currR * factor.R;
 		Matrix nextt = currt + currR * factor.t;
-		Y.block(0, n*(d+1), r, d) = nextR;
-		Y.block(0, n*(d+1)+d,r,1) = nextt;
+		X.block(0, n*(d+1), r, d) = nextR;
+		X.block(0, n*(d+1)+d,r,1) = nextt;
 
 		n++;
-		assert((d+1)*n == Y.cols());
+		assert((d+1)*n == X.cols());
 
 		lock_guard<mutex> mLock(mMeasurementsMutex);
 		odometry.push_back(factor);
@@ -164,7 +164,7 @@ namespace DPGO{
 
 			// Halt insertion of new poses
 			lock_guard<mutex> tLock(mPosesMutex);
-			assert(Y.cols() == n*(d+1));
+			assert(X.cols() == n*(d+1));
 
 			// Halt insertion of new measurements
 			lock_guard<mutex> mLock(mMeasurementsMutex);
@@ -190,12 +190,12 @@ namespace DPGO{
 			if(m.r1 == neighborID){
 				// Incoming edge
 				Xstar = var * dT; 
-				Xcurr = Y.block(0, m.p2*(d+1), d, d+1);
+				Xcurr = X.block(0, m.p2*(d+1), d, d+1);
 			}
 			else{
 				// Outgoing edge
 				Xstar = var * dT.inverse();
-				Xcurr = Y.block(0, m.p1*(d+1), d, d+1);
+				Xcurr = X.block(0, m.p1*(d+1), d, d+1);
 			}
 
 
@@ -212,9 +212,9 @@ namespace DPGO{
 
 			Matrix T1 = Matrix::Identity(d+1, d+1);
 			for(size_t i = 0; i < n; ++i){
-				T1.block(0,0,d,d+1) = Y.block(0, i*(d+1), d, d+1);
+				T1.block(0,0,d,d+1) = X.block(0, i*(d+1), d, d+1);
 				Matrix T2 = Tc * T1;
-				Y.block(0, i*(d+1), d, d+1) = T2.block(0,0,d,d+1);
+				X.block(0, i*(d+1), d, d+1) = T2.block(0,0,d,d+1);
 			}
 			
 			if(optimizationHalted) startOptimizationLoop(rate);
@@ -231,7 +231,7 @@ namespace DPGO{
 	Matrix PGOAgent::getTrajectoryInLocalFrame(){
 		lock_guard<mutex> lock(mPosesMutex);
 
-		Matrix T = Y.block(0,0,r,d).transpose() * Y;
+		Matrix T = X.block(0,0,r,d).transpose() * X;
 		Matrix t0 = T.block(0,d,d,1);
 
 		for(unsigned i = 0; i < n; ++i){
@@ -246,7 +246,7 @@ namespace DPGO{
 	Matrix PGOAgent::getTrajectoryInGlobalFrame(){
 		lock_guard<mutex> lock(mPosesMutex);
 
-		Matrix T = globalAnchor.block(0,0,r,d).transpose() * Y;
+		Matrix T = globalAnchor.block(0,0,r,d).transpose() * X;
 		Matrix t0 = globalAnchor.block(0,0,r,d).transpose() * globalAnchor.block(0,d,r,1);
 
 		for(unsigned i = 0; i < n; ++i){
@@ -263,7 +263,7 @@ namespace DPGO{
 		lock_guard<mutex> lock(mPosesMutex);
 		for(auto it = mSharedPoses.begin(); it!= mSharedPoses.end(); ++it){
 			unsigned idx = get<1>(*it);
-			map[*it] = Y.block(0, idx*(d+1), r, d+1);
+			map[*it] = X.block(0, idx*(d+1), r, d+1);
 		}
 		return map;
 	}
@@ -321,8 +321,8 @@ namespace DPGO{
 
 		
 		// Read current estimates of the first k poses
-		Matrix Ycurr = Y.block(0,0,r,(d+1)*k);
-		assert(Ycurr.cols() == Q.cols());
+		Matrix Xcurr = X.block(0,0,r,(d+1)*k);
+		assert(Xcurr.cols() == Q.cols());
 
 
 		// Construct optimization problem
@@ -336,17 +336,17 @@ namespace DPGO{
 		
 		// Optimize
 		auto startTime = std::chrono::high_resolution_clock::now();
-		Matrix Ynext = optimizer.optimize(Ycurr);
+		Matrix Xnext = optimizer.optimize(Xcurr);
 		auto counter = std::chrono::high_resolution_clock::now() - startTime;
 		double elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(counter).count();
 		if(verbose) {
 			cout << "Optimization time: " << elapsedMs / 1000 << " seconds." << endl;
-			Matrix Ydiff = Ynext - Ycurr;
-			cout << "Relative change: " << Ydiff.norm() << endl;
+			Matrix Xdiff = Xnext - Xcurr;
+			cout << "Relative change: " << Xdiff.norm() << endl;
 		}
-		gradnorm = problem.gradNorm(Ynext);
+		gradnorm = problem.gradNorm(Xnext);
 
-		Y.block(0,0,r,(d+1)*k) = Ynext;
+		X.block(0,0,r,(d+1)*k) = Xnext;
 		assert(k == n);
 	}
 
@@ -394,7 +394,7 @@ namespace DPGO{
 					return false;
 				}
 				lock.lock();
-				Matrix Yj = KVpair->second;
+				Matrix Xj = KVpair->second;
 				lock.unlock();
 
 				// Modify quadratic cost
@@ -408,7 +408,7 @@ namespace DPGO{
 				}
 
 				// Modify linear cost 
-				Matrix L = - Yj * Omega * T.transpose();
+				Matrix L = - Xj * Omega * T.transpose();
 				for (size_t col = 0; col < d+1; ++col){
 					for(size_t row = 0; row < r; ++row){
 						G->coeffRef(row, idx*(d+1)+col) += L(row,col);
@@ -429,7 +429,7 @@ namespace DPGO{
 					return false;
 				}
 				lock.lock();
-				Matrix Yi = KVpair->second;
+				Matrix Xi = KVpair->second;
 				lock.unlock();
 
 				// Modify quadratic cost
@@ -442,7 +442,7 @@ namespace DPGO{
 				}
 
 				// Modify linear cost
-				Matrix L = - Yi * T * Omega;
+				Matrix L = - Xi * T * Omega;
 				for (size_t col = 0; col < d+1; ++col){
 					for(size_t row = 0; row < r; ++row){
 						G->coeffRef(row, idx*(d+1)+col) += L(row,col);
@@ -551,12 +551,12 @@ namespace DPGO{
 
 
 		// retrieve involved variables
-		Matrix Yi = Matrix::Zero(r,d+1);
-		Matrix Yj = Matrix::Zero(r,d+1);
+		Matrix Xi = Matrix::Zero(r,d+1);
+		Matrix Xj = Matrix::Zero(r,d+1);
 		if (m.r1 == mID && m.r2 == mID){
 			// private factor
-			Yi = Y.block(0,m.p1*(d+1),r,d+1);
-			Yj = Y.block(0,m.p2*(d+1),r,d+1);
+			Xi = X.block(0,m.p1*(d+1),r,d+1);
+			Xj = X.block(0,m.p2*(d+1),r,d+1);
 		}
 		else if (m.r1 != mID && m.r2 != mID){
 			// discard
@@ -565,7 +565,7 @@ namespace DPGO{
 		else{
 			// shared factor
 			if (m.r1 == mID){
-				Yi = Y.block(0,m.p1*(d+1),r,d+1);
+				Xi = X.block(0,m.p1*(d+1),r,d+1);
 				// neighbor ID
 				const PoseID nID = make_pair(m.r2, m.p2);
 				auto KVpair = neighborPoseDict.find(nID);
@@ -573,10 +573,10 @@ namespace DPGO{
 					// if(verbose) cout << "Has not received shared pose yet. Return original measurement." << endl;
 					return mOut;
 				}
-				Yj = KVpair->second;
+				Xj = KVpair->second;
 
 			}else{
-				Yj = Y.block(0,m.p2*(d+1),r,d+1);
+				Xj = X.block(0,m.p2*(d+1),r,d+1);
 				// neighbor ID
 				const PoseID nID = make_pair(m.r1, m.p1);
 				auto KVpair = neighborPoseDict.find(nID);
@@ -584,14 +584,14 @@ namespace DPGO{
 					// if(verbose) cout << "Has not received shared pose yet. Return original measurement." << endl;
 					return mOut;
 				}
-				Yi = KVpair->second;
+				Xi = KVpair->second;
 			}
 		}
 
 
 		// compute scalar residual
-		Matrix Yerror = Yj - Yi * Tij;
-		double residual = sqrt((Yerror * Omega * Yerror.transpose()).trace());
+		Matrix Xerror = Xj - Xi * Tij;
+		double residual = sqrt((Xerror * Omega * Xerror.transpose()).trace());
 		double weight = mEstimator->weight(residual);
 
 		mOut.kappa = weight * mOut.kappa;
