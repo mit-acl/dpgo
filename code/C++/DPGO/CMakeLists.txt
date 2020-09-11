@@ -40,10 +40,6 @@ target_include_directories(DPGO PUBLIC
 
 target_link_libraries(DPGO ${CMAKE_THREAD_LIBS_INIT} roptlib ${CHOLMOD_LIBRARIES} ${SPQR_LIBRARIES} )
 
-# Build tests
-add_executable(test-optimization-thread
-	tests/testOptimizationThread.cpp)
-target_link_libraries(test-optimization-thread DPGO)
 
 # Build multithread PGO example
 add_executable(multithread-example
@@ -55,12 +51,63 @@ add_executable(distributed-example
 	examples/DistributedExample.cpp)
 target_link_libraries(distributed-example DPGO)
 
-add_executable(distributed-example2
-	examples/DistributedExample2.cpp)
-target_link_libraries(distributed-example2 DPGO)
+############################### TESTS ##########################################
+### Add testing
+option(BUILD_DPGO_TESTS "Build tests" ON)
+if(BUILD_DPGO_TESTS)
 
+	configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/gtest.cmake googletest-download/CMakeLists.txt)
+	execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" .
+	  RESULT_VARIABLE result
+	  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/googletest-download )
+	if(result)
+	  message(FATAL_ERROR "CMake step for googletest failed: ${result}")
+	endif()
+	execute_process(COMMAND ${CMAKE_COMMAND} --build .
+	  RESULT_VARIABLE result
+	  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/googletest-download )
+	if(result)
+	  message(FATAL_ERROR "Build step for googletest failed: ${result}")
+	endif()
 
-# Install
+	# Prevent overriding the parent project's compiler/linker
+	# settings on Windows
+	set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+
+	# Add googletest directly to our build. This defines
+	# the gtest and gtest_main targets.
+	add_subdirectory("${CMAKE_BINARY_DIR}/external/googletest-src"
+                     "${CMAKE_BINARY_DIR}/external/googletest-build"
+                     EXCLUDE_FROM_ALL)
+
+	# The gtest/gtest_main targets carry header search path
+	# dependencies automatically when using CMake 2.8.11 or
+	# later. Otherwise we have to add them here ourselves.
+	if (CMAKE_VERSION VERSION_LESS 2.8.11)
+	  include_directories("${gtest_SOURCE_DIR}/include")
+	endif()
+
+	add_executable(
+		testDPGO 
+		tests/testOptimizationThread.cpp
+		)
+	target_include_directories(testDPGO PUBLIC 
+		${EXTERNAL_INCLUDES}
+		${CMAKE_CURRENT_SOURCE_DIR}/include>
+		${CMAKE_SOURCE_DIR}/eigen>
+	)
+	target_link_libraries(
+		testDPGO 
+		gtest_main
+		DPGO
+		)
+	add_test(
+		NAME testDPGO 
+		COMMAND ${CMAKE_BINARY_DIR}/${CMAKE_INSTALL_BINDIR}/unit_tests
+		)
+endif(BUILD_DPGO_TESTS)
+
+############################### INSTALL ##########################################
 include(CMakePackageConfigHelpers)
 set(INSTALL_CONFIGDIR ${CMAKE_INSTALL_LIBDIR}/cmake/DPGO)
 
