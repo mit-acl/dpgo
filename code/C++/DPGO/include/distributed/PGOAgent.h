@@ -111,12 +111,14 @@ namespace DPGO{
 
     /**
     Add a private loop closure of this robot
+    (Warning: this function does not check for duplicate loop closures!)
     */
     void addPrivateLoopClosure(const RelativeSEMeasurement& factor);
 
 
     /**
     Add a shared loop closure between this robot and another
+    (Warning: this function does not check for duplicate loop closures!)
     */
     void addSharedLoopClosure(const RelativeSEMeasurement& factor);
 

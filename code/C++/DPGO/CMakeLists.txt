@@ -90,6 +90,8 @@ if(BUILD_DPGO_TESTS)
 	add_executable(
 		testDPGO 
 		tests/testConstruction.cpp
+		tests/testLineGraph.cpp
+		tests/testTriangleGraph.cpp
 		tests/testOptimizationThread.cpp
 		)
 	target_include_directories(testDPGO PUBLIC 

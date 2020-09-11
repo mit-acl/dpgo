@@ -33,21 +33,16 @@ namespace DPGO{
 	algorithm(params.algorithm),
 	stepsize(1e-3)
 	{
-		// automatically initialize the first pose on the Cartan group
-		LiftedSEVariable x(r,d,1);
-		x.var()->RandInManifold();
-		X = x.getData();
+		// For now assume r = d! (TODO)
+		assert(r == d);
+		X = Matrix::Zero(d, d+1);
+		X.block(0,0,d,d) = Matrix::Identity(d,d);
 
 		// initialize globalAnchor
 		globalAnchor = X;
 
-		// For now assume r = d! (TODO)
-		assert(r == d);
-
 		gradnorm = 1e3;
 
-		// robustify DPGO (see DPGO_robust.h for implemented M-estimators)
-		// use MEstimatorL2 to recover original least squares cost
 		mEstimator = new MEstimatorL2();
 	}
 
