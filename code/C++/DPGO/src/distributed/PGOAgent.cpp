@@ -24,7 +24,7 @@ namespace DPGO{
 
 	PGOAgent::PGOAgent(unsigned ID, const PGOAgentParameters& params): 
 	mID(ID), 
-	mCluster(0), 
+	mCluster(ID), 
 	d(params.d), 
 	r(params.r), 
 	n(1),
