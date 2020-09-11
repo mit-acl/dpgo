@@ -47,16 +47,12 @@ namespace DPGO{
     // Verbosility flag
     bool verbose;
 
-    // Online flag
-    bool online;
-
     // Default constructor
     PGOAgentParameters(unsigned dIn,
-                       unsigned rIn = 5, 
+                       unsigned rIn, 
                        ROPTALG algorithmIn = ROPTALG::RTR,
-                       bool v = true,
-                       bool o = true):
-    d(dIn), r(rIn), algorithm(algorithmIn), verbose(v), online(o){}
+                       bool v = true):
+    d(dIn), r(rIn), algorithm(algorithmIn), verbose(v){}
 
   };  
 
@@ -248,9 +244,6 @@ namespace DPGO{
 
     // Verbose flag
     bool verbose;
-
-    // Online flag (in offline mode, agents are assumed to be initialized in the same reference frame)
-    bool online;
 
     // Rate in Hz of the optimization loop
     double rate;

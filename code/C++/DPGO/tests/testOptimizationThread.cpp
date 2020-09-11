@@ -10,11 +10,10 @@ TEST(testDPGO, OptimizationThread)
 {
     unsigned int d,r;
     d = 3;
-    r = 5;
+    r = 3;
     ROPTALG algorithm = ROPTALG::RTR;
     bool verbose = false;
-    bool online = false;
-    PGOAgentParameters options(d,r,algorithm,verbose,online);
+    PGOAgentParameters options(d,r,algorithm,verbose);
 
     PGOAgent agent(0, options);
 

@@ -63,11 +63,10 @@ int main(int argc, char** argv)
     SparseMatrix ConLapT = constructConnectionLaplacianSE(dataset);
     d = (!dataset.empty() ? dataset[0].t.size() : 0);
     n = num_poses;
-    r = 5;
+    r = 3;
     ROPTALG algorithm = ROPTALG::RTR;
     bool verbose = false;
-    bool online = false;
-    PGOAgentParameters options(d,r,algorithm,verbose,online);
+    PGOAgentParameters options(d,r,algorithm,verbose);
 
     
 
@@ -88,9 +87,6 @@ int main(int argc, char** argv)
         Xinit.block(0,i*(d+1),  d,d) = Rinit.block(0,i*d,d,d);
         Xinit.block(0,i*(d+1)+d,d,1) = tinit.block(0,i,d,1);
     }
-
-
-
 
 
     /**

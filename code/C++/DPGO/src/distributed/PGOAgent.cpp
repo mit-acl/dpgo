@@ -29,7 +29,6 @@ namespace DPGO{
 	r(params.r), 
 	n(1),
 	verbose(params.verbose),
-	online(params.online),
 	rate(1),
 	algorithm(params.algorithm),
 	stepsize(1e-3)
@@ -42,12 +41,8 @@ namespace DPGO{
 		// initialize globalAnchor
 		globalAnchor = X;
 
-		// online mode
-		if(online) mCluster = mID;
-		if(online && r != d){
-			cout << "Error: online feature only supports r = d!" << endl;
-			assert(r == d);
-		}
+		// For now assume r = d! (TODO)
+		assert(r == d);
 
 		// robustify DPGO (see DPGO_robust.h for implemented M-estimators)
 		// use MEstimatorL2 to recover original least squares cost
@@ -149,10 +144,6 @@ namespace DPGO{
 
 		if(neighborCluster < mCluster){
 			cout << "Agent " << mID << " informed by agent " << neighborID << " to join cluster " << neighborCluster << "!" << endl;
-			if (r != d){
-				cout << "Error: online feature only supports r = d!" << endl;
-				assert(r == d);
-			}
 
 			// Halt optimization
 			bool optimizationHalted = false;
