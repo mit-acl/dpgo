@@ -44,6 +44,8 @@ namespace DPGO{
 		// For now assume r = d! (TODO)
 		assert(r == d);
 
+		gradnorm = 1e3;
+
 		// robustify DPGO (see DPGO_robust.h for implemented M-estimators)
 		// use MEstimatorL2 to recover original least squares cost
 		mEstimator = new MEstimatorL2();

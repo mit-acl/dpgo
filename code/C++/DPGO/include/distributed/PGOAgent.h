@@ -123,8 +123,6 @@ namespace DPGO{
 
     /** 
     Store the pose of a neighboring robot who shares loop closure with this robot
-    TODO: if necessary (based on the cluster), realign the local frame of this robot to match the neighbor's
-    and update the cluster that this robot belongs to 
     */
     void updateNeighborPose(unsigned neighborCluster, unsigned neighborID, unsigned neighborPose, const Matrix& var);
 

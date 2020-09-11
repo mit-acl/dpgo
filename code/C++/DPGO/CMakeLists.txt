@@ -89,6 +89,7 @@ if(BUILD_DPGO_TESTS)
 
 	add_executable(
 		testDPGO 
+		tests/testConstruction.cpp
 		tests/testOptimizationThread.cpp
 		)
 	target_include_directories(testDPGO PUBLIC 
