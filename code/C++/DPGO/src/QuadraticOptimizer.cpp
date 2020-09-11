@@ -50,7 +50,7 @@ namespace DPGO{
 		}else{
 			Solver.Debug = ROPTLIB::DEBUGINFO::NOOUTPUT;
 		}
-		Solver.Max_Iteration = 50; // Max RTR iterations
+		Solver.Max_Iteration = 1; // Max RTR iterations
 		Solver.Max_Inner_Iter = 500; // Max tCG iterations
 		Solver.TimeBound = 1;
 		Solver.Run();
