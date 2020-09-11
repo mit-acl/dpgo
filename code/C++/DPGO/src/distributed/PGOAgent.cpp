@@ -179,42 +179,39 @@ namespace DPGO{
 			RelativeSEMeasurement m;
 			assert(findSharedLoopClosure(neighborID, neighborPose, m));
 
-			// Form relative transformation matrix in homogeneous form
+			// Notations:
+			// world1: world frame before alignment
+			// world2: world frame after alignment 
+			// frame1 : frame associated to my public pose
+			// frame2 : frame associated to neighbor's public pose
 			Matrix dT = Matrix::Identity(d+1, d+1);
 			dT.block(0,0,d,d) = m.R;
 			dT.block(0,d,d,1) = m.t;
 
-			// Initialize matrices used later
-			Matrix Xstar, Xcurr;
-
+			// Form relative transformation matrix in homogeneous form
+			Matrix T_world2_frame2 = Matrix::Identity(d+1,d+1);
+			T_world2_frame2.block(0,0,d,d+1) = var;
+			Matrix T_frame1_frame2 = Matrix::Identity(d+1,d+1);
+			Matrix T_world1_frame1 = Matrix::Identity(d+1,d+1);
 			if(m.r1 == neighborID){
 				// Incoming edge
-				Xstar = var * dT; 
-				Xcurr = X.block(0, m.p2*(d+1), d, d+1);
+				T_frame1_frame2 = dT.inverse();
+				T_world1_frame1.block(0,0,d,d+1) = X.block(0, m.p2*(d+1), d, d+1);
 			}
 			else{
 				// Outgoing edge
-				Xstar = var * dT.inverse();
-				Xcurr = X.block(0, m.p1*(d+1), d, d+1);
+				T_frame1_frame2 = dT;
+				T_world1_frame1.block(0,0,d,d+1) = X.block(0, m.p1*(d+1), d, d+1);
 			}
+			Matrix T_world2_frame1 = T_world2_frame2 * T_frame1_frame2.inverse();
+			Matrix T_world2_world1 = T_world2_frame1 * T_world1_frame1.inverse();
 
-
-			// Desired pose for index pose
-			Matrix Tstar = Matrix::Identity(d+1,d+1);
-			Tstar.block(0,0,d,d+1) = Xstar;
-
-			// Current pose for index pose
-			Matrix Tcurr = Matrix::Identity(d+1,d+1);
-			Tcurr.block(0,0,d,d+1) = Xcurr;
-
-			// Required transformation
-			Matrix Tc = Tstar * Tcurr.inverse();
-
-			Matrix T1 = Matrix::Identity(d+1, d+1);
+			Matrix T_world1_frame = Matrix::Identity(d+1, d+1);
+			Matrix T_world2_frame = Matrix::Identity(d+1, d+1);
 			for(size_t i = 0; i < n; ++i){
-				T1.block(0,0,d,d+1) = X.block(0, i*(d+1), d, d+1);
-				Matrix T2 = Tc * T1;
-				X.block(0, i*(d+1), d, d+1) = T2.block(0,0,d,d+1);
+				T_world1_frame.block(0,0,d,d+1) = X.block(0, i*(d+1), d, d+1);
+				T_world2_frame = T_world2_world1 * T_world1_frame;
+				X.block(0, i*(d+1), d, d+1) = T_world2_frame.block(0,0,d,d+1);
 			}
 			
 			if(optimizationHalted) startOptimizationLoop(rate);
