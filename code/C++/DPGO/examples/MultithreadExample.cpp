@@ -6,10 +6,10 @@
  * -------------------------------------------------------------------------- */
 
 #include <iostream>
-#include "QuadraticProblem.h"
-#include "DPGO_types.h"
-#include "DPGO_utils.h"
-#include "multithread/RGDMaster.h"
+#include <DPGO/QuadraticProblem.h>
+#include <DPGO/DPGO_types.h>
+#include <DPGO/DPGO_utils.h>
+#include <DPGO/multithread/RGDMaster.h>
 
 using namespace std;
 using namespace DPGO;

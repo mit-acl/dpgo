@@ -8,10 +8,10 @@
 #ifndef RGDWORKER_H
 #define RGDWORKER_H
 
-#include "multithread/RGDMaster.h"
-#include "manifold/LiftedSEManifold.h"
-#include "manifold/LiftedSEVariable.h"
-#include "manifold/LiftedSEVector.h"
+#include <DPGO/multithread/RGDMaster.h>
+#include <DPGO/manifold/LiftedSEManifold.h>
+#include <DPGO/manifold/LiftedSEVariable.h>
+#include <DPGO/manifold/LiftedSEVector.h>
 
 
 /*Define the namespace*/

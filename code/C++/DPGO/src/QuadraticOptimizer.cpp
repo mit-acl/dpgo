@@ -5,7 +5,7 @@
  * See LICENSE for the license information
  * -------------------------------------------------------------------------- */
 
-#include "QuadraticOptimizer.h"
+#include <DPGO/QuadraticOptimizer.h>
 #include <iostream>
 #include <stdexcept>
 #include "RTRNewton.h"

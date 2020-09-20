@@ -6,7 +6,7 @@
  * -------------------------------------------------------------------------- */
 
 #include <iostream>
-#include "QuadraticProblem.h"
+#include <DPGO/QuadraticProblem.h>
 
 
 using namespace std;

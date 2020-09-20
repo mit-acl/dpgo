@@ -22,7 +22,7 @@ add_library(DPGO SHARED
 	src/manifold/LiftedSEVector.cpp
 	src/multithread/RGDMaster.cpp
 	src/multithread/RGDWorker.cpp
-	src/distributed/PGOAgent.cpp
+	src/PGOAgent.cpp
 	src/QuadraticProblem.cpp
 	src/QuadraticOptimizer.cpp
 	src/DPGO_utils.cpp

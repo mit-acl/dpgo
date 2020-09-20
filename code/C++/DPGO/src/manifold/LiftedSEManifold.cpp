@@ -5,7 +5,7 @@
  * See LICENSE for the license information
  * -------------------------------------------------------------------------- */
 
-#include "manifold/LiftedSEManifold.h"
+#include <DPGO/manifold/LiftedSEManifold.h>
 
 using namespace std;
 using namespace ROPTLIB;

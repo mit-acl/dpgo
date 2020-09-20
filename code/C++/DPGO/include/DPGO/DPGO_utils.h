@@ -9,8 +9,8 @@
 #define DPGOUTILS_H
 
 
-#include "DPGO_types.h"
-#include "RelativeSEMeasurement.h"
+#include <DPGO/DPGO_types.h>
+#include <DPGO/RelativeSEMeasurement.h>
 #include <Eigen/Dense>
 #include <Eigen/SVD>
 

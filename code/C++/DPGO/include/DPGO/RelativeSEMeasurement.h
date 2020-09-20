@@ -9,7 +9,7 @@
 #define RELATIVESEMEASUREMENT_H
 
 #include <iostream>
-#include "DPGO_types.h"
+#include <DPGO/DPGO_types.h>
 #include <Eigen/Dense>
 
 namespace DPGO {

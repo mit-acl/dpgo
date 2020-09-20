@@ -5,15 +5,15 @@
  * See LICENSE for the license information
  * -------------------------------------------------------------------------- */
 
-#include "distributed/PGOAgent.h"
+#include <DPGO/PGOAgent.h>
 #include <iostream>
 #include <cmath>
 #include <cassert>
 #include <chrono>
 #include <random>
-#include "DPGO_utils.h"
-#include "QuadraticProblem.h"
-#include "QuadraticOptimizer.h"
+#include <DPGO/DPGO_utils.h>
+#include <DPGO/QuadraticProblem.h>
+#include <DPGO/QuadraticOptimizer.h>
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
 #include <Eigen/CholmodSupport>

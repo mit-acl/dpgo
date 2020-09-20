@@ -9,7 +9,7 @@
 #include <chrono>
 #include <random>
 #include <unistd.h>
-#include "multithread/RGDWorker.h"
+#include <DPGO/multithread/RGDWorker.h>
 
 using namespace std;
 

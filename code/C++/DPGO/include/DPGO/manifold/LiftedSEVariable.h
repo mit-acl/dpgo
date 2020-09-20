@@ -11,7 +11,7 @@
 #include "Manifolds/ProductElement.h"
 #include "Manifolds/Stiefel/Stiefel.h"
 #include "Manifolds/Euclidean/Euclidean.h"
-#include "DPGO_types.h"
+#include <DPGO/DPGO_types.h>
 #include <Eigen/Dense>
 
 /*Define the namespace*/

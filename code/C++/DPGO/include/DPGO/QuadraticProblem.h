@@ -10,10 +10,10 @@
 
 #include <vector>
 #include "Problems/Problem.h"
-#include "manifold/LiftedSEManifold.h"
-#include "manifold/LiftedSEVariable.h"
-#include "manifold/LiftedSEVector.h"
-#include "DPGO_types.h"
+#include <DPGO/manifold/LiftedSEManifold.h>
+#include <DPGO/manifold/LiftedSEVariable.h>
+#include <DPGO/manifold/LiftedSEVector.h>
+#include <DPGO/DPGO_types.h>
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
 #include <Eigen/CholmodSupport>

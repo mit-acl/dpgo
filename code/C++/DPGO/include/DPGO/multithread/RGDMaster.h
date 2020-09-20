@@ -14,11 +14,11 @@
 #include <Eigen/Dense>
 #include "Manifolds/Element.h"
 #include "Manifolds/Manifold.h"
-#include "QuadraticProblem.h"
-#include "multithread/RGDWorker.h"
-#include "manifold/LiftedSEManifold.h"
-#include "manifold/LiftedSEVariable.h"
-#include "manifold/LiftedSEVector.h"
+#include <DPGO/QuadraticProblem.h>
+#include <DPGO/multithread/RGDWorker.h>
+#include <DPGO/manifold/LiftedSEManifold.h>
+#include <DPGO/manifold/LiftedSEVariable.h>
+#include <DPGO/manifold/LiftedSEVector.h>
 
 using namespace std;
 

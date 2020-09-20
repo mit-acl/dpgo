@@ -5,7 +5,7 @@
  * See LICENSE for the license information
  * -------------------------------------------------------------------------- */
 
-#include "multithread/RGDMaster.h"
+#include <DPGO/multithread/RGDMaster.h>
 #include <iostream>
 #include <fstream>
 #include <cassert>

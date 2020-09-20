@@ -6,7 +6,7 @@
  * -------------------------------------------------------------------------- */
 
 #include <cmath>
-#include "DPGO_robust.h"
+#include <DPGO/DPGO_robust.h>
 
 using namespace std;
 

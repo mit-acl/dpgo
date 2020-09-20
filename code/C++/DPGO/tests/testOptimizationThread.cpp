@@ -1,8 +1,8 @@
 #include "gtest/gtest.h"
-#include "QuadraticProblem.h"
-#include "distributed/PGOAgent.h"
-#include "DPGO_types.h"
-#include "DPGO_utils.h"
+#include <DPGO/QuadraticProblem.h>
+#include <DPGO/PGOAgent.h>
+#include <DPGO/DPGO_types.h>
+#include <DPGO/DPGO_utils.h>
 
 using namespace DPGO;
 

@@ -5,7 +5,7 @@
  * See LICENSE for the license information
  * -------------------------------------------------------------------------- */
 
-#include "manifold/LiftedSEVector.h"
+#include <DPGO/manifold/LiftedSEVector.h>
 
 
 using namespace std;

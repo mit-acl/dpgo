@@ -5,7 +5,7 @@
  * See LICENSE for the license information
  * -------------------------------------------------------------------------- */
 
-#include "DPGO_utils.h"
+#include <DPGO/DPGO_utils.h>
 #include <Eigen/Geometry>
 #include <Eigen/SPQRSupport>
 #include <algorithm>

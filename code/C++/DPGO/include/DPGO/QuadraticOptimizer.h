@@ -8,12 +8,12 @@
 #ifndef QUADRATICOPTIMIZER_H
 #define QUADRATICOPTIMIZER_H
 
-#include "manifold/LiftedSEManifold.h"
-#include "manifold/LiftedSEVariable.h"
-#include "manifold/LiftedSEVector.h"
-#include "QuadraticProblem.h"
-#include "distributed/PGOAgent.h"
-#include "DPGO_types.h"
+#include <DPGO/manifold/LiftedSEManifold.h>
+#include <DPGO/manifold/LiftedSEVariable.h>
+#include <DPGO/manifold/LiftedSEVector.h>
+#include <DPGO/QuadraticProblem.h>
+#include <DPGO/PGOAgent.h>
+#include <DPGO/DPGO_types.h>
 
 namespace DPGO{
 
