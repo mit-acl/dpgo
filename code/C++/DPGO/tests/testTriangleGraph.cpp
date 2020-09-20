@@ -62,7 +62,6 @@ TEST(testDPGO, TriangleGraph)
     ASSERT_EQ(agent.num_poses(), 3);
     ASSERT_EQ(agent.dimension(), d);
     ASSERT_EQ(agent.relaxation_rank(), r);
-    ASSERT_GE(agent.gradNorm(), 0);
 
     Testimated = agent.getTrajectoryInLocalFrame();
     ASSERT_LE((Ttrue - Testimated).norm(), 1e-4);

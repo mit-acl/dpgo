@@ -28,6 +28,4 @@ TEST(testDPGO, LineGraph)
     ASSERT_EQ(agent.num_poses(), 5);
     ASSERT_EQ(agent.dimension(), d);
     ASSERT_EQ(agent.relaxation_rank(), r);
-    ASSERT_GE(agent.gradNorm(), 0);
-    ASSERT_LE(agent.gradNorm(), 1e-6);
 }

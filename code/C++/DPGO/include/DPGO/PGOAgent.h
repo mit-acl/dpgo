@@ -101,6 +101,13 @@ namespace DPGO{
         return X.block(0,i*(d+1),r,d+1);
     }
 
+    /** 
+    Initialize the local pose graph from the input factors
+    */
+    void initialize(const std::vector<RelativeSEMeasurement>& inputOdometry, 
+                    const std::vector<RelativeSEMeasurement>& inputPrivateLoopClosures,
+                    const std::vector<RelativeSEMeasurement>& inputSharedLoopClosures);
+
     
     /**
     Add an odometric measurement of this robot.
@@ -164,12 +171,6 @@ namespace DPGO{
     Get relaxation rank
     */
     unsigned relaxation_rank(){return r;}
-
-
-    /**
-    Get most recent gradient norm 
-    */
-    double gradNorm(){return gradnorm;}
 
 
     /**
@@ -259,9 +260,6 @@ namespace DPGO{
 
     // Solution before rounding
     Matrix X;
-        
-    // Gradient norm of the current solution
-    double gradnorm;
 
     // used during rounding to put the current solution to a global reference frame
     Matrix globalAnchor; 
@@ -296,9 +294,6 @@ namespace DPGO{
     // Thread that runs optimization loop
     thread* mOptimizationThread = nullptr;
 
-    // M-Estimator
-    MEstimator* mEstimator = nullptr;
-
     /** Compute the cost matrices that define the local PGO problem
         f(X) = 0.5<Q, XtX> + <X, G>
     */
@@ -319,13 +314,6 @@ namespace DPGO{
     Find a shared loop closure based on neighboring robot's ID and pose
     */
     bool findSharedLoopClosure(unsigned neighborID, unsigned neighborPose, RelativeSEMeasurement& mOut);
-
-
-    /**
-    Robustify measurement for Iterative Reweighted Least Squares (IRLS)
-    by passing the residual through a specified robust kernel
-    */
-    RelativeSEMeasurement robustifyMeasurement(const RelativeSEMeasurement& m);
 
 
 

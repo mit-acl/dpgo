@@ -20,5 +20,4 @@ TEST(testDPGO, Construction)
     ASSERT_EQ(agent.num_poses(), 1);
     ASSERT_EQ(agent.dimension(), d);
     ASSERT_EQ(agent.relaxation_rank(), r);
-    ASSERT_GE(agent.gradNorm(), 0);
 }

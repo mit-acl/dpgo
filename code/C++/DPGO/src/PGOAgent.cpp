@@ -40,17 +40,20 @@ namespace DPGO{
 
 		// initialize globalAnchor
 		globalAnchor = X;
-
-		gradnorm = 1e3;
-
-		mEstimator = new MEstimatorL2();
 	}
 
 
 	PGOAgent::~PGOAgent(){
 		// Make sure that optimization thread is not running, before exiting
 		endOptimizationLoop();
-		delete mEstimator;
+	}
+
+
+	void PGOAgent::initialize(const std::vector<RelativeSEMeasurement>& inputOdometry, 
+                    		  const std::vector<RelativeSEMeasurement>& inputPrivateLoopClosures,
+                    		  const std::vector<RelativeSEMeasurement>& inputSharedLoopClosures)
+	{
+
 	}
 
 
@@ -277,7 +280,7 @@ namespace DPGO{
 		}
 		for(size_t i = 0; i < privateLoopClosures.size(); ++i){
 			RelativeSEMeasurement m = privateLoopClosures[i];
-			if(m.p1 < k && m.p2 < k) myMeasurements.push_back(robustifyMeasurement(m));
+			if(m.p1 < k && m.p2 < k) myMeasurements.push_back(m);
 		}
 		if (myMeasurements.empty()){
 			if (verbose) cout << "No measurements. Skip optimization!" << endl;
@@ -288,8 +291,8 @@ namespace DPGO{
 			RelativeSEMeasurement m = sharedLoopClosures[i];
 			assert(m.R.size() != 0);
 			assert(m.t.size() != 0);
-			if(m.r1 == mID && m.p1 < k) sharedMeasurements.push_back(robustifyMeasurement(m));
-			else if(m.r2 == mID && m.p2 < k) sharedMeasurements.push_back(robustifyMeasurement(m));
+			if(m.r1 == mID && m.p1 < k) sharedMeasurements.push_back(m);
+			else if(m.r2 == mID && m.p2 < k) sharedMeasurements.push_back(m);
 		}
 		mLock.unlock();
 
@@ -329,7 +332,6 @@ namespace DPGO{
 			Matrix Xdiff = Xnext - Xcurr;
 			cout << "Relative change: " << Xdiff.norm() << endl;
 		}
-		gradnorm = problem.gradNorm(Xnext);
 
 		X.block(0,0,r,(d+1)*k) = Xnext;
 		assert(k == n);
@@ -520,70 +522,7 @@ namespace DPGO{
 	}
 
 
-	RelativeSEMeasurement PGOAgent::robustifyMeasurement(const RelativeSEMeasurement& m){
-		RelativeSEMeasurement mOut = m;
-
-		// form the relative SE(d) transformation in homogeneous form 
-		Matrix Tij = Matrix::Zero(d+1,d+1);
-		Tij.block(0,0,d,d) = m.R;
-		Tij.block(0,d,d,1) = m.t;
-		Tij(d,d) = 1;
-
-		// form the diagonal weight matrix 
-		Matrix Omega = Matrix::Zero(d+1,d+1);
-		for(size_t i = 0; i < d; ++i) Omega(i,i) = m.kappa;
-		Omega(d,d) = m.tau;
-
-
-		// retrieve involved variables
-		Matrix Xi = Matrix::Zero(r,d+1);
-		Matrix Xj = Matrix::Zero(r,d+1);
-		if (m.r1 == mID && m.r2 == mID){
-			// private factor
-			Xi = X.block(0,m.p1*(d+1),r,d+1);
-			Xj = X.block(0,m.p2*(d+1),r,d+1);
-		}
-		else if (m.r1 != mID && m.r2 != mID){
-			// discard
-			if(verbose) cout << "WARNING: robustified measurement does not belong to this robot! " << endl;
-		}
-		else{
-			// shared factor
-			if (m.r1 == mID){
-				Xi = X.block(0,m.p1*(d+1),r,d+1);
-				// neighbor ID
-				const PoseID nID = make_pair(m.r2, m.p2);
-				auto KVpair = neighborPoseDict.find(nID);
-				if(KVpair == neighborPoseDict.end()){
-					// if(verbose) cout << "Has not received shared pose yet. Return original measurement." << endl;
-					return mOut;
-				}
-				Xj = KVpair->second;
-
-			}else{
-				Xj = X.block(0,m.p2*(d+1),r,d+1);
-				// neighbor ID
-				const PoseID nID = make_pair(m.r1, m.p1);
-				auto KVpair = neighborPoseDict.find(nID);
-				if(KVpair == neighborPoseDict.end()){
-					// if(verbose) cout << "Has not received shared pose yet. Return original measurement." << endl;
-					return mOut;
-				}
-				Xi = KVpair->second;
-			}
-		}
-
-
-		// compute scalar residual
-		Matrix Xerror = Xj - Xi * Tij;
-		double residual = sqrt((Xerror * Omega * Xerror.transpose()).trace());
-		double weight = mEstimator->weight(residual);
-
-		mOut.kappa = weight * mOut.kappa;
-		mOut.tau = weight * mOut.tau;
-
-		return mOut;
-	}
+	
 
 
 }
