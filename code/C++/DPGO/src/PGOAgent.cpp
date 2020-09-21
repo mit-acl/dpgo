@@ -89,6 +89,8 @@ Matrix PGOAgent::computeInitialEstimate() {
   measurements.insert(measurements.end(), privateLoopClosures.begin(),
                       privateLoopClosures.end());
 
+  assert(!measurements.empty());
+
   SparseMatrix B1, B2, B3;
   constructBMatrices(measurements, B1, B2, B3);
   Matrix Rinit = chordalInitialization(d, B3);
