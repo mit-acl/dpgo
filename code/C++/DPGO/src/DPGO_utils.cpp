@@ -6,12 +6,16 @@
  * -------------------------------------------------------------------------- */
 
 #include <DPGO/DPGO_utils.h>
-#include <Eigen/Geometry>
-#include <Eigen/SPQRSupport>
+
 #include <algorithm>
 #include <fstream>
 #include <iostream>
 #include <sstream>
+#include <random>
+
+#include <Eigen/Geometry>
+#include <Eigen/SPQRSupport>
+
 
 namespace DPGO{
 
@@ -426,7 +430,12 @@ namespace DPGO{
 		}
 	}
 
-
+	Matrix fixedStiefelVariable(const unsigned d, const unsigned r) {
+		std::srand(1);
+		ROPTLIB::StieVariable var(r,d);
+		var.RandInManifold();
+		return Eigen::Map<Matrix>((double *)var.ObtainReadData(), r, d);
+	}
 
 }
 

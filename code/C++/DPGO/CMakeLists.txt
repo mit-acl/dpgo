@@ -88,6 +88,7 @@ if(BUILD_DPGO_TESTS)
 
 	add_executable(
 		testDPGO 
+		tests/testUtils.cpp
 		tests/testConstruction.cpp
 		tests/testLineGraph.cpp
 		tests/testTriangleGraph.cpp
