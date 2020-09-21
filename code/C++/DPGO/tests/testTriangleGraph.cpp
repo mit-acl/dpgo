@@ -37,19 +37,24 @@ TEST(testDPGO, TriangleGraph)
              0,    1,    0,  0,  -0.8179,   -0.2845,    0.5000,  1,    0.4049,    0.7166,   -0.5679,  2,
              0,    0,    1,  0,   0.5571,   -0.6087,    0.5649,  1,    0.8188,   -0.5606,   -0.1236,  2;
 
-    
+    std::vector<RelativeSEMeasurement> odometry;
+    std::vector<RelativeSEMeasurement> private_loop_closures;
+    std::vector<RelativeSEMeasurement> shared_loop_closures;
+
     Matrix dT;
     dT = Tw0.inverse() * Tw1;
     RelativeSEMeasurement m01(id, id, 0, 1, dT.block(0,0,d,d), dT.block(0,d,d,1), 1.0, 1.0);
-    agent.addOdometry(m01);
+    odometry.push_back(m01);
 
     dT = Tw1.inverse() * Tw2;
     RelativeSEMeasurement m12(id, id, 1, 2, dT.block(0,0,d,d), dT.block(0,d,d,1), 1.0, 1.0);
-    agent.addOdometry(m12);
+    odometry.push_back(m12);
 
     dT = Tw0.inverse() * Tw2;
     RelativeSEMeasurement m02(id, id, 0, 2, dT.block(0,0,d,d), dT.block(0,d,d,1), 1.0, 1.0);
-    agent.addPrivateLoopClosure(m02);
+    private_loop_closures.push_back(m02);
+
+    agent.initialize(odometry, private_loop_closures, shared_loop_closures);
     
     Matrix Testimated;
     Testimated = agent.getTrajectoryInLocalFrame();

@@ -45,6 +45,9 @@ namespace DPGO{
 
 		// initialize globalAnchor
 		globalAnchor = X;
+
+		// TODO: if mID is not zero, need to request this from the first robot
+		YLift = fixedStiefelVariable(d,r);
 	}
 
 
@@ -73,7 +76,7 @@ namespace DPGO{
 
 		Matrix T = computeInitialEstimate();
 		// Lift to correct relaxation rank
-		X = fixedStiefelVariable(d,r) * T;
+		X = YLift * T;
 	}
 
 
@@ -189,7 +192,6 @@ namespace DPGO{
         and update the cluster that this robot belongs to
     	*/
 		if(mCluster > 0 && neighborCluster == 0){
-			// TODO: initialize again HERE
 
 			cout << "Agent " << mID << " informed by agent " << neighborID << " to join cluster " << neighborCluster << "!" << endl;
 
@@ -226,21 +228,22 @@ namespace DPGO{
 			Matrix dT = Matrix::Identity(d+1, d+1);
 			dT.block(0,0,d,d) = m.R;
 			dT.block(0,d,d,1) = m.t;
-
-			// Form relative transformation matrix in homogeneous form
 			Matrix T_world2_frame2 = Matrix::Identity(d+1,d+1);
-			T_world2_frame2.block(0,0,d,d+1) = var;
+			// Round the received neighbor pose value back to SE(d)
+			T_world2_frame2.block(0,0,d,d+1) = YLift.transpose() * var;
+			// Round current trajectory back to SE(d)
+			Matrix T = YLift.transpose() * X;
 			Matrix T_frame1_frame2 = Matrix::Identity(d+1,d+1);
 			Matrix T_world1_frame1 = Matrix::Identity(d+1,d+1);
 			if(m.r1 == neighborID){
 				// Incoming edge
 				T_frame1_frame2 = dT.inverse();
-				T_world1_frame1.block(0,0,d,d+1) = X.block(0, m.p2*(d+1), d, d+1);
+				T_world1_frame1.block(0,0,d,d+1) = T.block(0, m.p2*(d+1), d, d+1);
 			}
 			else{
 				// Outgoing edge
 				T_frame1_frame2 = dT;
-				T_world1_frame1.block(0,0,d,d+1) = X.block(0, m.p1*(d+1), d, d+1);
+				T_world1_frame1.block(0,0,d,d+1) = T.block(0, m.p1*(d+1), d, d+1);
 			}
 			Matrix T_world2_frame1 = T_world2_frame2 * T_frame1_frame2.inverse();
 			Matrix T_world2_world1 = T_world2_frame1 * T_world1_frame1.inverse();
@@ -248,10 +251,13 @@ namespace DPGO{
 			Matrix T_world1_frame = Matrix::Identity(d+1, d+1);
 			Matrix T_world2_frame = Matrix::Identity(d+1, d+1);
 			for(size_t i = 0; i < n; ++i){
-				T_world1_frame.block(0,0,d,d+1) = X.block(0, i*(d+1), d, d+1);
+				T_world1_frame.block(0,0,d,d+1) = T.block(0, i*(d+1), d, d+1);
 				T_world2_frame = T_world2_world1 * T_world1_frame;
-				X.block(0, i*(d+1), d, d+1) = T_world2_frame.block(0,0,d,d+1);
+				T.block(0, i*(d+1), d, d+1) = T_world2_frame.block(0,0,d,d+1);
 			}
+
+			// Lift back to correct relaxation rank
+			X = YLift * T;
 			
 			if(optimizationHalted) startOptimizationLoop(rate);
 		}

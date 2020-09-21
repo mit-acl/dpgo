@@ -108,26 +108,6 @@ namespace DPGO{
                     const std::vector<RelativeSEMeasurement>& inputPrivateLoopClosures,
                     const std::vector<RelativeSEMeasurement>& inputSharedLoopClosures);
 
-    /**
-    Add an odometric measurement of this robot.
-    This function automatically initialize the new pose, by propagating odometry
-    */
-    void addOdometry(const RelativeSEMeasurement& factor);
-
-
-    /**
-    Add a private loop closure of this robot
-    (Warning: this function does not check for duplicate loop closures!)
-    */
-    void addPrivateLoopClosure(const RelativeSEMeasurement& factor);
-
-
-    /**
-    Add a shared loop closure between this robot and another
-    (Warning: this function does not check for duplicate loop closures!)
-    */
-    void addSharedLoopClosure(const RelativeSEMeasurement& factor);
-
 
     /** 
     Store the pose of a neighboring robot who shares loop closure with this robot
@@ -263,6 +243,9 @@ namespace DPGO{
     // used during rounding to put the current solution to a global reference frame
     Matrix globalAnchor; 
 
+    // Lifting matrix shared by all agents
+    Matrix YLift;
+
     // Store odometric measurement of this robot
     vector<RelativeSEMeasurement> odometry;
 
@@ -292,6 +275,27 @@ namespace DPGO{
 
     // Thread that runs optimization loop
     thread* mOptimizationThread = nullptr;
+
+
+    /**
+    Add an odometric measurement of this robot.
+    This function automatically initialize the new pose, by propagating odometry
+    */
+    void addOdometry(const RelativeSEMeasurement& factor);
+
+
+    /**
+    Add a private loop closure of this robot
+    (Warning: this function does not check for duplicate loop closures!)
+    */
+    void addPrivateLoopClosure(const RelativeSEMeasurement& factor);
+
+
+    /**
+    Add a shared loop closure between this robot and another
+    (Warning: this function does not check for duplicate loop closures!)
+    */
+    void addSharedLoopClosure(const RelativeSEMeasurement& factor);
 
     /** Compute the cost matrices that define the local PGO problem
         f(X) = 0.5<Q, XtX> + <X, G>

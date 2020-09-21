@@ -16,11 +16,15 @@ TEST(testDPGO, LineGraph)
     Matrix R = Matrix::Identity(d, d);
     Matrix t = Matrix::Random(d,1);
 
+    std::vector<RelativeSEMeasurement> odometry;
+    std::vector<RelativeSEMeasurement> private_loop_closures;
+    std::vector<RelativeSEMeasurement> shared_loop_closures;
     PGOAgent agent(id, options);
     for (unsigned int i = 0; i < 4; ++i){
         RelativeSEMeasurement m(id, id, i, i+1, R, t, 1.0, 1.0);
-        agent.addOdometry(m);
+        odometry.push_back(m);
     }
+    agent.initialize(odometry, private_loop_closures, shared_loop_closures);
     agent.optimize();
 
     ASSERT_EQ(agent.getID(), id);

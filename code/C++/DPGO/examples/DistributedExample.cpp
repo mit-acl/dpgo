@@ -55,7 +55,7 @@ int main(int argc, char** argv)
     SparseMatrix ConLapT = constructConnectionLaplacianSE(dataset);
     d = (!dataset.empty() ? dataset[0].t.size() : 0);
     n = num_poses;
-    r = d;
+    r = 5;
     ROPTALG algorithm = ROPTALG::RTR;
     bool verbose = false;
     PGOAgentParameters options(d,r,algorithm,verbose);
@@ -137,7 +137,7 @@ int main(int argc, char** argv)
     */
 
     unsigned numIters = 500;
-    Matrix Xopt(d, n*(d+1));
+    Matrix Xopt(r, n*(d+1));
     cout << "Running RBCD for " << numIters << " iterations..." << endl; 
     std::default_random_engine generator;
     std::uniform_int_distribution<int> distribution(0,num_robots-1);
