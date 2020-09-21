@@ -8,124 +8,106 @@
 #ifndef QUADRATICPROBLEM_H
 #define QUADRATICPROBLEM_H
 
-#include <vector>
-#include "Problems/Problem.h"
+#include <DPGO/DPGO_types.h>
 #include <DPGO/manifold/LiftedSEManifold.h>
 #include <DPGO/manifold/LiftedSEVariable.h>
 #include <DPGO/manifold/LiftedSEVector.h>
-#include <DPGO/DPGO_types.h>
+
+#include <Eigen/CholmodSupport>
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
-#include <Eigen/CholmodSupport>
+#include <vector>
 
-using namespace std;
+#include "Problems/Problem.h"
 
 /*Define the namespace*/
-namespace DPGO{
+namespace DPGO {
 
+/** This class implements a ROPTLIB problem with the following cost function:
+    f(X) = 0.5*<Q, XtX> + <X,G>
+    Q is the quadratic part with dimension (d+1)n-by-(d+1)n
+    G is the linear part with dimension r-by-(d+1)n
+*/
+class QuadraticProblem : public ROPTLIB::Problem {
+ public:
+  /** Default constructor; doesn't actually do anything */
+  QuadraticProblem() {}
 
-	/** This class implements a ROPTLIB problem with the following cost function:
-	    f(X) = 0.5*<Q, XtX> + <X,G>
-	    Q is the quadratic part with dimension (d+1)n-by-(d+1)n
-	    G is the linear part with dimension r-by-(d+1)n
-	*/
-	class QuadraticProblem : public ROPTLIB::Problem{
+  QuadraticProblem(const unsigned int nIn, const unsigned int dIn,
+                   const unsigned int rIn, const SparseMatrix& QIn,
+                   const SparseMatrix& GIn);
 
-	public:
+  virtual ~QuadraticProblem();
 
-		/** Default constructor; doesn't actually do anything */
-  		QuadraticProblem(){}
+  /** Number of pose variables */
+  unsigned int num_poses() const { return n; }
 
+  /** Dimension (2 or 3) of estimation problem */
+  unsigned int dimension() const { return d; }
 
-		QuadraticProblem(const unsigned int nIn, const unsigned int dIn, const unsigned int rIn, const SparseMatrix& QIn, const SparseMatrix& GIn);
+  /** Relaxation rank in Riemannian optimization problem */
+  unsigned int relaxation_rank() const { return r; }
 
+  /** Evaluates the problem objective */
+  double f(const Matrix& Y) const;
 
-		virtual ~QuadraticProblem();
+  /** Evaluates the problem objective */
+  double f(ROPTLIB::Variable* x) const;
 
+  /** Evaluates the Euclidean gradient of the function */
+  void EucGrad(ROPTLIB::Variable* x, ROPTLIB::Vector* g) const;
 
-		/** Number of pose variables */
-		unsigned int num_poses() const { return n; }
+  /** Evaluates the action of the Euclidean Hessian of the function */
+  void EucHessianEta(ROPTLIB::Variable* x, ROPTLIB::Vector* v,
+                     ROPTLIB::Vector* Hv) const;
 
+  /** Evaluates the action of the Preconditioner for the Hessian of the function
+   */
+  void PreConditioner(ROPTLIB::Variable* x, ROPTLIB::Vector* inVec,
+                      ROPTLIB::Vector* outVec) const;
 
-		/** Dimension (2 or 3) of estimation problem */ 
-		unsigned int dimension() const { return d; }
+  /** Evaluate the norm of the Riemannian gradient for the given solution */
+  double gradNorm(const Matrix& Y) const;
 
+  /** The quadratic component of the cost function */
+  const SparseMatrix Q;
 
-		/** Relaxation rank in Riemannian optimization problem */ 
-		unsigned int relaxation_rank() const { return r; }
+  /** The linear component of the cost function */
+  const SparseMatrix G;
 
+ private:
+  /** Number of poses */
+  unsigned int n = 0;
 
-		/** Evaluates the problem objective */
-		double f(const Matrix& Y) const ;
+  /** Dimensionality of the Euclidean space */
+  unsigned int d = 0;
 
+  /** The rank of the rank-restricted relaxation */
+  unsigned int r = 0;
 
-  		/** Evaluates the problem objective */
-		double f(ROPTLIB::Variable* x) const ;
+  /**
+  Manifold object
+  */
+  LiftedSEManifold* M;
 
-		
-		/** Evaluates the Euclidean gradient of the function */
-		void EucGrad(ROPTLIB::Variable* x, ROPTLIB::Vector* g) const ;
+  /**
+  Manifold variable
+  */
+  LiftedSEVariable* Variable;
 
-		
-		/** Evaluates the action of the Euclidean Hessian of the function */
-		void EucHessianEta(ROPTLIB::Variable* x, ROPTLIB::Vector* v,
-                     ROPTLIB::Vector* Hv) const ;
+  /**
+  Tangent vectors
+  */
+  LiftedSEVector* Vector;
 
-		
-		/** Evaluates the action of the Preconditioner for the Hessian of the function */
-  		void PreConditioner(ROPTLIB::Variable* x, ROPTLIB::Vector* inVec,
-                      ROPTLIB::Vector* outVec) const ;
+  LiftedSEVector* HessianVectorProduct;
 
-  		
-  		/** Evaluate the norm of the Riemannian gradient for the given solution */
-  		double gradNorm(const Matrix& Y) const;
+  /**
+  Solver used by preconditioner
+  */
+  Eigen::CholmodDecomposition<SparseMatrix> solver;
+};
 
-
-  		/** The quadratic component of the cost function */
-  		const SparseMatrix Q;
-
-
-  		/** The linear component of the cost function */
-		const SparseMatrix G;
-  		
-	private:
-
-		/** Number of poses */
-		unsigned int n = 0;
-
-		/** Dimensionality of the Euclidean space */
-		unsigned int d = 0;
-
-		/** The rank of the rank-restricted relaxation */
-  		unsigned int r = 0;
-
-  		/** 
-		Manifold object
-		*/
-  		LiftedSEManifold* M;
-
-  		/** 
-		Manifold variable
-		*/
-		LiftedSEVariable* Variable;
-		
-		/** 
-		Tangent vectors
-		*/
-		LiftedSEVector* Vector;
-
-
-		LiftedSEVector* HessianVectorProduct;
-
-		/** 
-		Solver used by preconditioner
-		*/
-		Eigen::CholmodDecomposition<SparseMatrix> solver;
-		
-
-	};
-
-}
-
+}  // namespace DPGO
 
 #endif

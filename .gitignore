@@ -64,3 +64,6 @@ code/Cartan-Sync/MATLAB/results
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Vscode #
+.vscode

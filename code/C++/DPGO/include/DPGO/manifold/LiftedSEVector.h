@@ -8,35 +8,33 @@
 #ifndef LIFTEDSEVECTOR_H
 #define LIFTEDSEVECTOR_H
 
-#include "Manifolds/ProductManifold.h"
-#include "Manifolds/Stiefel/Stiefel.h"
-#include "Manifolds/Euclidean/Euclidean.h"
 #include <DPGO/DPGO_types.h>
 
+#include "Manifolds/Euclidean/Euclidean.h"
+#include "Manifolds/ProductManifold.h"
+#include "Manifolds/Stiefel/Stiefel.h"
+
 /*Define the namespace*/
-namespace DPGO{
+namespace DPGO {
 
-  class LiftedSEVector{
-  public:
-    LiftedSEVector(int r, int d, int n);
+class LiftedSEVector {
+ public:
+  LiftedSEVector(int r, int d, int n);
 
-    ~LiftedSEVector();
+  ~LiftedSEVector();
 
-    ROPTLIB::ProductElement* vec(){
-      return MyVector;
-    }
+  ROPTLIB::ProductElement* vec() { return MyVector; }
 
-    Matrix getData();
+  Matrix getData();
 
-    void setData(const Matrix& Y);
+  void setData(const Matrix& Y);
 
-  private:
-  	ROPTLIB::StieVector* StiefelVector;
-  	ROPTLIB::EucVector* EuclideanVector;
-  	ROPTLIB::ProductElement* CartanVector;
-  	ROPTLIB::ProductElement* MyVector;
-  };
-} /*end of SESync namespace*/
-
+ private:
+  ROPTLIB::StieVector* StiefelVector;
+  ROPTLIB::EucVector* EuclideanVector;
+  ROPTLIB::ProductElement* CartanVector;
+  ROPTLIB::ProductElement* MyVector;
+};
+}  // namespace DPGO
 
 #endif

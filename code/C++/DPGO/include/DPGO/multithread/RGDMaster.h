@@ -8,103 +8,95 @@
 #ifndef RGDMASTER_H
 #define RGDMASTER_H
 
-#include <vector>
-#include <thread>
-#include <mutex>
-#include <Eigen/Dense>
-#include "Manifolds/Element.h"
-#include "Manifolds/Manifold.h"
 #include <DPGO/QuadraticProblem.h>
-#include <DPGO/multithread/RGDWorker.h>
 #include <DPGO/manifold/LiftedSEManifold.h>
 #include <DPGO/manifold/LiftedSEVariable.h>
 #include <DPGO/manifold/LiftedSEVector.h>
+#include <DPGO/multithread/RGDWorker.h>
+
+#include <Eigen/Dense>
+#include <mutex>
+#include <thread>
+#include <vector>
+
+#include "Manifolds/Element.h"
+#include "Manifolds/Manifold.h"
 
 using namespace std;
 
 /*Define the namespace*/
-namespace DPGO{
+namespace DPGO {
 
-  class RGDWorker;
+class RGDWorker;
 
-  class RGDMaster{
+class RGDMaster {
+ public:
+  RGDMaster(QuadraticProblem* p, Matrix Y0);
 
-  public:
-    RGDMaster(QuadraticProblem* p, Matrix Y0);
+  ~RGDMaster();
 
-    ~RGDMaster();
+  void solve(unsigned num_threads);
 
-    void solve(unsigned num_threads);
+  void setUpdateRate(int freq) { updateRate = freq; }
 
-    void setUpdateRate(int freq){updateRate = freq;}
+  void setStepsize(float s) { stepsize = s; }
 
-    void setStepsize(float s){stepsize = s;}
+  Matrix readDataMatrixBlock(unsigned i, unsigned j);
 
-    Matrix readDataMatrixBlock(unsigned i, unsigned j);
-    
-    Matrix readComponent(unsigned i);
+  Matrix readComponent(unsigned i);
 
-    void writeComponent(unsigned i, const Matrix& Yi);
+  void writeComponent(unsigned i, const Matrix& Yi);
 
-    void getSolution(Matrix& Yout){
-      Yout = Y;
-    }
+  void getSolution(Matrix& Yout) { Yout = Y; }
 
-    unsigned int num_poses() const { return n; }
+  unsigned int num_poses() const { return n; }
 
-    unsigned int dimension() const { return d; }
+  unsigned int dimension() const { return d; }
 
-    unsigned int relaxation_rank() const { return r; }
+  unsigned int relaxation_rank() const { return r; }
 
-    // mutexes for each coordinate (to ensure atomic read/write)
-    vector<mutex> mUpdateMutexes;
+  // mutexes for each coordinate (to ensure atomic read/write)
+  vector<mutex> mUpdateMutexes;
 
-    // adjacency list between coordinates
-    vector<vector<unsigned>> adjList;
+  // adjacency list between coordinates
+  vector<vector<unsigned>> adjList;
 
-    // number of writes performed by ALL workers
-    unsigned numWrites;
+  // number of writes performed by ALL workers
+  unsigned numWrites;
 
-  private:
-    // problem object
-    QuadraticProblem* problem = nullptr;
+ private:
+  // problem object
+  QuadraticProblem* problem = nullptr;
 
-    // current iterate
-    Matrix Y;
+  // current iterate
+  Matrix Y;
 
-    // step size
-    float stepsize;
+  // step size
+  float stepsize;
 
-    // update rate in Hz
-    int updateRate;
+  // update rate in Hz
+  int updateRate;
 
+  // problem specific constants
+  unsigned d, r, n;
 
-    // problem specific constants
-    unsigned d,r,n;
+  // list of workers
+  vector<thread*> threads;
+  vector<RGDWorker*> workers;
 
-    // list of workers
-    vector<thread*> threads;
-    vector<RGDWorker*> workers;
-    
-    // ROPTLIB
-    LiftedSEManifold* M;
-    LiftedSEVariable* Var;
-    LiftedSEVector* EGrad;
-    LiftedSEVector* RGrad;
+  // ROPTLIB
+  LiftedSEManifold* M;
+  LiftedSEVariable* Var;
+  LiftedSEVector* EGrad;
+  LiftedSEVector* RGrad;
 
-    
-    void initialize();
+  void initialize();
 
-    float computeCost();
+  float computeCost();
 
-    float computeGradNorm();
+  float computeGradNorm();
+};
 
-
-  };
-
-} 
-
-
-
+}  // namespace DPGO
 
 #endif

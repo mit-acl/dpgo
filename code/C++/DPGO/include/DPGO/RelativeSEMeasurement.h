@@ -8,9 +8,10 @@
 #ifndef RELATIVESEMEASUREMENT_H
 #define RELATIVESEMEASUREMENT_H
 
-#include <iostream>
 #include <DPGO/DPGO_types.h>
+
 #include <Eigen/Dense>
+#include <iostream>
 
 namespace DPGO {
 
@@ -43,24 +44,27 @@ struct RelativeSEMeasurement {
   double tau;
 
   /** Simple default constructor; does nothing */
-  RelativeSEMeasurement() {
-  }
+  RelativeSEMeasurement() {}
 
   /** Basic constructor */
   RelativeSEMeasurement(size_t first_robot, size_t second_robot,
-                          size_t first_pose, size_t second_pose,
-                          const Eigen::MatrixXd &relative_rotation,
-                          const Eigen::VectorXd &relative_translation,
-                          double rotational_precision,
-                          double translational_precision)
-      : r1(first_robot), r2(second_robot), 
-        p1(first_pose), p2(second_pose), R(relative_rotation),
-        t(relative_translation), kappa(rotational_precision),
+                        size_t first_pose, size_t second_pose,
+                        const Eigen::MatrixXd &relative_rotation,
+                        const Eigen::VectorXd &relative_translation,
+                        double rotational_precision,
+                        double translational_precision)
+      : r1(first_robot),
+        r2(second_robot),
+        p1(first_pose),
+        p2(second_pose),
+        R(relative_rotation),
+        t(relative_translation),
+        kappa(rotational_precision),
         tau(translational_precision) {}
 
   /** A utility function for streaming Nodes to cout */
-  inline friend std::ostream &
-  operator<<(std::ostream &os, const RelativeSEMeasurement &measurement) {
+  inline friend std::ostream &operator<<(
+      std::ostream &os, const RelativeSEMeasurement &measurement) {
     os << "r1: " << measurement.r1 << std::endl;
     os << "p1: " << measurement.p1 << std::endl;
     os << "r2: " << measurement.r2 << std::endl;
@@ -73,5 +77,5 @@ struct RelativeSEMeasurement {
     return os;
   }
 };
-};
+};  // namespace DPGO
 #endif

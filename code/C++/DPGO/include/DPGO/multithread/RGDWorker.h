@@ -8,78 +8,69 @@
 #ifndef RGDWORKER_H
 #define RGDWORKER_H
 
-#include <DPGO/multithread/RGDMaster.h>
 #include <DPGO/manifold/LiftedSEManifold.h>
 #include <DPGO/manifold/LiftedSEVariable.h>
 #include <DPGO/manifold/LiftedSEVector.h>
+#include <DPGO/multithread/RGDMaster.h>
 
+using namespace std;
 
 /*Define the namespace*/
-namespace DPGO{
-  
-  class RGDMaster;
+namespace DPGO {
 
-  class RGDWorker{
-  public:
-    RGDWorker(RGDMaster* pMaster, unsigned pId);
+class RGDMaster;
 
-    ~RGDWorker();
+class RGDWorker {
+ public:
+  RGDWorker(RGDMaster* pMaster, unsigned pId);
 
-    void setUpdateIndices(vector<unsigned>& pUpdateIndices){
-      updateIndices = pUpdateIndices;
-    }
+  ~RGDWorker();
 
-    void setUpdateRate(int freq){
-      rate = freq;
-    }
+  void setUpdateIndices(vector<unsigned>& pUpdateIndices) {
+    updateIndices = pUpdateIndices;
+  }
 
-    void setStepsize(float s){
-      stepsize = s;
-    }
+  void setUpdateRate(int freq) { rate = freq; }
 
-    void run();
+  void setStepsize(float s) { stepsize = s; }
 
-    void requestFinish();
+  void run();
 
-    bool isFinished();
-  
-  private:
-    Matrix readDataMatrixBlock(unsigned i, unsigned j);
+  void requestFinish();
 
-    Matrix readComponent(unsigned i);
+  bool isFinished();
 
-    void writeComponent(unsigned i, const Matrix& Yi);
+ private:
+  Matrix readDataMatrixBlock(unsigned i, unsigned j);
 
-    Matrix computeEuclideanGradient(unsigned i);
+  Matrix readComponent(unsigned i);
 
-    Matrix gradientUpdate(const Matrix& Yi, const Matrix& Gi);
+  void writeComponent(unsigned i, const Matrix& Yi);
 
-  	RGDMaster* master;
-    unsigned id;
-    bool mFinishRequested;
-    bool mFinished;
+  Matrix computeEuclideanGradient(unsigned i);
 
-    double rate;
-    double stepsize;
+  Matrix gradientUpdate(const Matrix& Yi, const Matrix& Gi);
 
-    unsigned d, r;
-    vector<unsigned> updateIndices;
+  RGDMaster* master;
+  unsigned id;
+  bool mFinishRequested;
+  bool mFinished;
 
+  double rate;
+  double stepsize;
 
-    // ROPTLIB
-    LiftedSEManifold* M;
-    LiftedSEVariable* Var;
-    LiftedSEVariable* VarNext;
-    LiftedSEVector* EGrad;
-    LiftedSEVector* RGrad;
-    LiftedSEVector* Eta;
+  unsigned d, r;
+  vector<unsigned> updateIndices;
 
-  };
+  // ROPTLIB
+  LiftedSEManifold* M;
+  LiftedSEVariable* Var;
+  LiftedSEVariable* VarNext;
+  LiftedSEVector* EGrad;
+  LiftedSEVector* RGrad;
+  LiftedSEVector* Eta;
+};
 
-
-} 
-
-
-
+}  // namespace DPGO
 
 #endif
