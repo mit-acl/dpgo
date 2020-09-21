@@ -188,7 +188,7 @@ namespace DPGO{
         If necessary, realign the local frame of this robot to match the neighbor's
         and update the cluster that this robot belongs to
     	*/
-		if(neighborCluster < mCluster){
+		if(mCluster > 0 && neighborCluster == 0){
 			// TODO: initialize again HERE
 
 			cout << "Agent " << mID << " informed by agent " << neighborID << " to join cluster " << neighborCluster << "!" << endl;
@@ -307,6 +307,7 @@ namespace DPGO{
 	
 	// TODO: return optimization stats 
 	void PGOAgent::optimize(){
+		if (mCluster != 0) return;
 
 		if(verbose) cout << "Agent " << mID << " optimize..." << endl;
 
