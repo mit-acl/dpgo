@@ -108,7 +108,6 @@ namespace DPGO{
                     const std::vector<RelativeSEMeasurement>& inputPrivateLoopClosures,
                     const std::vector<RelativeSEMeasurement>& inputSharedLoopClosures);
 
-    
     /**
     Add an odometric measurement of this robot.
     This function automatically initialize the new pose, by propagating odometry
@@ -316,6 +315,10 @@ namespace DPGO{
     bool findSharedLoopClosure(unsigned neighborID, unsigned neighborPose, RelativeSEMeasurement& mOut);
 
 
+    /**
+    local Chordal initialization
+    */
+    Matrix computeInitialEstimate();
 
   };
 

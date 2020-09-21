@@ -17,14 +17,6 @@
 using namespace std;
 using namespace DPGO;
 
-
-/**
-This demo simulates a serial version of the distributed PGO algorithm described in:
-
-Y. Tian, K. Khosoussi, and JP How
-"Block-Coordinate Descent on the Riemannian Staircase for Certifiably Correct Distributed Rotation and Pose Synchronization"
-*/
-
 int main(int argc, char** argv)
 {
     /**
@@ -63,38 +55,18 @@ int main(int argc, char** argv)
     SparseMatrix ConLapT = constructConnectionLaplacianSE(dataset);
     d = (!dataset.empty() ? dataset[0].t.size() : 0);
     n = num_poses;
-    r = 3;
+    r = d;
     ROPTALG algorithm = ROPTALG::RTR;
     bool verbose = false;
     PGOAgentParameters options(d,r,algorithm,verbose);
 
-    
-
-    /**
-    ###################################################
-    Compute initialization (currently requires SE-Sync)
-    ###################################################
-    */
-    Matrix Xinit;
-    SparseMatrix B1, B2, B3; 
-    constructBMatrices(dataset, B1, B2, B3);
-    Matrix Rinit = chordalInitialization(d, B3);
-    Matrix tinit = recoverTranslations(B1, B2, Rinit);
-    Xinit.resize(r, n*(d+1));
-    Xinit.setZero();
-    for (size_t i=0; i<n; i++)
-    {
-        Xinit.block(0,i*(d+1),  d,d) = Rinit.block(0,i*d,d,d);
-        Xinit.block(0,i*(d+1)+d,d,1) = tinit.block(0,i,d,1);
-    }
-
 
     /**
     ###########################################
-    Initialize multiple PGOAgents
+    Prepare dataset
     ###########################################
     */
-    unsigned int num_poses_per_robot = n/num_robots;
+    unsigned int num_poses_per_robot = num_poses / num_robots;
     if(num_poses_per_robot <= 0){
         cout << "More robots than total number of poses! Decrease the number of robots" << endl;
         exit(1);
@@ -111,18 +83,11 @@ int main(int argc, char** argv)
             PoseID pose = make_pair(robot, localIdx);
             PoseMap[idx] = pose;
         }
-        cout << endl;
     }
 
-    
-    vector<PGOAgent*> agents;
-
-    for(unsigned robot = 0; robot < (unsigned) num_robots; ++robot){
-        PGOAgent* ag = new PGOAgent(robot, options);
-        agents.push_back(ag);
-    }
-
-
+    vector<vector<RelativeSEMeasurement>> odometry(num_robots);
+    vector<vector<RelativeSEMeasurement>> private_loop_closures(num_robots);
+    vector<vector<RelativeSEMeasurement>> shared_loop_closure(num_robots);
     for(size_t k = 0; k < dataset.size(); ++k){
         RelativeSEMeasurement mIn = dataset[k];
         PoseID src = PoseMap[mIn.p1];
@@ -139,42 +104,41 @@ int main(int argc, char** argv)
             // private measurement
             if(srcIdx + 1 == dstIdx){
                 // Odometry
-                agents[srcRobot]->addOdometry(m);
+                odometry[srcRobot].push_back(m);
             }
             else{
                 // private loop closure
-                agents[srcRobot]->addPrivateLoopClosure(m);
+                private_loop_closures[srcRobot].push_back(m);
             }
         }else{
             // shared measurement
-            agents[srcRobot]->addSharedLoopClosure(m);
-            agents[dstRobot]->addSharedLoopClosure(m);
+            shared_loop_closure[srcRobot].push_back(m);
+            shared_loop_closure[dstRobot].push_back(m);
         }
 
     }
 
     /**
     ###########################################
-    Optimize!
+    Initialization
+    ###########################################
+    */
+    vector<PGOAgent*> agents;
+    for(unsigned robot = 0; robot < (unsigned) num_robots; ++robot){
+        PGOAgent* agent = new PGOAgent(robot, options);
+        agent->initialize(odometry[robot], private_loop_closures[robot], shared_loop_closure[robot]);
+        agents.push_back(agent);
+    }
+
+    /**
+    ###########################################
+    Optimization loop
     ###########################################
     */
 
-    cout << "Initializing..." << endl;
-    for(unsigned robot = 0; robot < (unsigned) num_robots; ++robot){
-        unsigned startIdx = robot * num_poses_per_robot;
-        unsigned endIdx = (robot+1) * num_poses_per_robot; // non-inclusive
-        if (robot == (unsigned) num_robots - 1) endIdx = n;
-
-        agents[robot]->setX(Xinit.block(0, startIdx*(d+1), r, (endIdx-startIdx)*(d+1)));
-        
-    }
-
-
-    Matrix Xopt = Xinit;
-    unsigned numIters = 1000;
+    unsigned numIters = 500;
+    Matrix Xopt(d, n*(d+1));
     cout << "Running RBCD for " << numIters << " iterations..." << endl; 
-
-
     std::default_random_engine generator;
     std::uniform_int_distribution<int> distribution(0,num_robots-1);
 
@@ -196,23 +160,23 @@ int main(int argc, char** argv)
             }
         }
 
-
         // randomly select a robot to optimize
         unsigned robot = (unsigned) distribution(generator);
         agents[robot]->optimize();
+
+        for(unsigned robot = 0; robot < (unsigned) num_robots; ++robot){
+            unsigned startIdx = robot * num_poses_per_robot;
+            unsigned endIdx = (robot+1) * num_poses_per_robot; // non-inclusive
+            if (robot == (unsigned) num_robots - 1) endIdx = n;
+
+            Xopt.block(0, startIdx*(d+1), r, (endIdx-startIdx)*(d+1)) = agents[robot]->getX();
+        }
 
         // Evaluate
         cout 
         << "Iter = " << iter << " | "
         << "cost = " << (Xopt * ConLapT * Xopt.transpose()).trace() << " | "
         << "robot = " << robot << endl;
-        
-        unsigned startIdx = robot * num_poses_per_robot;
-        unsigned endIdx = (robot+1) * num_poses_per_robot; // non-inclusive
-        if (robot == (unsigned) num_robots - 1) endIdx = n;
-        Xopt.block(0, startIdx*(d+1), r, (endIdx-startIdx)*(d+1)) = agents[robot]->getX();
-
-        
     }
 
     exit(0);

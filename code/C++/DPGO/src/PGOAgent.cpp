@@ -6,14 +6,20 @@
  * -------------------------------------------------------------------------- */
 
 #include <DPGO/PGOAgent.h>
+
+#include <algorithm>
 #include <iostream>
 #include <cmath>
 #include <cassert>
 #include <chrono>
 #include <random>
+
 #include <DPGO/DPGO_utils.h>
 #include <DPGO/QuadraticProblem.h>
 #include <DPGO/QuadraticOptimizer.h>
+
+#include "StieVariable.h"
+
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
 #include <Eigen/CholmodSupport>
@@ -33,9 +39,8 @@ namespace DPGO{
 	algorithm(params.algorithm),
 	stepsize(1e-3)
 	{
-		// For now assume r = d! (TODO)
-		assert(r == d);
-		X = Matrix::Zero(d, d+1);
+
+		X = Matrix::Zero(r, d+1);
 		X.block(0,0,d,d) = Matrix::Identity(d,d);
 
 		// initialize globalAnchor
@@ -50,10 +55,52 @@ namespace DPGO{
 
 
 	void PGOAgent::initialize(const std::vector<RelativeSEMeasurement>& inputOdometry, 
-                    		  const std::vector<RelativeSEMeasurement>& inputPrivateLoopClosures,
-                    		  const std::vector<RelativeSEMeasurement>& inputSharedLoopClosures)
+                  			  const std::vector<RelativeSEMeasurement>& inputPrivateLoopClosures,
+                 			  const std::vector<RelativeSEMeasurement>& inputSharedLoopClosures)
 	{
+		assert(!isOptimizationRunning());
+		assert(n == 1);
 
+		for (size_t i = 0; i < inputOdometry.size(); ++i){
+			addOdometry(inputOdometry[i]);
+		}
+		for (size_t i = 0; i < inputPrivateLoopClosures.size(); ++i){
+			addPrivateLoopClosure(inputPrivateLoopClosures[i]);
+		}
+		for (size_t i = 0; i < inputSharedLoopClosures.size(); ++i){
+			addSharedLoopClosure(inputSharedLoopClosures[i]);
+		}
+
+		Matrix T = computeInitialEstimate();
+		// Lift to correct relaxation rank
+		X = fixedStiefelVariable(d,r) * T;
+	}
+
+
+	Matrix PGOAgent::computeInitialEstimate(){
+		assert(!isOptimizationRunning());
+
+		std::vector<RelativeSEMeasurement> measurements = odometry;
+		measurements.insert(measurements.end(), privateLoopClosures.begin(), privateLoopClosures.end());
+
+		SparseMatrix B1, B2, B3; 
+	    constructBMatrices(measurements, B1, B2, B3);
+	    Matrix Rinit = chordalInitialization(d, B3);
+	    Matrix tinit = recoverTranslations(B1, B2, Rinit);
+
+	    assert(Rinit.rows() == d);
+	    assert(Rinit.cols() == d*n);
+	    assert(tinit.rows() == d);
+	    assert(tinit.cols() == n);
+
+	    Matrix T(d, n*(d+1));
+	    for (size_t i=0; i<n; i++)
+	    {
+	        T.block(0,i*(d+1),  d,d) = Rinit.block(0,i*d,d,d);
+	        T.block(0,i*(d+1)+d,d,1) = tinit.block(0,i,d,1);
+	    }
+
+	    return T;
 	}
 
 
@@ -141,8 +188,9 @@ namespace DPGO{
         If necessary, realign the local frame of this robot to match the neighbor's
         and update the cluster that this robot belongs to
     	*/
-
 		if(neighborCluster < mCluster){
+			// TODO: initialize again HERE
+
 			cout << "Agent " << mID << " informed by agent " << neighborID << " to join cluster " << neighborCluster << "!" << endl;
 
 			// Halt optimization
@@ -257,8 +305,9 @@ namespace DPGO{
 	}
 
 	
-
+	// TODO: return optimization stats 
 	void PGOAgent::optimize(){
+
 		if(verbose) cout << "Agent " << mID << " optimize..." << endl;
 
 		// lock pose update
