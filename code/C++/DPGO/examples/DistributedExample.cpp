@@ -125,6 +125,7 @@ int main(int argc, char** argv) {
   vector<PGOAgent*> agents;
   for (unsigned robot = 0; robot < (unsigned)num_robots; ++robot) {
     PGOAgent* agent = new PGOAgent(robot, options);
+    agent->setLiftingMatrix(fixedStiefelVariable(d, r));
     agent->initialize(odometry[robot], private_loop_closures[robot],
                       shared_loop_closure[robot]);
     agents.push_back(agent);

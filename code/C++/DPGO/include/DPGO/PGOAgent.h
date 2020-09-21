@@ -116,6 +116,11 @@ class PGOAgent {
   ROPTResult optimize();
 
   /**
+  Reset this agent to have empty pose graph
+  */
+  void reset();
+
+  /**
   Return the cluster that this robot belongs to
   */
   inline unsigned getCluster() const { return mCluster; }
@@ -139,6 +144,11 @@ class PGOAgent {
   Get relaxation rank
   */
   inline unsigned relaxation_rank() const { return r; }
+
+  /**
+  Check if this agent is ready to optimize
+  */
+  inline bool isInitialized() const { return mInitialized; }
 
   /**
   Return trajectory estimate of this robot in local frame, with its first pose
@@ -188,6 +198,16 @@ class PGOAgent {
     globalAnchor = anchor;
   }
 
+  /**
+  Set the lifting matrix
+  */
+  void setLiftingMatrix(const Matrix& Y) {
+    assert(Y.rows() == r);
+    assert(Y.cols() == d);
+    YLift = Y;
+    receivedYLift = true;
+  }
+
  private:
   // The unique ID associated to this robot
   unsigned mID;
@@ -228,6 +248,12 @@ class PGOAgent {
 
   // Lifting matrix shared by all agents
   Matrix YLift;
+
+  // Received lifting matrix
+  bool receivedYLift;
+
+  // Initialized
+  bool mInitialized;
 
   // Store odometric measurement of this robot
   vector<RelativeSEMeasurement> odometry;

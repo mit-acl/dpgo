@@ -42,15 +42,15 @@ PGOAgent::PGOAgent(unsigned ID, const PGOAgentParameters& params)
       verbose(params.verbose),
       rate(1),
       algorithm(params.algorithm),
-      stepsize(1e-3) {
-  X = Matrix::Zero(r, d + 1);
-  X.block(0, 0, d, d) = Matrix::Identity(d, d);
+      stepsize(1e-3),
+      receivedYLift(false),
+      mInitialized(false) {
+  reset();
 
-  // initialize globalAnchor
-  globalAnchor = X;
-
-  // TODO: if mID is not zero, need to request this from the first robot
-  YLift = fixedStiefelVariable(d, r);
+  if (mID == 0) {
+    YLift = fixedStiefelVariable(d, r);
+    receivedYLift = true;
+  }
 }
 
 PGOAgent::~PGOAgent() {
@@ -75,9 +75,11 @@ void PGOAgent::initialize(
     addSharedLoopClosure(inputSharedLoopClosures[i]);
   }
 
-  Matrix T = computeInitialEstimate();
-  // Lift to correct relaxation rank
-  X = YLift * T;
+  if (mID == 0) {
+    Matrix T = computeInitialEstimate();
+    X = YLift * T;  // Lift to correct relaxation rank
+    mInitialized = true;
+  }
 }
 
 Matrix PGOAgent::computeInitialEstimate() {
@@ -183,79 +185,85 @@ void PGOAgent::updateNeighborPose(unsigned neighborCluster, unsigned neighborID,
   // Do not store this pose if not needed
   if (neighborSharedPoses.find(nID) == neighborSharedPoses.end()) return;
 
-  // If necessary, realign the local frame of this robot to match the neighbor's
-  // and update the cluster that this robot belongs to
-  if (mCluster > 0 && neighborCluster == 0) {
-    cout << "Agent " << mID << " informed by agent " << neighborID
-         << " to join cluster " << neighborCluster << "!" << endl;
+  // Check if this agent is ready to initialize
+  if (!isInitialized()) {
+    bool readyToInitialize = receivedYLift && neighborCluster == 0;
+    if (readyToInitialize) {
+      cout << "Agent " << mID << " informed by agent " << neighborID
+           << " to intialize! " << endl;
 
-    // Halt optimization
-    bool optimizationHalted = false;
-    if (isOptimizationRunning()) {
-      if (verbose)
-        cout << "Agent " << mID << " halt optimization thread..." << endl;
-      optimizationHalted = true;
-      endOptimizationLoop();
+      // Halt optimization
+      bool optimizationHalted = false;
+      if (isOptimizationRunning()) {
+        if (verbose)
+          cout << "Agent " << mID << " halt optimization thread..." << endl;
+        optimizationHalted = true;
+        endOptimizationLoop();
+      }
+
+      // Halt insertion of new poses
+      lock_guard<mutex> tLock(mPosesMutex);
+      assert(X.cols() == n * (d + 1));
+
+      // Halt insertion of new measurements
+      lock_guard<mutex> mLock(mMeasurementsMutex);
+
+      // Clear cache
+      lock_guard<mutex> nLock(mNeighborPosesMutex);
+      neighborPoseDict.clear();
+
+      // Find the corresponding inter-robot loop closure
+      RelativeSEMeasurement m;
+      assert(findSharedLoopClosure(neighborID, neighborPose, m));
+
+      // Notations:
+      // world1: world frame before alignment
+      // world2: world frame after alignment
+      // frame1 : frame associated to my public pose
+      // frame2 : frame associated to neighbor's public pose
+      Matrix dT = Matrix::Identity(d + 1, d + 1);
+      dT.block(0, 0, d, d) = m.R;
+      dT.block(0, d, d, 1) = m.t;
+      Matrix T_world2_frame2 = Matrix::Identity(d + 1, d + 1);
+      T_world2_frame2.block(0, 0, d, d + 1) =
+          YLift.transpose() *
+          var;  // Round the received neighbor pose value back to SE(d)
+      Matrix T = computeInitialEstimate();
+      Matrix T_frame1_frame2 = Matrix::Identity(d + 1, d + 1);
+      Matrix T_world1_frame1 = Matrix::Identity(d + 1, d + 1);
+      if (m.r1 == neighborID) {
+        // Incoming edge
+        T_frame1_frame2 = dT.inverse();
+        T_world1_frame1.block(0, 0, d, d + 1) =
+            T.block(0, m.p2 * (d + 1), d, d + 1);
+      } else {
+        // Outgoing edge
+        T_frame1_frame2 = dT;
+        T_world1_frame1.block(0, 0, d, d + 1) =
+            T.block(0, m.p1 * (d + 1), d, d + 1);
+      }
+      Matrix T_world2_frame1 = T_world2_frame2 * T_frame1_frame2.inverse();
+      Matrix T_world2_world1 = T_world2_frame1 * T_world1_frame1.inverse();
+
+      Matrix T_world1_frame = Matrix::Identity(d + 1, d + 1);
+      Matrix T_world2_frame = Matrix::Identity(d + 1, d + 1);
+      for (size_t i = 0; i < n; ++i) {
+        T_world1_frame.block(0, 0, d, d + 1) =
+            T.block(0, i * (d + 1), d, d + 1);
+        T_world2_frame = T_world2_world1 * T_world1_frame;
+        T.block(0, i * (d + 1), d, d + 1) =
+            T_world2_frame.block(0, 0, d, d + 1);
+      }
+
+      // Lift back to correct relaxation rank
+      X = YLift * T;
+
+      // Mark this agent as initialized
+      mCluster = neighborCluster;
+      mInitialized = true;
+
+      if (optimizationHalted) startOptimizationLoop(rate);
     }
-
-    // Halt insertion of new poses
-    lock_guard<mutex> tLock(mPosesMutex);
-    assert(X.cols() == n * (d + 1));
-
-    // Halt insertion of new measurements
-    lock_guard<mutex> mLock(mMeasurementsMutex);
-
-    // Clear cache
-    lock_guard<mutex> nLock(mNeighborPosesMutex);
-    neighborPoseDict.clear();
-
-    mCluster = neighborCluster;
-
-    // Find the corresponding inter-robot loop closure
-    RelativeSEMeasurement m;
-    assert(findSharedLoopClosure(neighborID, neighborPose, m));
-
-    // Notations:
-    // world1: world frame before alignment
-    // world2: world frame after alignment
-    // frame1 : frame associated to my public pose
-    // frame2 : frame associated to neighbor's public pose
-    Matrix dT = Matrix::Identity(d + 1, d + 1);
-    dT.block(0, 0, d, d) = m.R;
-    dT.block(0, d, d, 1) = m.t;
-    Matrix T_world2_frame2 = Matrix::Identity(d + 1, d + 1);
-    // Round the received neighbor pose value back to SE(d)
-    T_world2_frame2.block(0, 0, d, d + 1) = YLift.transpose() * var;
-    // Round current trajectory back to SE(d)
-    Matrix T = YLift.transpose() * X;
-    Matrix T_frame1_frame2 = Matrix::Identity(d + 1, d + 1);
-    Matrix T_world1_frame1 = Matrix::Identity(d + 1, d + 1);
-    if (m.r1 == neighborID) {
-      // Incoming edge
-      T_frame1_frame2 = dT.inverse();
-      T_world1_frame1.block(0, 0, d, d + 1) =
-          T.block(0, m.p2 * (d + 1), d, d + 1);
-    } else {
-      // Outgoing edge
-      T_frame1_frame2 = dT;
-      T_world1_frame1.block(0, 0, d, d + 1) =
-          T.block(0, m.p1 * (d + 1), d, d + 1);
-    }
-    Matrix T_world2_frame1 = T_world2_frame2 * T_frame1_frame2.inverse();
-    Matrix T_world2_world1 = T_world2_frame1 * T_world1_frame1.inverse();
-
-    Matrix T_world1_frame = Matrix::Identity(d + 1, d + 1);
-    Matrix T_world2_frame = Matrix::Identity(d + 1, d + 1);
-    for (size_t i = 0; i < n; ++i) {
-      T_world1_frame.block(0, 0, d, d + 1) = T.block(0, i * (d + 1), d, d + 1);
-      T_world2_frame = T_world2_world1 * T_world1_frame;
-      T.block(0, i * (d + 1), d, d + 1) = T_world2_frame.block(0, 0, d, d + 1);
-    }
-
-    // Lift back to correct relaxation rank
-    X = YLift * T;
-
-    if (optimizationHalted) startOptimizationLoop(rate);
   }
 
   // Do not store this pose if it comes from a different cluster
@@ -306,13 +314,34 @@ PoseDict PGOAgent::getSharedPoses() {
   return map;
 }
 
+void PGOAgent::reset() {
+  // Terminate optimization thread if running
+  endOptimizationLoop();
+
+  mInitialized = false;
+
+  odometry.clear();
+  privateLoopClosures.clear();
+  sharedLoopClosures.clear();
+
+  neighborPoseDict.clear();
+  mSharedPoses.clear();
+  neighborSharedPoses.clear();
+
+  n = 1;
+  X = Matrix::Zero(r, d + 1);
+  X.block(0, 0, d, d) = Matrix::Identity(d, d);
+  globalAnchor = X;
+
+  mCluster = mID;
+}
+
 ROPTResult PGOAgent::optimize() {
   if (verbose) std::cout << "Agent " << mID << " optimize..." << std::endl;
 
-  if (mCluster != 0) {
+  if (!isInitialized()) {
     if (verbose)
-      std::cout << "Have not received global transformation. Skip optimization!"
-                << std::endl;
+      std::cout << "Not initialized. Skip optimization!" << std::endl;
     return ROPTResult(false);
   }
 
@@ -388,7 +417,7 @@ ROPTResult PGOAgent::optimize() {
       std::chrono::duration_cast<std::chrono::milliseconds>(counter).count();
   double fOpt = problem.f(Xnext);
   double gradNormOpt = problem.gradNorm(Xnext);
-  assert(fOpt <= fInit + 1e-1);
+  assert(fOpt <= fInit);
 
   X.block(0, 0, r, (d + 1) * k) = Xnext;
   assert(k == n);
