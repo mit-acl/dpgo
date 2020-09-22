@@ -279,6 +279,9 @@ class PGOAgent {
   // Store the set of public poses needed from other robots
   set<PoseID> neighborSharedPoses;
 
+  // Store the set of neighboring agents
+  set<unsigned> neighborAgents;
+
   // This dictionary stores shared loop closure measurements
   vector<RelativeSEMeasurement> sharedLoopClosures;
 

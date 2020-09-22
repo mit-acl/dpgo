@@ -165,11 +165,13 @@ void PGOAgent::addSharedLoopClosure(const RelativeSEMeasurement& factor) {
     assert(factor.r2 != mID);
     mSharedPoses.insert(std::make_pair(mID, factor.p1));
     neighborSharedPoses.insert(std::make_pair(factor.r2, factor.p2));
+    neighborAgents.insert(factor.r2);
   } else {
     assert(factor.r2 == mID);
     assert(factor.p2 < n);
     mSharedPoses.insert(std::make_pair(mID, factor.p2));
     neighborSharedPoses.insert(std::make_pair(factor.r1, factor.p1));
+    neighborAgents.insert(factor.r1);
   }
 
   lock_guard<mutex> lock(mMeasurementsMutex);
@@ -330,6 +332,7 @@ void PGOAgent::reset() {
   neighborPoseDict.clear();
   mSharedPoses.clear();
   neighborSharedPoses.clear();
+  neighborAgents.clear();
 
   n = 1;
   X = Matrix::Zero(r, d + 1);

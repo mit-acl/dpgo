@@ -93,10 +93,10 @@ int main(int argc, char** argv) {
     PoseID src = PoseMap[mIn.p1];
     PoseID dst = PoseMap[mIn.p2];
 
-    unsigned srcRobot = get<0>(src);
-    unsigned srcIdx = get<1>(src);
-    unsigned dstRobot = get<0>(dst);
-    unsigned dstIdx = get<1>(dst);
+    unsigned srcRobot = src.first;
+    unsigned srcIdx = src.second;
+    unsigned dstRobot = dst.first;
+    unsigned dstIdx = dst.second;
 
     RelativeSEMeasurement m(srcRobot, dstRobot, srcIdx, dstIdx, mIn.R, mIn.t,
                             mIn.kappa, mIn.tau);
