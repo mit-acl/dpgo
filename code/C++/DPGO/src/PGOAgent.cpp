@@ -408,7 +408,7 @@ ROPTResult PGOAgent::optimize() {
 
   // Initialize optimizer object
   QuadraticOptimizer optimizer(&problem);
-  optimizer.setVerbose(verbose);
+  optimizer.setVerbose(false);
   optimizer.setAlgorithm(algorithm);
   optimizer.setStepsize(stepsize);
 
