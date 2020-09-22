@@ -216,7 +216,8 @@ void PGOAgent::updateNeighborPose(unsigned neighborCluster, unsigned neighborID,
 
       // Find the corresponding inter-robot loop closure
       RelativeSEMeasurement m;
-      assert(findSharedLoopClosure(neighborID, neighborPose, m));
+      bool found = findSharedLoopClosure(neighborID, neighborPose, m);
+      assert(found);
 
       // Notations:
       // world1: world frame before alignment
