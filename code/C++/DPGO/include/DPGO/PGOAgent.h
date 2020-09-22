@@ -199,6 +199,14 @@ class PGOAgent {
   }
 
   /**
+  Get lifting matrix
+  */
+  inline Matrix getLiftingMatrix() const {
+    assert(mID == 0);
+    return YLift;
+  }
+
+  /**
   Set the lifting matrix
   */
   void setLiftingMatrix(const Matrix& Y) {
