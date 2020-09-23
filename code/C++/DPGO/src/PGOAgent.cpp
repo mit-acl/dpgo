@@ -190,9 +190,6 @@ void PGOAgent::addSharedLoopClosure(const RelativeSEMeasurement& factor) {
 void PGOAgent::updateNeighborPose(unsigned neighborCluster, unsigned neighborID,
                                   unsigned neighborPose, const Matrix& var) {
   assert(neighborID != mID);
-  assert(
-      neighborCluster ==
-      0);  // Only save neighbor poses if the neighbor already joins cluster 0.
   assert(var.rows() == r);
   assert(var.cols() == d + 1);
 
@@ -283,7 +280,8 @@ void PGOAgent::updateNeighborPose(unsigned neighborCluster, unsigned neighborID,
   }
 
   // Only save poses from neighbors if this agent is initialized
-  if (mState == PGOAgentState::INITIALIZED) {
+  // and if the sending agent is also initialized
+  if (mState == PGOAgentState::INITIALIZED && neighborCluster == 0) {
     lock_guard<mutex> lock(mNeighborPosesMutex);
     neighborPoseDict[nID] = var;
   }
@@ -330,13 +328,25 @@ PoseDict PGOAgent::getSharedPoses() {
   return map;
 }
 
+std::vector<unsigned> PGOAgent::getNeighborPublicPoses(const unsigned& neighborID) const {
+  // Check that neighborID is indeed a neighbor of this agent
+  assert(neighborAgents.find(neighborID) != neighborAgents.end());
+  std::vector<unsigned> poseIndices;
+  for (PoseID pair : neighborSharedPoses) {
+    if (pair.first == neighborID) {
+      poseIndices.push_back(pair.second);
+    }
+  }
+  return poseIndices;
+}
+
 bool PGOAgent::getRandomNeighbor(unsigned& neighborID) const {
   if (neighborAgents.empty()) return false;
   std::vector<unsigned> v(neighborAgents.size());
   std::copy(neighborAgents.begin(), neighborAgents.end(), v.begin());
   std::random_device rd;
-  std::mt19937 gen(rd());  
-  std::uniform_int_distribution<unsigned int> distribution(0, v.size()-1);
+  std::mt19937 gen(rd());
+  std::uniform_int_distribution<unsigned int> distribution(0, v.size() - 1);
   unsigned int idx = distribution(gen);
   neighborID = v[idx];
   return true;
