@@ -94,9 +94,9 @@ class PGOAgent {
                 << std::endl;
   }
 
-  /** Helper function to get current solution
-      In deployment, probably should not use this
-   */
+  /**
+  Get internal solution
+  */
   Matrix getX() {
     lock_guard<mutex> lock(mPosesMutex);
     return X;
@@ -105,9 +105,11 @@ class PGOAgent {
   /**
   Get the ith component of the current solution
   */
-  Matrix getXComponent(unsigned i) {
-    X = getX();
-    return X.block(0, i * (d + 1), r, d + 1);
+  bool getXComponent(const unsigned index, Matrix& Mout) {
+    lock_guard<mutex> lock(mPosesMutex);
+    if (index >= num_poses()) return false;
+    Mout = X.block(0, index * (d + 1), r, d + 1);
+    return true;
   }
 
   /**
@@ -160,6 +162,12 @@ class PGOAgent {
   Get relaxation rank
   */
   inline unsigned relaxation_rank() const { return r; }
+
+  /**
+  Get random neighbor.
+  If the agent has no neighbor, this method will return false.
+  */
+  bool getRandomNeighbor(unsigned& neighborID) const;
 
   /**
   Return trajectory estimate of this robot in local frame, with its first pose

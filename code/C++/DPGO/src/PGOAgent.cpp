@@ -190,7 +190,9 @@ void PGOAgent::addSharedLoopClosure(const RelativeSEMeasurement& factor) {
 void PGOAgent::updateNeighborPose(unsigned neighborCluster, unsigned neighborID,
                                   unsigned neighborPose, const Matrix& var) {
   assert(neighborID != mID);
-  assert(neighborCluster == 0);  // Only save neighbor poses if the neighbor already joins cluster 0.
+  assert(
+      neighborCluster ==
+      0);  // Only save neighbor poses if the neighbor already joins cluster 0.
   assert(var.rows() == r);
   assert(var.cols() == d + 1);
 
@@ -326,6 +328,18 @@ PoseDict PGOAgent::getSharedPoses() {
     map[*it] = X.block(0, idx * (d + 1), r, d + 1);
   }
   return map;
+}
+
+bool PGOAgent::getRandomNeighbor(unsigned& neighborID) const {
+  if (neighborAgents.empty()) return false;
+  std::vector<unsigned> v(neighborAgents.size());
+  std::copy(neighborAgents.begin(), neighborAgents.end(), v.begin());
+  std::random_device rd;
+  std::mt19937 gen(rd());  
+  std::uniform_int_distribution<unsigned int> distribution(0, v.size()-1);
+  unsigned int idx = distribution(gen);
+  neighborID = v[idx];
+  return true;
 }
 
 void PGOAgent::reset() {
