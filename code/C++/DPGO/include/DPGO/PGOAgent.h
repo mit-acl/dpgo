@@ -34,6 +34,22 @@ using std::vector;
 namespace DPGO {
 
 /**
+Defines the possible states of a PGOAgent
+Each state can only transition to the state below
+*/
+enum PGOAgentState {
+
+  WAIT_FOR_LIFTING_MATRIX,  // waiting to receive shared lifting matrix
+
+  WAIT_FOR_DATA,  // waiting to receive pose graph
+
+  WAIT_FOR_INITIALIZATION,  // waiting to initialize trajectory estimate
+
+  INITIALIZED,  // trajectory initialized and ready to update
+
+};
+
+/**
 This struct contains parameters for PGOAgent
 */
 struct PGOAgentParameters {
@@ -97,7 +113,7 @@ class PGOAgent {
   /**
   Initialize the local pose graph from the input factors
   */
-  void initialize(
+  void setPoseGraph(
       const std::vector<RelativeSEMeasurement>& inputOdometry,
       const std::vector<RelativeSEMeasurement>& inputPrivateLoopClosures,
       const std::vector<RelativeSEMeasurement>& inputSharedLoopClosures);
@@ -144,11 +160,6 @@ class PGOAgent {
   Get relaxation rank
   */
   inline unsigned relaxation_rank() const { return r; }
-
-  /**
-  Check if this agent is ready to optimize
-  */
-  inline bool isInitialized() const { return mInitialized; }
 
   /**
   Return trajectory estimate of this robot in local frame, with its first pose
@@ -203,6 +214,7 @@ class PGOAgent {
   */
   inline Matrix getLiftingMatrix() const {
     assert(mID == 0);
+    assert(mState != PGOAgentState::WAIT_FOR_LIFTING_MATRIX);
     return YLift;
   }
 
@@ -210,10 +222,11 @@ class PGOAgent {
   Set the lifting matrix
   */
   void setLiftingMatrix(const Matrix& Y) {
+    assert(mState == PGOAgentState::WAIT_FOR_LIFTING_MATRIX);
     assert(Y.rows() == r);
     assert(Y.cols() == d);
     YLift = Y;
-    receivedYLift = true;
+    mState = PGOAgentState::WAIT_FOR_DATA;
   }
 
  private:
@@ -257,11 +270,8 @@ class PGOAgent {
   // Lifting matrix shared by all agents
   Matrix YLift;
 
-  // Received lifting matrix
-  bool receivedYLift;
-
-  // Initialized
-  bool mInitialized;
+  // Current state of this agent
+  PGOAgentState mState;
 
   // Store odometric measurement of this robot
   vector<RelativeSEMeasurement> odometry;

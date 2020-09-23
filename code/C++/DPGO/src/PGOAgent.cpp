@@ -42,14 +42,19 @@ PGOAgent::PGOAgent(unsigned ID, const PGOAgentParameters& params)
       verbose(params.verbose),
       rate(1),
       algorithm(params.algorithm),
-      stepsize(1e-3),
-      receivedYLift(false),
-      mInitialized(false) {
-  reset();
+      stepsize(1e-3) {
+  mState = PGOAgentState::WAIT_FOR_LIFTING_MATRIX;
 
+  // Initialize X
+  n = 1;
+  X = Matrix::Zero(r, d + 1);
+  X.block(0, 0, d, d) = Matrix::Identity(d, d);
+  globalAnchor = X;
+
+  // Initialze state of this agent
   if (mID == 0) {
-    YLift = fixedStiefelVariable(d, r);
-    receivedYLift = true;
+    setLiftingMatrix(fixedStiefelVariable(d, r));
+    assert(mState == PGOAgentState::WAIT_FOR_DATA);
   }
 }
 
@@ -58,11 +63,12 @@ PGOAgent::~PGOAgent() {
   endOptimizationLoop();
 }
 
-void PGOAgent::initialize(
+void PGOAgent::setPoseGraph(
     const std::vector<RelativeSEMeasurement>& inputOdometry,
     const std::vector<RelativeSEMeasurement>& inputPrivateLoopClosures,
     const std::vector<RelativeSEMeasurement>& inputSharedLoopClosures) {
   assert(!isOptimizationRunning());
+  assert(mState == PGOAgentState::WAIT_FOR_DATA);
   assert(n == 1);
 
   for (size_t i = 0; i < inputOdometry.size(); ++i) {
@@ -75,10 +81,13 @@ void PGOAgent::initialize(
     addSharedLoopClosure(inputSharedLoopClosures[i]);
   }
 
+  mState = PGOAgentState::WAIT_FOR_INITIALIZATION;
+
   if (mID == 0) {
+    // The first agent can further initialize its trajectory estimate
     Matrix T = computeInitialEstimate();
     X = YLift * T;  // Lift to correct relaxation rank
-    mInitialized = true;
+    mState = PGOAgentState::INITIALIZED;
   }
 }
 
@@ -181,6 +190,7 @@ void PGOAgent::addSharedLoopClosure(const RelativeSEMeasurement& factor) {
 void PGOAgent::updateNeighborPose(unsigned neighborCluster, unsigned neighborID,
                                   unsigned neighborPose, const Matrix& var) {
   assert(neighborID != mID);
+  assert(neighborCluster == 0);  // Only save neighbor poses if the neighbor already joins cluster 0.
   assert(var.rows() == r);
   assert(var.cols() == d + 1);
 
@@ -190,9 +200,8 @@ void PGOAgent::updateNeighborPose(unsigned neighborCluster, unsigned neighborID,
   if (neighborSharedPoses.find(nID) == neighborSharedPoses.end()) return;
 
   // Check if this agent is ready to initialize
-  if (!isInitialized()) {
-    bool readyToInitialize = receivedYLift && neighborCluster == 0;
-    if (readyToInitialize) {
+  if (mState == PGOAgentState::WAIT_FOR_INITIALIZATION) {
+    if (neighborCluster == 0) {
       cout << "Agent " << mID << " informed by agent " << neighborID
            << " to intialize! " << endl;
 
@@ -265,17 +274,17 @@ void PGOAgent::updateNeighborPose(unsigned neighborCluster, unsigned neighborID,
 
       // Mark this agent as initialized
       mCluster = neighborCluster;
-      mInitialized = true;
+      mState = PGOAgentState::INITIALIZED;
 
       if (optimizationHalted) startOptimizationLoop(rate);
     }
   }
 
-  // Do not store this pose if it comes from a different cluster
-  if (neighborCluster != mCluster) return;
-
-  lock_guard<mutex> lock(mNeighborPosesMutex);
-  neighborPoseDict[nID] = var;
+  // Only save poses from neighbors if this agent is initialized
+  if (mState == PGOAgentState::INITIALIZED) {
+    lock_guard<mutex> lock(mNeighborPosesMutex);
+    neighborPoseDict[nID] = var;
+  }
 }
 
 Matrix PGOAgent::getTrajectoryInLocalFrame() {
@@ -320,10 +329,13 @@ PoseDict PGOAgent::getSharedPoses() {
 }
 
 void PGOAgent::reset() {
+  assert(mState == PGOAgentState::INITIALIZED);
+
   // Terminate optimization thread if running
   endOptimizationLoop();
 
-  mInitialized = false;
+  // Yulun: assume that the old lifting matrix can still be used
+  mState = PGOAgentState::WAIT_FOR_DATA;
 
   odometry.clear();
   privateLoopClosures.clear();
@@ -345,7 +357,7 @@ void PGOAgent::reset() {
 ROPTResult PGOAgent::optimize() {
   if (verbose) std::cout << "Agent " << mID << " optimize..." << std::endl;
 
-  if (!isInitialized()) {
+  if (mState != PGOAgentState::INITIALIZED) {
     if (verbose)
       std::cout << "Not initialized. Skip optimization!" << std::endl;
     return ROPTResult(false);
