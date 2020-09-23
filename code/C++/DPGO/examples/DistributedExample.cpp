@@ -125,9 +125,9 @@ int main(int argc, char** argv) {
   vector<PGOAgent*> agents;
   for (unsigned robot = 0; robot < (unsigned)num_robots; ++robot) {
     PGOAgent* agent = new PGOAgent(robot, options);
-    agent->setLiftingMatrix(fixedStiefelVariable(d, r));
-    agent->initialize(odometry[robot], private_loop_closures[robot],
-                      shared_loop_closure[robot]);
+    if (robot > 0) agent->setLiftingMatrix(fixedStiefelVariable(d, r));
+    agent->setPoseGraph(odometry[robot], private_loop_closures[robot],
+                        shared_loop_closure[robot]);
     agents.push_back(agent);
   }
 
@@ -146,6 +146,7 @@ int main(int argc, char** argv) {
   for (unsigned iter = 0; iter < numIters; ++iter) {
     // exchange public poses
     for (unsigned robot1 = 0; robot1 < (unsigned)num_robots; ++robot1) {
+      if (agents[robot1]->getCluster() != 0) continue;
       PoseDict sharedPoses = agents[robot1]->getSharedPoses();
       for (unsigned robot2 = 0; robot2 < (unsigned)num_robots; ++robot2) {
         if (robot1 == robot2) continue;

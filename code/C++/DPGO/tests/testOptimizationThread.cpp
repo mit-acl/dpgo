@@ -29,7 +29,7 @@ TEST(testDPGO, OptimizationThreadBasic) {
 }
 
 TEST(testDPGO, OptimizationThreadTriangleGraph) {
-  unsigned int id = 1;
+  unsigned int id = 0;
   unsigned int d, r;
   d = 3;
   r = 3;
@@ -74,7 +74,7 @@ TEST(testDPGO, OptimizationThreadTriangleGraph) {
                             dT.block(0, d, d, 1), 1.0, 1.0);
   private_loop_closures.push_back(m02);
 
-  agent.initialize(odometry, private_loop_closures, shared_loop_closures);
+  agent.setPoseGraph(odometry, private_loop_closures, shared_loop_closures);
 
   Matrix Testimated;
   Testimated = agent.getTrajectoryInLocalFrame();

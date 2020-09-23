@@ -5,7 +5,7 @@
 using namespace DPGO;
 
 TEST(testDPGO, LineGraph) {
-  unsigned int id = 1;
+  unsigned int id = 0;
   unsigned int d, r;
   d = 3;
   r = 3;
@@ -24,7 +24,7 @@ TEST(testDPGO, LineGraph) {
     RelativeSEMeasurement m(id, id, i, i + 1, R, t, 1.0, 1.0);
     odometry.push_back(m);
   }
-  agent.initialize(odometry, private_loop_closures, shared_loop_closures);
+  agent.setPoseGraph(odometry, private_loop_closures, shared_loop_closures);
   agent.optimize();
 
   ASSERT_EQ(agent.getID(), id);
