@@ -98,6 +98,7 @@ class PGOAgent {
   Get internal solution
   */
   Matrix getX() {
+    assert(mState != PGOAgentState::WAIT_FOR_LIFTING_MATRIX && mState != PGOAgentState::WAIT_FOR_DATA);
     lock_guard<mutex> lock(mPosesMutex);
     return X;
   }
@@ -106,6 +107,7 @@ class PGOAgent {
   Get the ith component of the current solution
   */
   bool getXComponent(const unsigned index, Matrix& Mout) {
+    assert(mState != PGOAgentState::WAIT_FOR_LIFTING_MATRIX && mState != PGOAgentState::WAIT_FOR_DATA);
     lock_guard<mutex> lock(mPosesMutex);
     if (index >= num_poses()) return false;
     Mout = X.block(0, index * (d + 1), r, d + 1);
@@ -189,7 +191,7 @@ class PGOAgent {
   Return trajectory estimate of this robot in global frame, with the first pose
   of robot 0 set to identity
   */
-  Matrix getTrajectoryInGlobalFrame();
+  Matrix getTrajectoryInGlobalFrame(const Matrix& globalAnchor);
 
   /**
   Return a map of shared poses of this robot, that need to be sent to others
@@ -216,16 +218,6 @@ class PGOAgent {
   Set maximum stepsize during Riemannian optimization (only used by RGD)
   */
   void setStepsize(double s) { stepsize = s; }
-
-  /**
-  Set the global anchor, which is used during rounding to put the solution in a
-  global reference frame
-  */
-  void setGlobalAnchor(const Matrix& anchor) {
-    assert(anchor.rows() == r);
-    assert(anchor.cols() == d + 1);
-    globalAnchor = anchor;
-  }
 
   /**
   Get lifting matrix
@@ -280,10 +272,6 @@ class PGOAgent {
 
   // Solution before rounding
   Matrix X;
-
-  // used during rounding to put the current solution to a global reference
-  // frame
-  Matrix globalAnchor;
 
   // Lifting matrix shared by all agents
   Matrix YLift;

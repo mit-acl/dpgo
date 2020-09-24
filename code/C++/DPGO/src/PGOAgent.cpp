@@ -49,7 +49,6 @@ PGOAgent::PGOAgent(unsigned ID, const PGOAgentParameters& params)
   n = 1;
   X = Matrix::Zero(r, d + 1);
   X.block(0, 0, d, d) = Matrix::Identity(d, d);
-  globalAnchor = X;
 
   // Initialze state of this agent
   if (mID == 0) {
@@ -288,6 +287,7 @@ void PGOAgent::updateNeighborPose(unsigned neighborCluster, unsigned neighborID,
 }
 
 Matrix PGOAgent::getTrajectoryInLocalFrame() {
+  assert(mState == PGOAgentState::INITIALIZED);
   lock_guard<mutex> lock(mPosesMutex);
 
   Matrix T = X.block(0, 0, r, d).transpose() * X;
@@ -302,7 +302,10 @@ Matrix PGOAgent::getTrajectoryInLocalFrame() {
   return T;
 }
 
-Matrix PGOAgent::getTrajectoryInGlobalFrame() {
+Matrix PGOAgent::getTrajectoryInGlobalFrame(const Matrix& globalAnchor) {
+  assert(mState == PGOAgentState::INITIALIZED);
+  assert(globalAnchor.rows() == relaxation_rank());
+  assert(globalAnchor.cols() == dimension() + 1);
   lock_guard<mutex> lock(mPosesMutex);
 
   Matrix T = globalAnchor.block(0, 0, r, d).transpose() * X;
@@ -373,7 +376,6 @@ void PGOAgent::reset() {
   n = 1;
   X = Matrix::Zero(r, d + 1);
   X.block(0, 0, d, d) = Matrix::Identity(d, d);
-  globalAnchor = X;
 
   mCluster = mID;
 }
