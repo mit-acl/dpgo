@@ -39,20 +39,22 @@ struct ROPTResult {
   ROPTResult() {}
   ROPTResult(bool suc) : success(suc) {}
   ROPTResult(bool suc, double f0, double gn0, double fStar, double gnStar,
-             double ms)
+             double relchange, double ms)
       : success(suc),
         fInit(f0),
         gradNormInit(gn0),
         fOpt(fStar),
         gradNormOpt(gnStar),
+        relativeChange(relchange),
         elapsedMs(ms) {}
 
-  bool success;         // Is the optimization successful
-  double fInit;         // Objective value before optimization
-  double gradNormInit;  // Gradient norm before optimization
-  double fOpt;          // Objective value after optimization
-  double gradNormOpt;   // Gradient norm after optimization
-  double elapsedMs;     // elapsed time in milliseconds
+  bool success;           // Is the optimization successful
+  double fInit;           // Objective value before optimization
+  double gradNormInit;    // Gradient norm before optimization
+  double fOpt;            // Objective value after optimization
+  double gradNormOpt;     // Gradient norm after optimization
+  double relativeChange;  // Relative change in solution
+  double elapsedMs;       // elapsed time in milliseconds
 };
 
 // In distributed PGO, each pose is uniquely determined by the robot ID and pose
