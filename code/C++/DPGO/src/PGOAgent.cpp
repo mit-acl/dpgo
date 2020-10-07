@@ -356,7 +356,6 @@ bool PGOAgent::getRandomNeighbor(unsigned& neighborID) const {
 }
 
 void PGOAgent::reset() {
-  assert(mState == PGOAgentState::INITIALIZED);
 
   // Terminate optimization thread if running
   endOptimizationLoop();
