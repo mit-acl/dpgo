@@ -77,7 +77,7 @@ TEST(testDPGO, OptimizationThreadTriangleGraph) {
   agent.setPoseGraph(odometry, private_loop_closures, shared_loop_closures);
 
   Matrix Testimated;
-  Testimated = agent.getTrajectoryInLocalFrame();
+  agent.getTrajectoryInLocalFrame(Testimated);
   ASSERT_LE((Ttrue - Testimated).norm(), 1e-4);
 
   agent.startOptimizationLoop(5.0);
@@ -90,6 +90,6 @@ TEST(testDPGO, OptimizationThreadTriangleGraph) {
   ASSERT_EQ(agent.dimension(), d);
   ASSERT_EQ(agent.relaxation_rank(), r);
 
-  Testimated = agent.getTrajectoryInLocalFrame();
+  agent.getTrajectoryInLocalFrame(Testimated);
   ASSERT_LE((Ttrue - Testimated).norm(), 1e-4);
 }

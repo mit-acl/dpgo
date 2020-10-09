@@ -286,8 +286,10 @@ void PGOAgent::updateNeighborPose(unsigned neighborCluster, unsigned neighborID,
   }
 }
 
-Matrix PGOAgent::getTrajectoryInLocalFrame() {
-  assert(mState == PGOAgentState::INITIALIZED);
+bool PGOAgent::getTrajectoryInLocalFrame(Matrix& Trajectory) {
+  if(mState != PGOAgentState::INITIALIZED) {
+    return false;
+  }
   lock_guard<mutex> lock(mPosesMutex);
 
   Matrix T = X.block(0, 0, r, d).transpose() * X;
@@ -299,13 +301,16 @@ Matrix PGOAgent::getTrajectoryInLocalFrame() {
     T.block(0, i * (d + 1) + d, d, 1) = T.block(0, i * (d + 1) + d, d, 1) - t0;
   }
 
-  return T;
+  Trajectory = T;
+  return true;
 }
 
-Matrix PGOAgent::getTrajectoryInGlobalFrame(const Matrix& globalAnchor) {
-  assert(mState == PGOAgentState::INITIALIZED);
+bool PGOAgent::getTrajectoryInGlobalFrame(const Matrix& globalAnchor, Matrix& Trajectory) {
   assert(globalAnchor.rows() == relaxation_rank());
   assert(globalAnchor.cols() == dimension() + 1);
+  if(mState != PGOAgentState::INITIALIZED) {
+    return false;
+  }
   lock_guard<mutex> lock(mPosesMutex);
 
   Matrix T = globalAnchor.block(0, 0, r, d).transpose() * X;
@@ -318,7 +323,8 @@ Matrix PGOAgent::getTrajectoryInGlobalFrame(const Matrix& globalAnchor) {
     T.block(0, i * (d + 1) + d, d, 1) = T.block(0, i * (d + 1) + d, d, 1) - t0;
   }
 
-  return T;
+  Trajectory = T;
+  return true;
 }
 
 PoseDict PGOAgent::getSharedPoses() {

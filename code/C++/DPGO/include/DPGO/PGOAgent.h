@@ -185,13 +185,13 @@ class PGOAgent {
   Return trajectory estimate of this robot in local frame, with its first pose
   set to identity
   */
-  Matrix getTrajectoryInLocalFrame();
+  bool getTrajectoryInLocalFrame(Matrix& Trajectory);
 
   /**
   Return trajectory estimate of this robot in global frame, with the first pose
   of robot 0 set to identity
   */
-  Matrix getTrajectoryInGlobalFrame(const Matrix& globalAnchor);
+  bool getTrajectoryInGlobalFrame(const Matrix& globalAnchor, Matrix& Trajectory);
 
   /**
   Return a map of shared poses of this robot, that need to be sent to others
