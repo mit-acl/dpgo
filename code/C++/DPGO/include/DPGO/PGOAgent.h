@@ -98,7 +98,8 @@ class PGOAgent {
   Get internal solution
   */
   Matrix getX() {
-    assert(mState != PGOAgentState::WAIT_FOR_LIFTING_MATRIX && mState != PGOAgentState::WAIT_FOR_DATA);
+    assert(mState != PGOAgentState::WAIT_FOR_LIFTING_MATRIX &&
+           mState != PGOAgentState::WAIT_FOR_DATA);
     lock_guard<mutex> lock(mPosesMutex);
     return X;
   }
@@ -107,7 +108,8 @@ class PGOAgent {
   Get the ith component of the current solution
   */
   bool getXComponent(const unsigned index, Matrix& Mout) {
-    assert(mState != PGOAgentState::WAIT_FOR_LIFTING_MATRIX && mState != PGOAgentState::WAIT_FOR_DATA);
+    assert(mState != PGOAgentState::WAIT_FOR_LIFTING_MATRIX &&
+           mState != PGOAgentState::WAIT_FOR_DATA);
     lock_guard<mutex> lock(mPosesMutex);
     if (index >= num_poses()) return false;
     Mout = X.block(0, index * (d + 1), r, d + 1);
@@ -134,6 +136,11 @@ class PGOAgent {
   the latter)
   */
   ROPTResult optimize();
+
+  /**
+  Return the current state of this agent
+  */
+  PGOAgentState getState() const { return mState; }
 
   /**
   Reset this agent to have empty pose graph
@@ -170,10 +177,11 @@ class PGOAgent {
   */
   inline std::set<unsigned> getNeighbors() const { return neighborAgents; }
 
-  /** 
-  * Get vector of pose indices needed from the neighbor agent
-  */ 
-  std::vector<unsigned> getNeighborPublicPoses(const unsigned& neighborID) const;  
+  /**
+   * Get vector of pose indices needed from the neighbor agent
+   */
+  std::vector<unsigned> getNeighborPublicPoses(
+      const unsigned& neighborID) const;
 
   /**
   Get random neighbor.
@@ -191,7 +199,8 @@ class PGOAgent {
   Return trajectory estimate of this robot in global frame, with the first pose
   of robot 0 set to identity
   */
-  bool getTrajectoryInGlobalFrame(const Matrix& globalAnchor, Matrix& Trajectory);
+  bool getTrajectoryInGlobalFrame(const Matrix& globalAnchor,
+                                  Matrix& Trajectory);
 
   /**
   Return a map of shared poses of this robot, that need to be sent to others
