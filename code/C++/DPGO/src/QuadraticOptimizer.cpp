@@ -50,9 +50,9 @@ Matrix QuadraticOptimizer::trustRegion(const Matrix& Yinit) {
   } else {
     Solver.Debug = ROPTLIB::DEBUGINFO::NOOUTPUT;
   }
-  Solver.Max_Iteration = 1;     // Max RTR iterations
-  Solver.Max_Inner_Iter = 500;  // Max tCG iterations
-  Solver.TimeBound = 1;
+  Solver.Max_Iteration = 5;     // Max RTR iterations
+  Solver.Max_Inner_Iter = 50;  // Max tCG iterations
+  Solver.TimeBound = 10;
   Solver.Run();
 
   const ROPTLIB::ProductElement* Yopt =

@@ -94,8 +94,8 @@ Matrix PGOAgent::computeInitialEstimate() {
   assert(!isOptimizationRunning());
 
   std::vector<RelativeSEMeasurement> measurements = odometry;
-  measurements.insert(measurements.end(), privateLoopClosures.begin(),
-                      privateLoopClosures.end());
+  // measurements.insert(measurements.end(), privateLoopClosures.begin(),
+  //                     privateLoopClosures.end());
 
   assert(!measurements.empty());
 
@@ -454,7 +454,7 @@ ROPTResult PGOAgent::optimize() {
 
   // Initialize optimizer object
   QuadraticOptimizer optimizer(&problem);
-  optimizer.setVerbose(false);
+  optimizer.setVerbose(verbose);
   optimizer.setAlgorithm(algorithm);
   optimizer.setStepsize(stepsize);
 
