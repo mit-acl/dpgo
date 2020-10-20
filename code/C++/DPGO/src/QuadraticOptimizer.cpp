@@ -50,10 +50,22 @@ Matrix QuadraticOptimizer::trustRegion(const Matrix& Yinit) {
   } else {
     Solver.Debug = ROPTLIB::DEBUGINFO::NOOUTPUT;
   }
-  Solver.Max_Iteration = 5;     // Max RTR iterations
+  Solver.Max_Iteration = 1;    // Max RTR iterations
   Solver.Max_Inner_Iter = 50;  // Max tCG iterations
   Solver.TimeBound = 10;
   Solver.Run();
+
+  double funcDecrease = Solver.Getfinalfun() - Solver.GetPreviousIterateVal();
+  if (funcDecrease > -1e-3 && Solver.Getnormgf() > 1) {
+    // Optimization makes little progress while gradient norm is still large.
+    // This means that the trust-region update is likely to be rejected. In this
+    // case we need to increase number of max iterations and re-optimize.
+    std::cout << "Single trust-region update makes little progress. Running "
+                 "multiple updates..."
+              << std::endl;
+    Solver.Max_Iteration = 20;
+    Solver.Run();
+  }
 
   const ROPTLIB::ProductElement* Yopt =
       static_cast<const ROPTLIB::ProductElement*>(Solver.GetXopt());
