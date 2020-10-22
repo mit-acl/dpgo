@@ -39,12 +39,6 @@ target_include_directories(DPGO PUBLIC
 
 target_link_libraries(DPGO ${CMAKE_THREAD_LIBS_INIT} roptlib ${CHOLMOD_LIBRARIES} ${SPQR_LIBRARIES} )
 
-
-# Build multithread PGO example
-add_executable(multithread-example
-	examples/MultithreadExample.cpp)
-target_link_libraries(multithread-example DPGO)
-
 # Build Distributed PGO example
 add_executable(distributed-example
 	examples/DistributedExample.cpp)

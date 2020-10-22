@@ -346,9 +346,17 @@ void constructBMatrices(const std::vector<RelativeSEMeasurement> &measurements,
   B3.setFromTriplets(triplets.begin(), triplets.end());
 }
 
-Matrix chordalInitialization(unsigned int d, const SparseMatrix &B3) {
+Matrix chordalInitialization(
+    const size_t dimension, const size_t num_poses,
+    const std::vector<RelativeSEMeasurement> &measurements) {
+    SparseMatrix B1, B2, B3;
+  constructBMatrices(measurements, B1, B2, B3);
+
+  // Recover rotations
+  size_t d = (!measurements.empty() ? measurements[0].t.size() : 0);
   unsigned int d2 = d * d;
-  unsigned int num_poses = B3.cols() / d2;
+  assert(dimension == d);
+  assert(num_poses == (unsigned) B3.cols() / d2);
 
   SparseMatrix B3red = B3.rightCols((num_poses - 1) * d2);
   B3red.makeCompressed();  // Must be in compressed format to use
@@ -364,16 +372,27 @@ Matrix chordalInitialization(unsigned int d, const SparseMatrix &B3) {
   Eigen::SPQR<SparseMatrix> QR(B3red);
   rvec = -QR.solve(cR);
 
-  Eigen::MatrixXd Rchordal(d, d * num_poses);
+  Matrix Rchordal(d, d * num_poses);
   Rchordal.leftCols(d) = Id;
   Rchordal.rightCols((num_poses - 1) * d) =
       Eigen::Map<Eigen::MatrixXd>(rvec.data(), d, (num_poses - 1) * d);
-
   for (unsigned int i = 1; i < num_poses; i++)
     Rchordal.block(0, i * d, d, d) =
         projectToRotationGroup(Rchordal.block(0, i * d, d, d));
 
-  return Rchordal;
+  // Recover translation
+  Matrix tchordal = recoverTranslations(B1, B2, Rchordal);
+  assert((unsigned) tchordal.rows() == dimension);
+  assert((unsigned) tchordal.cols() == num_poses);
+
+  // Assemble full pose
+  Matrix Tchordal(d, num_poses * (d + 1));
+  for (size_t i = 0; i < num_poses; i++) {
+    Tchordal.block(0, i * (d + 1), d, d) = Rchordal.block(0, i * d, d, d);
+    Tchordal.block(0, i * (d + 1) + d, d, 1) = tchordal.block(0, i, d, 1);
+  }
+
+  return Tchordal;
 }
 
 Matrix recoverTranslations(const SparseMatrix &B1, const SparseMatrix &B2,

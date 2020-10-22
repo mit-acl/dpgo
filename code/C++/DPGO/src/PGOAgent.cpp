@@ -80,42 +80,21 @@ void PGOAgent::setPoseGraph(
     addSharedLoopClosure(inputSharedLoopClosures[i]);
   }
 
+  localMeasurements.clear();
+  localMeasurements.insert(localMeasurements.end(), odometry.begin(),
+                           odometry.end());
+  localMeasurements.insert(localMeasurements.end(), privateLoopClosures.begin(),
+                           privateLoopClosures.end());
+
   mState = PGOAgentState::WAIT_FOR_INITIALIZATION;
 
   if (mID == 0) {
     // The first agent can further initialize its trajectory estimate
-    Matrix T = computeInitialEstimate();
+    Matrix T =
+        chordalInitialization(dimension(), num_poses(), localMeasurements);
     X = YLift * T;  // Lift to correct relaxation rank
     mState = PGOAgentState::INITIALIZED;
   }
-}
-
-Matrix PGOAgent::computeInitialEstimate() {
-  assert(!isOptimizationRunning());
-
-  std::vector<RelativeSEMeasurement> measurements = odometry;
-  // measurements.insert(measurements.end(), privateLoopClosures.begin(),
-  //                     privateLoopClosures.end());
-
-  assert(!measurements.empty());
-
-  SparseMatrix B1, B2, B3;
-  constructBMatrices(measurements, B1, B2, B3);
-  Matrix Rinit = chordalInitialization(d, B3);
-  Matrix tinit = recoverTranslations(B1, B2, Rinit);
-
-  assert(Rinit.rows() == d);
-  assert(Rinit.cols() == d * n);
-  assert(tinit.rows() == d);
-  assert(tinit.cols() == n);
-
-  Matrix T(d, n * (d + 1));
-  for (size_t i = 0; i < n; i++) {
-    T.block(0, i * (d + 1), d, d) = Rinit.block(0, i * d, d, d);
-    T.block(0, i * (d + 1) + d, d, 1) = tinit.block(0, i, d, 1);
-  }
-
-  return T;
 }
 
 void PGOAgent::addOdometry(const RelativeSEMeasurement& factor) {
@@ -240,7 +219,8 @@ void PGOAgent::updateNeighborPose(unsigned neighborCluster, unsigned neighborID,
       T_world2_frame2.block(0, 0, d, d + 1) =
           YLift.transpose() *
           var;  // Round the received neighbor pose value back to SE(d)
-      Matrix T = computeInitialEstimate();
+      Matrix T =
+          chordalInitialization(dimension(), num_poses(), localMeasurements);
       Matrix T_frame1_frame2 = Matrix::Identity(d + 1, d + 1);
       Matrix T_world1_frame1 = Matrix::Identity(d + 1, d + 1);
       if (m.r1 == neighborID) {
@@ -287,7 +267,7 @@ void PGOAgent::updateNeighborPose(unsigned neighborCluster, unsigned neighborID,
 }
 
 bool PGOAgent::getTrajectoryInLocalFrame(Matrix& Trajectory) {
-  if(mState != PGOAgentState::INITIALIZED) {
+  if (mState != PGOAgentState::INITIALIZED) {
     return false;
   }
   lock_guard<mutex> lock(mPosesMutex);
@@ -305,10 +285,11 @@ bool PGOAgent::getTrajectoryInLocalFrame(Matrix& Trajectory) {
   return true;
 }
 
-bool PGOAgent::getTrajectoryInGlobalFrame(const Matrix& globalAnchor, Matrix& Trajectory) {
+bool PGOAgent::getTrajectoryInGlobalFrame(const Matrix& globalAnchor,
+                                          Matrix& Trajectory) {
   assert(globalAnchor.rows() == relaxation_rank());
   assert(globalAnchor.cols() == dimension() + 1);
-  if(mState != PGOAgentState::INITIALIZED) {
+  if (mState != PGOAgentState::INITIALIZED) {
     return false;
   }
   lock_guard<mutex> lock(mPosesMutex);
@@ -337,7 +318,8 @@ PoseDict PGOAgent::getSharedPoses() {
   return map;
 }
 
-std::vector<unsigned> PGOAgent::getNeighborPublicPoses(const unsigned& neighborID) const {
+std::vector<unsigned> PGOAgent::getNeighborPublicPoses(
+    const unsigned& neighborID) const {
   // Check that neighborID is indeed a neighbor of this agent
   assert(neighborAgents.find(neighborID) != neighborAgents.end());
   std::vector<unsigned> poseIndices;
@@ -362,7 +344,6 @@ bool PGOAgent::getRandomNeighbor(unsigned& neighborID) const {
 }
 
 void PGOAgent::reset() {
-
   // Terminate optimization thread if running
   endOptimizationLoop();
 
@@ -372,6 +353,7 @@ void PGOAgent::reset() {
   odometry.clear();
   privateLoopClosures.clear();
   sharedLoopClosures.clear();
+  localMeasurements.clear();
 
   neighborPoseDict.clear();
   mSharedPoses.clear();
@@ -472,7 +454,8 @@ ROPTResult PGOAgent::optimize() {
   X.block(0, 0, r, (d + 1) * k) = Xnext;
   assert(k == n);
 
-  return ROPTResult(true, fInit, gradNormInit, fOpt, gradNormOpt, relchange, elapsedMs);
+  return ROPTResult(true, fInit, gradNormInit, fOpt, gradNormOpt, relchange,
+                    elapsedMs);
 }
 
 bool PGOAgent::constructCostMatrices(

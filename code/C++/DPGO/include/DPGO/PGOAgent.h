@@ -108,8 +108,9 @@ class PGOAgent {
   Get the ith component of the current solution
   */
   bool getXComponent(const unsigned index, Matrix& Mout) {
-    assert(mState != PGOAgentState::WAIT_FOR_LIFTING_MATRIX &&
-           mState != PGOAgentState::WAIT_FOR_DATA);
+    if (mState == PGOAgentState::WAIT_FOR_LIFTING_MATRIX ||
+        mState == PGOAgentState::WAIT_FOR_DATA)
+      return false;
     lock_guard<mutex> lock(mPosesMutex);
     if (index >= num_poses()) return false;
     Mout = X.block(0, index * (d + 1), r, d + 1);
@@ -294,6 +295,9 @@ class PGOAgent {
   // Store private loop closures of this robot
   vector<RelativeSEMeasurement> privateLoopClosures;
 
+  // Store local measurements of this robot (odometry and private loop closures)
+  vector<RelativeSEMeasurement> localMeasurements;
+
   // This dictionary stores poses owned by other robots that is connected to
   // this robot by loop closure
   PoseDict neighborPoseDict;
@@ -362,9 +366,9 @@ class PGOAgent {
                              RelativeSEMeasurement& mOut);
 
   /**
-  local Chordal initialization
+  Local pose graph optimization
   */
-  Matrix computeInitialEstimate();
+  Matrix optimizeLocalPoseGraph();
 };
 
 }  // namespace DPGO
