@@ -21,7 +21,7 @@ QuadraticOptimizer::QuadraticOptimizer(QuadraticProblem* p)
       algorithm(ROPTALG::RTR),
       gradientDescentStepsize(1e-3),
       trustRegionIterations(1),
-      verbose(true) {}
+      verbose(false) {}
 
 QuadraticOptimizer::~QuadraticOptimizer() {}
 

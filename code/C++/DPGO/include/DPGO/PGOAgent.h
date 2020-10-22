@@ -295,9 +295,6 @@ class PGOAgent {
   // Store private loop closures of this robot
   vector<RelativeSEMeasurement> privateLoopClosures;
 
-  // Store local measurements of this robot (odometry and private loop closures)
-  vector<RelativeSEMeasurement> localMeasurements;
-
   // This dictionary stores poses owned by other robots that is connected to
   // this robot by loop closure
   PoseDict neighborPoseDict;
@@ -350,8 +347,8 @@ class PGOAgent {
   */
   bool constructCostMatrices(
       const vector<RelativeSEMeasurement>& privateMeasurements,
-      const vector<RelativeSEMeasurement>& sharedMeasurements, SparseMatrix* Q,
-      SparseMatrix* G);
+      const vector<RelativeSEMeasurement>& sharedMeasurements, 
+      SparseMatrix* Q, SparseMatrix* G);
 
   /**
   Optimize pose graph by calling optimize().
@@ -365,10 +362,16 @@ class PGOAgent {
   bool findSharedLoopClosure(unsigned neighborID, unsigned neighborPose,
                              RelativeSEMeasurement& mOut);
 
+
+  /**
+  Local chordal initialization
+  */
+  Matrix localChordalInitialization();
+
   /**
   Local pose graph optimization
   */
-  Matrix optimizeLocalPoseGraph();
+  Matrix localPoseGraphOptimization();
 };
 
 }  // namespace DPGO

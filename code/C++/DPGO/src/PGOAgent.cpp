@@ -80,18 +80,11 @@ void PGOAgent::setPoseGraph(
     addSharedLoopClosure(inputSharedLoopClosures[i]);
   }
 
-  localMeasurements.clear();
-  localMeasurements.insert(localMeasurements.end(), odometry.begin(),
-                           odometry.end());
-  localMeasurements.insert(localMeasurements.end(), privateLoopClosures.begin(),
-                           privateLoopClosures.end());
-
   mState = PGOAgentState::WAIT_FOR_INITIALIZATION;
 
   if (mID == 0) {
     // The first agent can further initialize its trajectory estimate
-    Matrix T =
-        chordalInitialization(dimension(), num_poses(), localMeasurements);
+    Matrix T = localPoseGraphOptimization();
     X = YLift * T;  // Lift to correct relaxation rank
     mState = PGOAgentState::INITIALIZED;
   }
@@ -219,8 +212,7 @@ void PGOAgent::updateNeighborPose(unsigned neighborCluster, unsigned neighborID,
       T_world2_frame2.block(0, 0, d, d + 1) =
           YLift.transpose() *
           var;  // Round the received neighbor pose value back to SE(d)
-      Matrix T =
-          chordalInitialization(dimension(), num_poses(), localMeasurements);
+      Matrix T = localPoseGraphOptimization();
       Matrix T_frame1_frame2 = Matrix::Identity(d + 1, d + 1);
       Matrix T_world1_frame1 = Matrix::Identity(d + 1, d + 1);
       if (m.r1 == neighborID) {
@@ -353,7 +345,6 @@ void PGOAgent::reset() {
   odometry.clear();
   privateLoopClosures.clear();
   sharedLoopClosures.clear();
-  localMeasurements.clear();
 
   neighborPoseDict.clear();
   mSharedPoses.clear();
@@ -626,6 +617,40 @@ bool PGOAgent::findSharedLoopClosure(unsigned neighborID, unsigned neighborPose,
   }
 
   return false;
+}
+
+Matrix PGOAgent::localChordalInitialization() {
+  std::vector<RelativeSEMeasurement> measurements = odometry;
+  measurements.insert(measurements.end(), privateLoopClosures.begin(),
+                      privateLoopClosures.end());
+
+  return chordalInitialization(dimension(), num_poses(), measurements);
+}
+
+Matrix PGOAgent::localPoseGraphOptimization() {
+  std::vector<RelativeSEMeasurement> measurements = odometry;
+  measurements.insert(measurements.end(), privateLoopClosures.begin(),
+                      privateLoopClosures.end());
+
+  // Compute initialization
+  Matrix Tinit = localChordalInitialization();
+  assert(Tinit.rows() == d);
+  assert(Tinit.cols() == (d + 1) * n);
+
+  // Construct data matrices
+  SparseMatrix Q = constructConnectionLaplacianSE(measurements);
+  SparseMatrix G(d, (d + 1) * n);  // linear terms should be zero
+
+  // Form optimization problem
+  QuadraticProblem problem(n, d, d, Q, G);
+
+  // Initialize optimizer object
+  QuadraticOptimizer optimizer(&problem);
+  optimizer.setTrustRegionIterations(20);
+
+  // Optimize
+  Matrix Topt = optimizer.optimize(Tinit);
+  return Topt;
 }
 
 }  // namespace DPGO
