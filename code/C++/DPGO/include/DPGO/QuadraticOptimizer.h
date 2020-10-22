@@ -46,7 +46,12 @@ class QuadraticOptimizer {
   /**
   Set maximum step size
   */
-  void setStepsize(double s) { stepsize = s; }
+  void setGradientDescentStepsize(double s) { gradientDescentStepsize = s; }
+
+  /**
+  Set number of trust region iterations
+  */
+  void setTrustRegionIterations(unsigned iter) { trustRegionIterations = iter; }
 
  private:
   // Underlying Riemannian Optimization Problem
@@ -56,7 +61,10 @@ class QuadraticOptimizer {
   ROPTALG algorithm;
 
   // step size (only for RGD)
-  double stepsize;
+  double gradientDescentStepsize;
+
+  // Number of trust-region updates
+  unsigned trustRegionIterations;
 
   // Verbose flag
   bool verbose;

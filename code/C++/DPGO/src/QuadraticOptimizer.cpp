@@ -17,7 +17,11 @@
 namespace DPGO {
 
 QuadraticOptimizer::QuadraticOptimizer(QuadraticProblem* p)
-    : problem(p), algorithm(ROPTALG::RTR), stepsize(1e-3), verbose(true) {}
+    : problem(p),
+      algorithm(ROPTALG::RTR),
+      gradientDescentStepsize(1e-3),
+      trustRegionIterations(1),
+      verbose(true) {}
 
 QuadraticOptimizer::~QuadraticOptimizer() {}
 
@@ -50,8 +54,8 @@ Matrix QuadraticOptimizer::trustRegion(const Matrix& Yinit) {
   } else {
     Solver.Debug = ROPTLIB::DEBUGINFO::NOOUTPUT;
   }
-  Solver.Max_Iteration = 1;    // Max RTR iterations
-  Solver.Max_Inner_Iter = 50;  // Max tCG iterations
+  Solver.Max_Iteration = trustRegionIterations;
+  Solver.Max_Inner_Iter = 50;  // Max truncated conjugate gradient iterations
   Solver.TimeBound = 10;
   Solver.Run();
 
@@ -60,10 +64,10 @@ Matrix QuadraticOptimizer::trustRegion(const Matrix& Yinit) {
     // Optimization makes little progress while gradient norm is still large.
     // This means that the trust-region update is likely to be rejected. In this
     // case we need to increase number of max iterations and re-optimize.
-    std::cout << "Single trust-region update makes little progress. Running "
-                 "multiple updates..."
+    std::cout << "Trust-region update makes little progress. Running "
+                 "more updates..."
               << std::endl;
-    Solver.Max_Iteration = 20;
+    Solver.Max_Iteration = 10 * trustRegionIterations;
     Solver.Run();
   }
 
@@ -96,8 +100,8 @@ Matrix QuadraticOptimizer::gradientDescent(const Matrix& Yinit) {
   // problem->PreConditioner(VarInit.var(), RGrad.vec(), RGrad.vec());
 
   // Update
-  M.getManifold()->ScaleTimesVector(VarInit.var(), -stepsize, RGrad.vec(),
-                                    RGrad.vec());
+  M.getManifold()->ScaleTimesVector(VarInit.var(), -gradientDescentStepsize,
+                                    RGrad.vec(), RGrad.vec());
   M.getManifold()->Retraction(VarInit.var(), RGrad.vec(), VarNext.var());
 
   return VarNext.getData();

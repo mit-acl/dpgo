@@ -438,7 +438,6 @@ ROPTResult PGOAgent::optimize() {
   QuadraticOptimizer optimizer(&problem);
   optimizer.setVerbose(verbose);
   optimizer.setAlgorithm(algorithm);
-  optimizer.setStepsize(stepsize);
 
   // Optimize
   auto startTime = std::chrono::high_resolution_clock::now();
