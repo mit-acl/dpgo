@@ -405,6 +405,7 @@ ROPTResult PGOAgent::optimize() {
   mLock.unlock();
 
   // construct data matrices
+  auto startTime = std::chrono::high_resolution_clock::now();
   SparseMatrix Q((d + 1) * k, (d + 1) * k);
   SparseMatrix G(r, (d + 1) * k);
   bool success =
@@ -431,7 +432,6 @@ ROPTResult PGOAgent::optimize() {
   optimizer.setAlgorithm(algorithm);
 
   // Optimize
-  auto startTime = std::chrono::high_resolution_clock::now();
   Matrix Xnext = optimizer.optimize(Xcurr);
   auto counter = std::chrono::high_resolution_clock::now() - startTime;
   double elapsedMs =
