@@ -439,7 +439,7 @@ ROPTResult PGOAgent::optimize() {
   double fOpt = problem.f(Xnext);
   double gradNormOpt = problem.gradNorm(Xnext);
   assert(fOpt <= fInit);
-  double relchange = (Xnext - Xcurr).norm() / Xcurr.norm();
+  double relchange = (Xnext - Xcurr).norm() / num_poses();
 
   X.block(0, 0, r, (d + 1) * k) = Xnext;
   assert(k == n);
