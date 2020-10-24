@@ -44,11 +44,12 @@ Matrix QuadraticOptimizer::trustRegion(const Matrix& Yinit) {
   VarInit.var()->NewMemoryOnWrite();
 
   ROPTLIB::RTRNewton Solver(problem, VarInit.var());
+  double initFunc = problem->f(VarInit.var());
   Solver.Stop_Criterion =
       ROPTLIB::StopCrit::GRAD_F;  // Stoping criterion based on gradient norm
-  Solver.Tolerance = 1e-2;     // Tolerance associated with stopping criterion
+  Solver.Tolerance = 1e-10;     // Tolerance associated with stopping criterion
   Solver.maximum_Delta = 1e3;  // Maximum trust-region radius
-  Solver.initial_Delta = 1e2;
+  Solver.initial_Delta = 1e0;
   if (verbose) {
     Solver.Debug = ROPTLIB::DEBUGINFO::ITERRESULT;
   } else {
@@ -59,8 +60,8 @@ Matrix QuadraticOptimizer::trustRegion(const Matrix& Yinit) {
   Solver.TimeBound = 10;
   Solver.Run();
 
-  double funcDecrease = Solver.Getfinalfun() - Solver.GetPreviousIterateVal();
-  if (funcDecrease > -1e-3 && Solver.Getnormgf() > 1) {
+  double funcDecrease = Solver.Getfinalfun() - initFunc;
+  if (funcDecrease > -1e-8 && Solver.Getnormgf() > 1e-2) {
     // Optimization makes little progress while gradient norm is still large.
     // This means that the trust-region update is likely to be rejected. In this
     // case we need to increase number of max iterations and re-optimize.
