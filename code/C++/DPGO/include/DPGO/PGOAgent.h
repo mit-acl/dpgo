@@ -174,21 +174,15 @@ class PGOAgent {
   inline unsigned relaxation_rank() const { return r; }
 
   /**
-  Get set of neighboring agents
-  */
-  inline std::set<unsigned> getNeighbors() const { return neighborAgents; }
-
-  /**
    * Get vector of pose indices needed from the neighbor agent
    */
   std::vector<unsigned> getNeighborPublicPoses(
       const unsigned& neighborID) const;
 
   /**
-  Get random neighbor.
-  If the agent has no neighbor, this method will return false.
+  Get vector of neighbor robot IDs.
   */
-  bool getRandomNeighbor(unsigned& neighborID) const;
+  std::vector<unsigned> getNeighbors() const;
 
   /**
   Return trajectory estimate of this robot in local frame, with its first pose

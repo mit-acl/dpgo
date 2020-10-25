@@ -323,16 +323,10 @@ std::vector<unsigned> PGOAgent::getNeighborPublicPoses(
   return poseIndices;
 }
 
-bool PGOAgent::getRandomNeighbor(unsigned& neighborID) const {
-  if (neighborAgents.empty()) return false;
+std::vector<unsigned> PGOAgent::getNeighbors() const {
   std::vector<unsigned> v(neighborAgents.size());
   std::copy(neighborAgents.begin(), neighborAgents.end(), v.begin());
-  std::random_device rd;
-  std::mt19937 gen(rd());
-  std::uniform_int_distribution<unsigned int> distribution(0, v.size() - 1);
-  unsigned int idx = distribution(gen);
-  neighborID = v[idx];
-  return true;
+  return v;
 }
 
 void PGOAgent::reset() {
