@@ -84,7 +84,7 @@ void PGOAgent::setPoseGraph(
 
   if (mID == 0) {
     // The first agent can further initialize its trajectory estimate
-    Matrix T = localPoseGraphOptimization();
+    Matrix T = localChordalInitialization();
     X = YLift * T;  // Lift to correct relaxation rank
     mState = PGOAgentState::INITIALIZED;
   }
@@ -212,7 +212,7 @@ void PGOAgent::updateNeighborPose(unsigned neighborCluster, unsigned neighborID,
       T_world2_frame2.block(0, 0, d, d + 1) =
           YLift.transpose() *
           var;  // Round the received neighbor pose value back to SE(d)
-      Matrix T = localPoseGraphOptimization();
+      Matrix T = localChordalInitialization();
       Matrix T_frame1_frame2 = Matrix::Identity(d + 1, d + 1);
       Matrix T_world1_frame1 = Matrix::Identity(d + 1, d + 1);
       if (m.r1 == neighborID) {
@@ -641,6 +641,7 @@ Matrix PGOAgent::localPoseGraphOptimization() {
 
   // Initialize optimizer object
   QuadraticOptimizer optimizer(&problem);
+  optimizer.setVerbose(verbose);
   optimizer.setTrustRegionIterations(20);
 
   // Optimize

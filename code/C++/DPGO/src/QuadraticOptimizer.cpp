@@ -48,15 +48,16 @@ Matrix QuadraticOptimizer::trustRegion(const Matrix& Yinit) {
   Solver.Stop_Criterion =
       ROPTLIB::StopCrit::GRAD_F;  // Stoping criterion based on gradient norm
   Solver.Tolerance = 1e-10;     // Tolerance associated with stopping criterion
-  Solver.maximum_Delta = 1e3;  // Maximum trust-region radius
-  Solver.initial_Delta = 1e2;
+  Solver.maximum_Delta = 1e2;  // Maximum trust-region radius
+  Solver.initial_Delta = 1e1;
   if (verbose) {
     Solver.Debug = ROPTLIB::DEBUGINFO::ITERRESULT;
   } else {
     Solver.Debug = ROPTLIB::DEBUGINFO::NOOUTPUT;
   }
   Solver.Max_Iteration = trustRegionIterations;
-  Solver.Max_Inner_Iter = 50;  // Max truncated conjugate gradient iterations
+  Solver.Min_Inner_Iter = 0;
+  Solver.Max_Inner_Iter = 50;  
   Solver.TimeBound = 10;
   Solver.Run();
 
