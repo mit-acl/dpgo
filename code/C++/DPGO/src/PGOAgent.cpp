@@ -33,7 +33,7 @@ using std::vector;
 
 namespace DPGO {
 
-PGOAgent::PGOAgent(unsigned ID, const PGOAgentParameters& params)
+PGOAgent::PGOAgent(unsigned ID, const PGOAgentParameters &params)
     : mID(ID),
       mCluster(ID),
       d(params.d),
@@ -62,22 +62,59 @@ PGOAgent::~PGOAgent() {
   endOptimizationLoop();
 }
 
+void PGOAgent::setX(const Matrix &Xin) {
+  lock_guard<mutex> lock(mPosesMutex);
+  X = Xin;
+  n = X.cols() / (d + 1);
+  assert(X.cols() == n * (d + 1));
+  assert(X.rows() == r);
+  if (verbose)
+    std::cout << "WARNING: Agent " << mID
+              << " resets trajectory. New trajectory length: " << n
+              << std::endl;
+}
+
+Matrix PGOAgent::getX() {
+  assert(mState != PGOAgentState::WAIT_FOR_LIFTING_MATRIX &&
+      mState != PGOAgentState::WAIT_FOR_DATA);
+  lock_guard<mutex> lock(mPosesMutex);
+  return X;
+}
+
+bool PGOAgent::getXComponent(const unsigned index, Matrix &Mout) {
+  if (mState == PGOAgentState::WAIT_FOR_LIFTING_MATRIX ||
+      mState == PGOAgentState::WAIT_FOR_DATA)
+    return false;
+  lock_guard<mutex> lock(mPosesMutex);
+  if (index >= num_poses()) return false;
+  Mout = X.block(0, index * (d + 1), r, d + 1);
+  return true;
+}
+
+void PGOAgent::setLiftingMatrix(const Matrix &Y) {
+  assert(mState == PGOAgentState::WAIT_FOR_LIFTING_MATRIX);
+  assert(Y.rows() == r);
+  assert(Y.cols() == d);
+  YLift = Y;
+  mState = PGOAgentState::WAIT_FOR_DATA;
+}
+
 void PGOAgent::setPoseGraph(
-    const std::vector<RelativeSEMeasurement>& inputOdometry,
-    const std::vector<RelativeSEMeasurement>& inputPrivateLoopClosures,
-    const std::vector<RelativeSEMeasurement>& inputSharedLoopClosures) {
+    const std::vector<RelativeSEMeasurement> &inputOdometry,
+    const std::vector<RelativeSEMeasurement> &inputPrivateLoopClosures,
+    const std::vector<RelativeSEMeasurement> &inputSharedLoopClosures) {
   assert(!isOptimizationRunning());
   assert(mState == PGOAgentState::WAIT_FOR_DATA);
   assert(n == 1);
 
-  for (size_t i = 0; i < inputOdometry.size(); ++i) {
-    addOdometry(inputOdometry[i]);
+  for (const auto &edge : inputOdometry) {
+    addOdometry(edge);
   }
-  for (size_t i = 0; i < inputPrivateLoopClosures.size(); ++i) {
-    addPrivateLoopClosure(inputPrivateLoopClosures[i]);
+  for (const auto &edge : inputPrivateLoopClosures) {
+    addPrivateLoopClosure(edge);
   }
-  for (size_t i = 0; i < inputSharedLoopClosures.size(); ++i) {
-    addSharedLoopClosure(inputSharedLoopClosures[i]);
+  for (const auto &edge : inputSharedLoopClosures) {
+    addSharedLoopClosure(edge);
   }
 
   mState = PGOAgentState::WAIT_FOR_INITIALIZATION;
@@ -90,7 +127,7 @@ void PGOAgent::setPoseGraph(
   }
 }
 
-void PGOAgent::addOdometry(const RelativeSEMeasurement& factor) {
+void PGOAgent::addOdometry(const RelativeSEMeasurement &factor) {
   // check that this is a odometric measurement
   assert(factor.r1 == mID);
   assert(factor.r2 == mID);
@@ -124,7 +161,7 @@ void PGOAgent::addOdometry(const RelativeSEMeasurement& factor) {
   odometry.push_back(factor);
 }
 
-void PGOAgent::addPrivateLoopClosure(const RelativeSEMeasurement& factor) {
+void PGOAgent::addPrivateLoopClosure(const RelativeSEMeasurement &factor) {
   assert(factor.r1 == mID);
   assert(factor.r2 == mID);
   assert(factor.p1 < n);
@@ -136,7 +173,7 @@ void PGOAgent::addPrivateLoopClosure(const RelativeSEMeasurement& factor) {
   privateLoopClosures.push_back(factor);
 }
 
-void PGOAgent::addSharedLoopClosure(const RelativeSEMeasurement& factor) {
+void PGOAgent::addSharedLoopClosure(const RelativeSEMeasurement &factor) {
   assert(factor.R.rows() == d && factor.R.cols() == d);
   assert(factor.t.rows() == d && factor.t.cols() == 1);
 
@@ -159,7 +196,7 @@ void PGOAgent::addSharedLoopClosure(const RelativeSEMeasurement& factor) {
 }
 
 void PGOAgent::updateNeighborPose(unsigned neighborCluster, unsigned neighborID,
-                                  unsigned neighborPose, const Matrix& var) {
+                                  unsigned neighborPose, const Matrix &var) {
   assert(neighborID != mID);
   assert(var.rows() == r);
   assert(var.cols() == d + 1);
@@ -211,7 +248,7 @@ void PGOAgent::updateNeighborPose(unsigned neighborCluster, unsigned neighborID,
       Matrix T_world2_frame2 = Matrix::Identity(d + 1, d + 1);
       T_world2_frame2.block(0, 0, d, d + 1) =
           YLift.transpose() *
-          var;  // Round the received neighbor pose value back to SE(d)
+              var;  // Round the received neighbor pose value back to SE(d)
       Matrix T = localChordalInitialization();
       Matrix T_frame1_frame2 = Matrix::Identity(d + 1, d + 1);
       Matrix T_world1_frame1 = Matrix::Identity(d + 1, d + 1);
@@ -258,7 +295,7 @@ void PGOAgent::updateNeighborPose(unsigned neighborCluster, unsigned neighborID,
   }
 }
 
-bool PGOAgent::getTrajectoryInLocalFrame(Matrix& Trajectory) {
+bool PGOAgent::getTrajectoryInLocalFrame(Matrix &Trajectory) {
   if (mState != PGOAgentState::INITIALIZED) {
     return false;
   }
@@ -277,8 +314,8 @@ bool PGOAgent::getTrajectoryInLocalFrame(Matrix& Trajectory) {
   return true;
 }
 
-bool PGOAgent::getTrajectoryInGlobalFrame(const Matrix& globalAnchor,
-                                          Matrix& Trajectory) {
+bool PGOAgent::getTrajectoryInGlobalFrame(const Matrix &globalAnchor,
+                                          Matrix &Trajectory) {
   assert(globalAnchor.rows() == relaxation_rank());
   assert(globalAnchor.cols() == dimension() + 1);
   if (mState != PGOAgentState::INITIALIZED) {
@@ -288,7 +325,7 @@ bool PGOAgent::getTrajectoryInGlobalFrame(const Matrix& globalAnchor,
 
   Matrix T = globalAnchor.block(0, 0, r, d).transpose() * X;
   Matrix t0 = globalAnchor.block(0, 0, r, d).transpose() *
-              globalAnchor.block(0, d, r, 1);
+      globalAnchor.block(0, d, r, 1);
 
   for (unsigned i = 0; i < n; ++i) {
     T.block(0, i * (d + 1), d, d) =
@@ -303,15 +340,15 @@ bool PGOAgent::getTrajectoryInGlobalFrame(const Matrix& globalAnchor,
 PoseDict PGOAgent::getSharedPoses() {
   PoseDict map;
   lock_guard<mutex> lock(mPosesMutex);
-  for (auto it = mSharedPoses.begin(); it != mSharedPoses.end(); ++it) {
-    unsigned idx = std::get<1>(*it);
-    map[*it] = X.block(0, idx * (d + 1), r, d + 1);
+  for (const auto &mSharedPose : mSharedPoses) {
+    unsigned idx = std::get<1>(mSharedPose);
+    map[mSharedPose] = X.block(0, idx * (d + 1), r, d + 1);
   }
   return map;
 }
 
 std::vector<unsigned> PGOAgent::getNeighborPublicPoses(
-    const unsigned& neighborID) const {
+    const unsigned &neighborID) const {
   // Check that neighborID is indeed a neighbor of this agent
   assert(neighborAgents.find(neighborID) != neighborAgents.end());
   std::vector<unsigned> poseIndices;
@@ -373,12 +410,10 @@ ROPTResult PGOAgent::optimize() {
   // read private and shared measurements
   mLock.lock();
   vector<RelativeSEMeasurement> myMeasurements;
-  for (size_t i = 0; i < odometry.size(); ++i) {
-    RelativeSEMeasurement m = odometry[i];
+  for (auto m : odometry) {
     if (m.p1 < k && m.p2 < k) myMeasurements.push_back(m);
   }
-  for (size_t i = 0; i < privateLoopClosures.size(); ++i) {
-    RelativeSEMeasurement m = privateLoopClosures[i];
+  for (auto m : privateLoopClosures) {
     if (m.p1 < k && m.p2 < k) myMeasurements.push_back(m);
   }
   if (myMeasurements.empty()) {
@@ -387,8 +422,7 @@ ROPTResult PGOAgent::optimize() {
     return ROPTResult(false);
   }
   vector<RelativeSEMeasurement> sharedMeasurements;
-  for (size_t i = 0; i < sharedLoopClosures.size(); ++i) {
-    RelativeSEMeasurement m = sharedLoopClosures[i];
+  for (auto m : sharedLoopClosures) {
     assert(m.R.size() != 0);
     assert(m.t.size() != 0);
     if (m.r1 == mID && m.p1 < k)
@@ -444,18 +478,16 @@ ROPTResult PGOAgent::optimize() {
 }
 
 bool PGOAgent::constructCostMatrices(
-    const vector<RelativeSEMeasurement>& privateMeasurements,
-    const vector<RelativeSEMeasurement>& sharedMeasurements, SparseMatrix* Q,
-    SparseMatrix* G) {
+    const vector<RelativeSEMeasurement> &privateMeasurements,
+    const vector<RelativeSEMeasurement> &sharedMeasurements, SparseMatrix *Q,
+    SparseMatrix *G) {
   // All private measurements appear in the quadratic term
   *Q = constructConnectionLaplacianSE(privateMeasurements);
 
   // Halt update of shared neighbor poses
   unique_lock<mutex> lock(mNeighborPosesMutex, std::defer_lock);
 
-  for (size_t i = 0; i < sharedMeasurements.size(); ++i) {
-    RelativeSEMeasurement m = sharedMeasurements[i];
-
+  for (auto m : sharedMeasurements) {
     // Construct relative SE matrix in homogeneous form
     Matrix T = Matrix::Zero(d + 1, d + 1);
     T.block(0, 0, d, d) = m.R;
@@ -597,13 +629,12 @@ void PGOAgent::endOptimizationLoop() {
 }
 
 bool PGOAgent::isOptimizationRunning() {
-  return !(mOptimizationThread == nullptr);
+  return mOptimizationThread != nullptr;
 }
 
 bool PGOAgent::findSharedLoopClosure(unsigned neighborID, unsigned neighborPose,
-                                     RelativeSEMeasurement& mOut) {
-  for (size_t i = 0; i < sharedLoopClosures.size(); ++i) {
-    RelativeSEMeasurement m = sharedLoopClosures[i];
+                                     RelativeSEMeasurement &mOut) {
+  for (const auto &m : sharedLoopClosures) {
     if ((m.r1 == neighborID && m.p1 == neighborPose) ||
         (m.r2 == neighborID && m.p2 == neighborPose)) {
       mOut = m;

@@ -56,13 +56,13 @@ struct PGOAgentParameters {
   // Problem dimension
   unsigned d;
 
-  // Relaxed rank in Riemanian optimization
+  // Relaxed rank in Riemannian optimization
   unsigned r;
 
   // Riemannian optimization algorithm
   ROPTALG algorithm;
 
-  // Verbosility flag
+  // Verbose flag
   bool verbose;
 
   // Default constructor
@@ -82,40 +82,17 @@ class PGOAgent {
   /** Helper function to reset the internal solution
       In deployment, probably should not use this
    */
-  void setX(const Matrix& Xin) {
-    lock_guard<mutex> lock(mPosesMutex);
-    X = Xin;
-    n = X.cols() / (d + 1);
-    assert(X.cols() == n * (d + 1));
-    assert(X.rows() == r);
-    if (verbose)
-      std::cout << "WARNING: Agent " << mID
-                << " resets trajectory. New trajectory length: " << n
-                << std::endl;
-  }
+  void setX(const Matrix& Xin);
 
   /**
   Get internal solution
   */
-  Matrix getX() {
-    assert(mState != PGOAgentState::WAIT_FOR_LIFTING_MATRIX &&
-           mState != PGOAgentState::WAIT_FOR_DATA);
-    lock_guard<mutex> lock(mPosesMutex);
-    return X;
-  }
+  Matrix getX();
 
   /**
   Get the ith component of the current solution
   */
-  bool getXComponent(const unsigned index, Matrix& Mout) {
-    if (mState == PGOAgentState::WAIT_FOR_LIFTING_MATRIX ||
-        mState == PGOAgentState::WAIT_FOR_DATA)
-      return false;
-    lock_guard<mutex> lock(mPosesMutex);
-    if (index >= num_poses()) return false;
-    Mout = X.block(0, index * (d + 1), r, d + 1);
-    return true;
-  }
+  bool getXComponent(const unsigned index, Matrix& Mout);
 
   /**
   Initialize the local pose graph from the input factors
@@ -235,13 +212,7 @@ class PGOAgent {
   /**
   Set the lifting matrix
   */
-  void setLiftingMatrix(const Matrix& Y) {
-    assert(mState == PGOAgentState::WAIT_FOR_LIFTING_MATRIX);
-    assert(Y.rows() == r);
-    assert(Y.cols() == d);
-    YLift = Y;
-    mState = PGOAgentState::WAIT_FOR_DATA;
-  }
+  void setLiftingMatrix(const Matrix& Y);
 
  protected:
   // The unique ID associated to this robot
