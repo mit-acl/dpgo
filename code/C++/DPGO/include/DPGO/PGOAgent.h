@@ -243,7 +243,7 @@ class PGOAgent {
     mState = PGOAgentState::WAIT_FOR_DATA;
   }
 
- private:
+ protected:
   // The unique ID associated to this robot
   unsigned mID;
 

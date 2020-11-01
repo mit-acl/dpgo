@@ -46,8 +46,8 @@ Matrix QuadraticOptimizer::trustRegion(const Matrix& Yinit) {
   ROPTLIB::RTRNewton Solver(problem, VarInit.var());
   double initFunc = problem->f(VarInit.var());
   Solver.Stop_Criterion =
-      ROPTLIB::StopCrit::GRAD_F;  // Stoping criterion based on gradient norm
-  Solver.Tolerance = 1e-10;     // Tolerance associated with stopping criterion
+      ROPTLIB::StopCrit::GRAD_F_0;  // Stoping criterion based on relative gradient norm
+  Solver.Tolerance = 1e-6;     // Tolerance associated with stopping criterion
   Solver.maximum_Delta = 1e2;  // Maximum trust-region radius
   Solver.initial_Delta = 1e1;
   if (verbose) {
