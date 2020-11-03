@@ -170,8 +170,9 @@ int main(int argc, char** argv) {
       unsigned endIdx = (robot + 1) * num_poses_per_robot;  // non-inclusive
       if (robot == (unsigned)num_robots - 1) endIdx = n;
 
-      Xopt.block(0, startIdx * (d + 1), r, (endIdx - startIdx) * (d + 1)) =
-          agents[robot]->getX();
+      Matrix Xrobot;
+      agents[robot]->getX(Xrobot);
+      Xopt.block(0, startIdx * (d + 1), r, (endIdx - startIdx) * (d + 1)) = Xrobot;
     }
 
     // Evaluate

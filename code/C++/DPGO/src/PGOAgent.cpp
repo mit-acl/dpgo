@@ -69,10 +69,12 @@ void PGOAgent::setX(const Matrix &Xin) {
               << std::endl;
 }
 
-Matrix PGOAgent::getX() {
-  assert(mState != PGOAgentState::WAIT_FOR_DATA);
+bool PGOAgent::getX(Matrix &Mout) {
+  if (mState == PGOAgentState::WAIT_FOR_DATA)
+    return false;
   lock_guard<mutex> lock(mPosesMutex);
-  return X;
+  Mout = X;
+  return true;
 }
 
 bool PGOAgent::getXComponent(const unsigned index, Matrix &Mout) {

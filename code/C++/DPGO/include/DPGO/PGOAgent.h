@@ -5,6 +5,8 @@
  * See LICENSE for the license information
  * -------------------------------------------------------------------------- */
 
+#pragma clang diagnostic push
+#pragma ide diagnostic ignored "OCUnusedGlobalDeclarationInspection"
 #ifndef PGOAGENT_H
 #define PGOAGENT_H
 
@@ -86,7 +88,7 @@ class PGOAgent {
   /**
   Get internal solution
   */
-  Matrix getX();
+  bool getX(Matrix &Mout);
 
   /**
   Get the ith component of the current solution
@@ -117,7 +119,7 @@ class PGOAgent {
   /**
   Return the current state of this agent
   */
-  PGOAgentState getState() const { return mState; }
+  inline PGOAgentState getState() const { return mState; }
 
   /**
   Reset this agent to have empty pose graph
@@ -343,3 +345,4 @@ class PGOAgent {
 }  // namespace DPGO
 
 #endif
+#pragma clang diagnostic pop
