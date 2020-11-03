@@ -43,18 +43,13 @@ PGOAgent::PGOAgent(unsigned ID, const PGOAgentParameters &params)
       rate(1),
       algorithm(params.algorithm),
       stepsize(1e-3) {
-  mState = PGOAgentState::WAIT_FOR_LIFTING_MATRIX;
 
   // Initialize X
   n = 1;
   X = Matrix::Zero(r, d + 1);
   X.block(0, 0, d, d) = Matrix::Identity(d, d);
-
-  // Initialze state of this agent
-  if (mID == 0) {
-    setLiftingMatrix(fixedStiefelVariable(d, r));
-    assert(mState == PGOAgentState::WAIT_FOR_DATA);
-  }
+  if (mID == 0) setLiftingMatrix(fixedStiefelVariable(d, r));
+  mState = PGOAgentState::WAIT_FOR_DATA;
 }
 
 PGOAgent::~PGOAgent() {
@@ -75,15 +70,13 @@ void PGOAgent::setX(const Matrix &Xin) {
 }
 
 Matrix PGOAgent::getX() {
-  assert(mState != PGOAgentState::WAIT_FOR_LIFTING_MATRIX &&
-      mState != PGOAgentState::WAIT_FOR_DATA);
+  assert(mState != PGOAgentState::WAIT_FOR_DATA);
   lock_guard<mutex> lock(mPosesMutex);
   return X;
 }
 
 bool PGOAgent::getXComponent(const unsigned index, Matrix &Mout) {
-  if (mState == PGOAgentState::WAIT_FOR_LIFTING_MATRIX ||
-      mState == PGOAgentState::WAIT_FOR_DATA)
+  if (mState == PGOAgentState::WAIT_FOR_DATA)
     return false;
   lock_guard<mutex> lock(mPosesMutex);
   if (index >= num_poses()) return false;
@@ -92,11 +85,9 @@ bool PGOAgent::getXComponent(const unsigned index, Matrix &Mout) {
 }
 
 void PGOAgent::setLiftingMatrix(const Matrix &Y) {
-  assert(mState == PGOAgentState::WAIT_FOR_LIFTING_MATRIX);
   assert(Y.rows() == r);
   assert(Y.cols() == d);
-  YLift = Y;
-  mState = PGOAgentState::WAIT_FOR_DATA;
+  YLift.emplace(Y);
 }
 
 void PGOAgent::setPoseGraph(
@@ -122,13 +113,13 @@ void PGOAgent::setPoseGraph(
   if (mID == 0) {
     // The first agent can further initialize its trajectory estimate
     Matrix T = localChordalInitialization();
-    X = YLift * T;  // Lift to correct relaxation rank
+    X = YLift.value() * T;  // Lift to correct relaxation rank
     mState = PGOAgentState::INITIALIZED;
   }
 }
 
 void PGOAgent::addOdometry(const RelativeSEMeasurement &factor) {
-  // check that this is a odometric measurement
+  // check that this is a odometry measurement
   assert(factor.r1 == mID);
   assert(factor.r2 == mID);
   assert(factor.p1 == n - 1);
@@ -210,7 +201,10 @@ void PGOAgent::updateNeighborPose(unsigned neighborCluster, unsigned neighborID,
   if (mState == PGOAgentState::WAIT_FOR_INITIALIZATION) {
     if (neighborCluster == 0) {
       cout << "Agent " << mID << " informed by agent " << neighborID
-           << " to intialize! " << endl;
+           << " to initialize! " << endl;
+
+      // Require the lifting matrix to initialize
+      assert(YLift);
 
       // Halt optimization
       bool optimizationHalted = false;
@@ -247,7 +241,7 @@ void PGOAgent::updateNeighborPose(unsigned neighborCluster, unsigned neighborID,
       dT.block(0, d, d, 1) = m.t;
       Matrix T_world2_frame2 = Matrix::Identity(d + 1, d + 1);
       T_world2_frame2.block(0, 0, d, d + 1) =
-          YLift.transpose() *
+          YLift.value().transpose() *
               var;  // Round the received neighbor pose value back to SE(d)
       Matrix T = localChordalInitialization();
       Matrix T_frame1_frame2 = Matrix::Identity(d + 1, d + 1);
@@ -277,7 +271,7 @@ void PGOAgent::updateNeighborPose(unsigned neighborCluster, unsigned neighborID,
       }
 
       // Lift back to correct relaxation rank
-      X = YLift * T;
+      X = YLift.value() * T;
 
       // Mark this agent as initialized
       mCluster = neighborCluster;
@@ -314,18 +308,16 @@ bool PGOAgent::getTrajectoryInLocalFrame(Matrix &Trajectory) {
   return true;
 }
 
-bool PGOAgent::getTrajectoryInGlobalFrame(const Matrix &globalAnchor,
-                                          Matrix &Trajectory) {
-  assert(globalAnchor.rows() == relaxation_rank());
-  assert(globalAnchor.cols() == dimension() + 1);
-  if (mState != PGOAgentState::INITIALIZED) {
-    return false;
-  }
+bool PGOAgent::getTrajectoryInGlobalFrame(Matrix &Trajectory) {
+  if (!globalAnchor) return false;
+  assert(globalAnchor.value().rows() == relaxation_rank());
+  assert(globalAnchor.value().cols() == dimension() + 1);
+  if (mState != PGOAgentState::INITIALIZED) return false;
   lock_guard<mutex> lock(mPosesMutex);
 
-  Matrix T = globalAnchor.block(0, 0, r, d).transpose() * X;
-  Matrix t0 = globalAnchor.block(0, 0, r, d).transpose() *
-      globalAnchor.block(0, d, r, 1);
+  Matrix T = globalAnchor.value().block(0, 0, r, d).transpose() * X;
+  Matrix t0 = globalAnchor.value().block(0, 0, r, d).transpose() *
+      globalAnchor.value().block(0, d, r, 1);
 
   for (unsigned i = 0; i < n; ++i) {
     T.block(0, i * (d + 1), d, d) =
@@ -678,6 +670,21 @@ Matrix PGOAgent::localPoseGraphOptimization() {
   // Optimize
   Matrix Topt = optimizer.optimize(Tinit);
   return Topt;
+}
+
+bool PGOAgent::getLiftingMatrix(Matrix &M) const {
+  assert(mID == 0);
+  if (YLift.has_value()) {
+    M = YLift.value();
+    return true;
+  }
+  return false;
+}
+
+void PGOAgent::setGlobalAnchor(const Matrix &M) {
+  assert(M.rows() == relaxation_rank());
+  assert(M.cols() == dimension() + 1);
+  globalAnchor.emplace(M);
 }
 
 }  // namespace DPGO

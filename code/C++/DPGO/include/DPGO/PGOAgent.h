@@ -20,6 +20,7 @@
 #include <set>
 #include <thread>
 #include <vector>
+#include <optional>
 
 #include "Manifolds/Element.h"
 #include "Manifolds/Manifold.h"
@@ -38,8 +39,6 @@ Defines the possible states of a PGOAgent
 Each state can only transition to the state below
 */
 enum PGOAgentState {
-
-  WAIT_FOR_LIFTING_MATRIX,  // waiting to receive shared lifting matrix
 
   WAIT_FOR_DATA,  // waiting to receive pose graph
 
@@ -75,14 +74,14 @@ class PGOAgent {
  public:
   /** Constructor that creates an empty pose graph
    */
-  PGOAgent(unsigned ID, const PGOAgentParameters& params);
+  PGOAgent(unsigned ID, const PGOAgentParameters &params);
 
   ~PGOAgent();
 
   /** Helper function to reset the internal solution
       In deployment, probably should not use this
    */
-  void setX(const Matrix& Xin);
+  void setX(const Matrix &Xin);
 
   /**
   Get internal solution
@@ -92,21 +91,21 @@ class PGOAgent {
   /**
   Get the ith component of the current solution
   */
-  bool getXComponent(const unsigned index, Matrix& Mout);
+  bool getXComponent(unsigned index, Matrix &Mout);
 
   /**
   Initialize the local pose graph from the input factors
   */
   void setPoseGraph(
-      const std::vector<RelativeSEMeasurement>& inputOdometry,
-      const std::vector<RelativeSEMeasurement>& inputPrivateLoopClosures,
-      const std::vector<RelativeSEMeasurement>& inputSharedLoopClosures);
+      const std::vector<RelativeSEMeasurement> &inputOdometry,
+      const std::vector<RelativeSEMeasurement> &inputPrivateLoopClosures,
+      const std::vector<RelativeSEMeasurement> &inputSharedLoopClosures);
 
   /**
   Store the pose of a neighboring robot who shares loop closure with this robot
   */
   void updateNeighborPose(unsigned neighborCluster, unsigned neighborID,
-                          unsigned neighborPose, const Matrix& var);
+                          unsigned neighborPose, const Matrix &var);
 
   /**
   Optimize pose graph by a single iteration.
@@ -154,7 +153,7 @@ class PGOAgent {
    * Get vector of pose indices needed from the neighbor agent
    */
   std::vector<unsigned> getNeighborPublicPoses(
-      const unsigned& neighborID) const;
+      const unsigned &neighborID) const;
 
   /**
   Get vector of neighbor robot IDs.
@@ -165,14 +164,13 @@ class PGOAgent {
   Return trajectory estimate of this robot in local frame, with its first pose
   set to identity
   */
-  bool getTrajectoryInLocalFrame(Matrix& Trajectory);
+  bool getTrajectoryInLocalFrame(Matrix &Trajectory);
 
   /**
   Return trajectory estimate of this robot in global frame, with the first pose
   of robot 0 set to identity
   */
-  bool getTrajectoryInGlobalFrame(const Matrix& globalAnchor,
-                                  Matrix& Trajectory);
+  bool getTrajectoryInGlobalFrame(Matrix &Trajectory);
 
   /**
   Return a map of shared poses of this robot, that need to be sent to others
@@ -203,16 +201,17 @@ class PGOAgent {
   /**
   Get lifting matrix
   */
-  inline Matrix getLiftingMatrix() const {
-    assert(mID == 0);
-    assert(mState != PGOAgentState::WAIT_FOR_LIFTING_MATRIX);
-    return YLift;
-  }
+  bool getLiftingMatrix(Matrix &M) const;
 
   /**
   Set the lifting matrix
   */
-  void setLiftingMatrix(const Matrix& Y);
+  void setLiftingMatrix(const Matrix &Y);
+
+  /**
+  Set the global anchor
+  */
+  void setGlobalAnchor(const Matrix &M);
 
  protected:
   // The unique ID associated to this robot
@@ -249,7 +248,10 @@ class PGOAgent {
   Matrix X;
 
   // Lifting matrix shared by all agents
-  Matrix YLift;
+  std::optional<Matrix> YLift;
+
+  // Anchor matrix shared by all agents
+  std::optional<Matrix> globalAnchor;
 
   // Current state of this agent
   PGOAgentState mState;
@@ -287,33 +289,33 @@ class PGOAgent {
   mutex mMeasurementsMutex;
 
   // Thread that runs optimization loop
-  thread* mOptimizationThread = nullptr;
+  thread *mOptimizationThread = nullptr;
 
   /**
   Add an odometric measurement of this robot.
   This function automatically initialize the new pose, by propagating odometry
   */
-  void addOdometry(const RelativeSEMeasurement& factor);
+  void addOdometry(const RelativeSEMeasurement &factor);
 
   /**
   Add a private loop closure of this robot
   (Warning: this function does not check for duplicate loop closures!)
   */
-  void addPrivateLoopClosure(const RelativeSEMeasurement& factor);
+  void addPrivateLoopClosure(const RelativeSEMeasurement &factor);
 
   /**
   Add a shared loop closure between this robot and another
   (Warning: this function does not check for duplicate loop closures!)
   */
-  void addSharedLoopClosure(const RelativeSEMeasurement& factor);
+  void addSharedLoopClosure(const RelativeSEMeasurement &factor);
 
   /** Compute the cost matrices that define the local PGO problem
       f(X) = 0.5<Q, XtX> + <X, G>
   */
   bool constructCostMatrices(
-      const vector<RelativeSEMeasurement>& privateMeasurements,
-      const vector<RelativeSEMeasurement>& sharedMeasurements, 
-      SparseMatrix* Q, SparseMatrix* G);
+      const vector<RelativeSEMeasurement> &privateMeasurements,
+      const vector<RelativeSEMeasurement> &sharedMeasurements,
+      SparseMatrix *Q, SparseMatrix *G);
 
   /**
   Optimize pose graph by calling optimize().
@@ -325,8 +327,7 @@ class PGOAgent {
   Find a shared loop closure based on neighboring robot's ID and pose
   */
   bool findSharedLoopClosure(unsigned neighborID, unsigned neighborPose,
-                             RelativeSEMeasurement& mOut);
-
+                             RelativeSEMeasurement &mOut);
 
   /**
   Local chordal initialization
