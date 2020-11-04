@@ -26,7 +26,7 @@ add_library(DPGO SHARED
 	src/QuadraticProblem.cpp
 	src/QuadraticOptimizer.cpp
 	src/DPGO_utils.cpp
-	)
+	src/PGOLogger.cpp)
 
 target_include_directories(DPGO PUBLIC 
 	${EXTERNAL_INCLUDES}

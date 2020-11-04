@@ -34,22 +34,17 @@ using std::vector;
 namespace DPGO {
 
 PGOAgent::PGOAgent(unsigned ID, const PGOAgentParameters &params)
-    : mID(ID),
-      mCluster(ID),
-      d(params.d),
-      r(params.r),
-      n(1),
+    : mID(ID), mCluster(ID),
+      d(params.d), r(params.r), n(1),
       verbose(params.verbose),
-      rate(1),
-      algorithm(params.algorithm),
-      stepsize(1e-3) {
+      mState(PGOAgentState::WAIT_FOR_DATA),
+      rate(1),algorithm(params.algorithm),
+      logData(params.logData), logger(params.logDirectory){
 
   // Initialize X
-  n = 1;
   X = Matrix::Zero(r, d + 1);
   X.block(0, 0, d, d) = Matrix::Identity(d, d);
   if (mID == 0) setLiftingMatrix(fixedStiefelVariable(d, r));
-  mState = PGOAgentState::WAIT_FOR_DATA;
 }
 
 PGOAgent::~PGOAgent() {
@@ -113,6 +108,14 @@ void PGOAgent::setPoseGraph(
   }
 
   mState = PGOAgentState::WAIT_FOR_INITIALIZATION;
+
+  if (logData) {
+    std::vector<RelativeSEMeasurement> measurements = odometry;
+    measurements.insert(measurements.end(), privateLoopClosures.begin(), privateLoopClosures.end());
+    measurements.insert(measurements.end(), sharedLoopClosures.begin(), sharedLoopClosures.end());
+    logger.logMeasurements(measurements, "measurements.csv");
+  }
+
 
   if (mID == 0) {
     // The first agent can further initialize its trajectory estimate
@@ -365,6 +368,13 @@ std::vector<unsigned> PGOAgent::getNeighbors() const {
 void PGOAgent::reset() {
   // Terminate optimization thread if running
   endOptimizationLoop();
+
+  if (logData) {
+    Matrix T;
+    if (getTrajectoryInGlobalFrame(T)) {
+      logger.logTrajectory(dimension(), num_poses(), T, "optimized_trajectory.csv");
+    }
+  }
 
   // Yulun: assume that the old lifting matrix can still be used
   mState = PGOAgentState::WAIT_FOR_DATA;

@@ -9,6 +9,7 @@
 #define PGOAGENT_H
 
 #include <DPGO/DPGO_types.h>
+#include <DPGO/PGOLogger.h>
 #include <DPGO/RelativeSEMeasurement.h>
 #include <DPGO/manifold/LiftedSEManifold.h>
 #include <DPGO/manifold/LiftedSEVariable.h>
@@ -64,10 +65,22 @@ struct PGOAgentParameters {
   // Verbose flag
   bool verbose;
 
+  // Flag to enable data logging
+  bool logData;
+
+  // Directory to log data
+  std::string logDirectory;
+
   // Default constructor
-  PGOAgentParameters(unsigned dIn, unsigned rIn,
-                     ROPTALG algorithmIn = ROPTALG::RTR, bool v = true)
-      : d(dIn), r(rIn), algorithm(algorithmIn), verbose(v) {}
+  PGOAgentParameters(unsigned dIn,
+                     unsigned rIn,
+                     ROPTALG algorithmIn = ROPTALG::RTR,
+                     bool v = false,
+                     bool log = false,
+                     std::string logDir = "")
+      : d(dIn), r(rIn),
+        algorithm(algorithmIn), verbose(v),
+        logData(log), logDirectory(logDir) {}
 };
 
 class PGOAgent {
@@ -194,11 +207,6 @@ class PGOAgent {
   bool isOptimizationRunning();
 
   /**
-  Set maximum stepsize during Riemannian optimization (only used by RGD)
-  */
-  void setStepsize(double s) { stepsize = s; }
-
-  /**
   Get lifting matrix
   */
   bool getLiftingMatrix(Matrix &M) const;
@@ -232,6 +240,9 @@ class PGOAgent {
   // Verbose flag
   bool verbose;
 
+  // Current state of this agent
+  PGOAgentState mState;
+
   // Rate in Hz of the optimization loop
   double rate;
 
@@ -241,8 +252,9 @@ class PGOAgent {
   // Optimization algorithm
   ROPTALG algorithm;
 
-  // step size (only used in RGD)
-  double stepsize;
+  // Logging
+  bool logData;
+  PGOLogger logger;
 
   // Solution before rounding
   Matrix X;
@@ -253,14 +265,14 @@ class PGOAgent {
   // Anchor matrix shared by all agents
   std::optional<Matrix> globalAnchor;
 
-  // Current state of this agent
-  PGOAgentState mState;
-
-  // Store odometric measurement of this robot
+  // Store odometry measurement of this robot
   vector<RelativeSEMeasurement> odometry;
 
   // Store private loop closures of this robot
   vector<RelativeSEMeasurement> privateLoopClosures;
+
+  // Store shared loop closure measurements
+  vector<RelativeSEMeasurement> sharedLoopClosures;
 
   // This dictionary stores poses owned by other robots that is connected to
   // this robot by loop closure
@@ -274,9 +286,6 @@ class PGOAgent {
 
   // Store the set of neighboring agents
   set<unsigned> neighborAgents;
-
-  // This dictionary stores shared loop closure measurements
-  vector<RelativeSEMeasurement> sharedLoopClosures;
 
   // Implement locking to synchronize read & write of trajectory estimate
   mutex mPosesMutex;
