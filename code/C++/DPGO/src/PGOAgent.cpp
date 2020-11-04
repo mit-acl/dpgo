@@ -100,6 +100,8 @@ void PGOAgent::setPoseGraph(
   assert(mState == PGOAgentState::WAIT_FOR_DATA);
   assert(n == 1);
 
+  if (inputOdometry.empty()) return;
+
   for (const auto &edge : inputOdometry) {
     addOdometry(edge);
   }

@@ -5,8 +5,6 @@
  * See LICENSE for the license information
  * -------------------------------------------------------------------------- */
 
-#pragma clang diagnostic push
-#pragma ide diagnostic ignored "OCUnusedGlobalDeclarationInspection"
 #ifndef PGOAGENT_H
 #define PGOAGENT_H
 
@@ -345,4 +343,3 @@ class PGOAgent {
 }  // namespace DPGO
 
 #endif
-#pragma clang diagnostic pop
