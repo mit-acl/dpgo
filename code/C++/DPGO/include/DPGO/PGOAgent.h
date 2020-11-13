@@ -82,6 +82,18 @@ struct PGOAgentParameters {
       : d(dIn), r(rIn),
         algorithm(algorithmIn), verbose(v),
         logData(log), logDirectory(std::move(logDir)) {}
+
+  inline friend std::ostream &operator<<(
+      std::ostream &os, const PGOAgentParameters &params) {
+    os << "PGOAgent parameters: " << std::endl;
+    os << "dimension: " << params.d << std::endl;
+    os << "relaxation rank: " << params.r << std::endl;
+    os << "algorithm: " << params.algorithm << std::endl;
+    os << "verbose: " << params.verbose << std::endl;
+    os << "log data: " << params.logData << std::endl;
+    os << "log directory: " << params.logDirectory << std::endl;
+    return os;
+  }
 };
 
 class PGOAgent {
@@ -261,11 +273,11 @@ class PGOAgent {
   // Current state of this agent
   PGOAgentState mState;
 
+  // Parameter settings
+  const PGOAgentParameters mParams;
+
   // Rate in Hz of the optimization loop (only used in asynchronous mode)
   double rate;
-
-  // Optimization algorithm
-  ROPTALG algorithm;
 
   // Current PGO instance
   unsigned mInstanceNumber;
@@ -277,11 +289,7 @@ class PGOAgent {
   unsigned mNumPosesReceived;
 
   // Logging
-  bool logData;
   PGOLogger logger;
-
-  // Verbose flag
-  bool verbose;
 
   // whether there is request to terminate optimization thread
   bool mFinishRequested = false;

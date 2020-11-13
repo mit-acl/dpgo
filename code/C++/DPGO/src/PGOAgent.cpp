@@ -32,10 +32,10 @@ namespace DPGO {
 
 PGOAgent::PGOAgent(unsigned ID, const PGOAgentParameters &params)
     : mID(ID), mCluster(ID), d(params.d), r(params.r), n(1),
-      mState(PGOAgentState::WAIT_FOR_DATA), algorithm(params.algorithm),
+      mState(PGOAgentState::WAIT_FOR_DATA), mParams(params),
       mInstanceNumber(0), mIterationNumber(0), mNumPosesReceived(0),
-      logData(params.logData), logger(params.logDirectory), verbose(params.verbose) {
-
+      logger(params.logDirectory) {
+  if (mParams.verbose) std::cout << mParams << std::endl;
   // Initialize X
   X = Matrix::Zero(r, d + 1);
   X.block(0, 0, d, d) = Matrix::Identity(d, d);
@@ -53,7 +53,7 @@ void PGOAgent::setX(const Matrix &Xin) {
   n = X.cols() / (d + 1);
   assert(X.cols() == n * (d + 1));
   assert(X.rows() == r);
-  if (verbose)
+  if (mParams.verbose)
     std::cout << "WARNING: Agent " << mID
               << " resets trajectory. New trajectory length: " << n
               << std::endl;
@@ -104,7 +104,7 @@ void PGOAgent::setPoseGraph(
 
   mState = PGOAgentState::WAIT_FOR_INITIALIZATION;
 
-  if (logData) {
+  if (mParams.logData) {
     std::vector<RelativeSEMeasurement> measurements = odometry;
     measurements.insert(measurements.end(), privateLoopClosures.begin(), privateLoopClosures.end());
     measurements.insert(measurements.end(), sharedLoopClosures.begin(), sharedLoopClosures.end());
@@ -213,7 +213,7 @@ void PGOAgent::updateNeighborPose(unsigned neighborCluster, unsigned neighborID,
       // Halt optimization
       bool optimizationHalted = false;
       if (isOptimizationRunning()) {
-        if (verbose)
+        if (mParams.verbose)
           std::cout << "Agent " << mID << " halt optimization thread..." << std::endl;
         optimizationHalted = true;
         endOptimizationLoop();
@@ -366,7 +366,7 @@ void PGOAgent::reset() {
   // Terminate optimization thread if running
   endOptimizationLoop();
 
-  if (logData) {
+  if (mParams.logData) {
     Matrix T;
     if (getTrajectoryInGlobalFrame(T)) {
       logger.logTrajectory(dimension(), num_poses(), T, "optimized_trajectory.csv");
@@ -401,16 +401,16 @@ void PGOAgent::iterate() {
 }
 
 ROPTResult PGOAgent::optimize() {
-  if (verbose) std::cout << "Agent " << mID << " optimize..." << std::endl;
+  if (mParams.verbose) std::cout << "Agent " << mID << " optimize..." << std::endl;
 
   if (mState != PGOAgentState::INITIALIZED) {
-    if (verbose)
+    if (mParams.verbose)
       std::cout << "Not initialized. Skip optimization!" << std::endl;
     return ROPTResult(false);
   }
 
   if (odometry.empty()) {
-    if (verbose)
+    if (mParams.verbose)
       std::cout << "No odometry measurement. Skip optimization!" << std::endl;
     return ROPTResult(false);
   }
@@ -431,7 +431,7 @@ ROPTResult PGOAgent::optimize() {
   bool success =
       constructCostMatrices(Q, G);
   if (!success) {
-    if (verbose)
+    if (mParams.verbose)
       std::cout << "Could not create cost matrices. Skip optimization!"
                 << std::endl;
     return ROPTResult(false);
@@ -448,8 +448,8 @@ ROPTResult PGOAgent::optimize() {
 
   // Initialize optimizer object
   QuadraticOptimizer optimizer(&problem);
-  optimizer.setVerbose(verbose);
-  optimizer.setAlgorithm(algorithm);
+  optimizer.setVerbose(mParams.verbose);
+  optimizer.setAlgorithm(mParams.algorithm);
 
   // Optimize
   Matrix Xnext = optimizer.optimize(Xcurr);
@@ -563,7 +563,7 @@ bool PGOAgent::constructCostMatrices(SparseMatrix &Q, SparseMatrix &G) {
 
 void PGOAgent::startOptimizationLoop(double freq) {
   if (isOptimizationRunning()) {
-    if (verbose)
+    if (mParams.verbose)
       std::cout << "WARNING: optimization thread already running! Skip..." << std::endl;
     return;
   }
@@ -574,7 +574,7 @@ void PGOAgent::startOptimizationLoop(double freq) {
 }
 
 void PGOAgent::runOptimizationLoop() {
-  if (verbose)
+  if (mParams.verbose)
     std::cout << "Agent " << mID << " optimization thread running at " << rate
          << " Hz." << std::endl;
 
@@ -613,7 +613,7 @@ void PGOAgent::endOptimizationLoop() {
 
   mFinishRequested = false;  // reset request flag
 
-  if (verbose)
+  if (mParams.verbose)
     std::cout << "Agent " << mID << " optimization thread exited. " << std::endl;
 }
 
@@ -661,7 +661,7 @@ Matrix PGOAgent::localPoseGraphOptimization() {
 
   // Initialize optimizer object
   QuadraticOptimizer optimizer(&problem);
-  optimizer.setVerbose(verbose);
+  optimizer.setVerbose(mParams.verbose);
   optimizer.setTrustRegionIterations(20);
 
   // Optimize
