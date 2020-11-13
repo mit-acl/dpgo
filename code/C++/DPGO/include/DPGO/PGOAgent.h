@@ -159,16 +159,6 @@ class PGOAgent {
   inline PGOAgentState getState() const { return mState; }
 
   /**
-   * @brief Update local copy of a neighbor agent's pose
-   * @param neighborCluster the cluster the neighbor agent belongs to
-   * @param neighborID the ID of the neighbor agent
-   * @param neighborPose local index of the received neighbor pose
-   * @param var Actual value of the received pose
-   */
-  void updateNeighborPose(unsigned neighborCluster, unsigned neighborID,
-                          unsigned neighborPose, const Matrix &var);
-
-  /**
    * Get vector of pose indices needed from the neighbor agent
    */
   std::vector<unsigned> getNeighborPublicPoses(
@@ -241,6 +231,16 @@ class PGOAgent {
   Set the global anchor
   */
   void setGlobalAnchor(const Matrix &M);
+
+  /**
+ * @brief Update local copy of a neighbor agent's pose
+ * @param neighborCluster the cluster the neighbor agent belongs to
+ * @param neighborID the ID of the neighbor agent
+ * @param neighborPose local index of the received neighbor pose
+ * @param var Actual value of the received pose
+ */
+  void updateNeighborPose(unsigned neighborCluster, unsigned neighborID,
+                          unsigned neighborPose, const Matrix &var);
 
  protected:
   // The unique ID associated to this robot
@@ -348,13 +348,14 @@ class PGOAgent {
   */
   void addSharedLoopClosure(const RelativeSEMeasurement &factor);
 
-  /** Compute the cost matrices that define the local PGO problem
+  /**
+   * @brief Construct the cost matrices that define the local PGO problem
       f(X) = 0.5<Q, XtX> + <X, G>
-  */
-  bool constructCostMatrices(
-      const vector<RelativeSEMeasurement> &privateMeasurements,
-      const vector<RelativeSEMeasurement> &sharedMeasurements,
-      SparseMatrix *Q, SparseMatrix *G);
+   * @param Q: the quadratic data matrix that will be modified in place
+   * @param G: the linear data matrix that will be modified in place
+   * @return true if the data matrices are computed successfully
+   */
+  bool constructCostMatrices(SparseMatrix &Q, SparseMatrix &G);
 
   /**
   Optimize pose graph by calling optimize().
@@ -363,8 +364,12 @@ class PGOAgent {
   void runOptimizationLoop();
 
   /**
-  Find a shared loop closure based on neighboring robot's ID and pose
-  */
+   * @brief Find a shared loop closure based on neighboring robot's ID and pose
+   * @param neighborID
+   * @param neighborPose
+   * @param mOut
+   * @return
+   */
   bool findSharedLoopClosure(unsigned neighborID, unsigned neighborPose,
                              RelativeSEMeasurement &mOut);
 
