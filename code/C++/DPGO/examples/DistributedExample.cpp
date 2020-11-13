@@ -56,9 +56,7 @@ int main(int argc, char** argv) {
   d = (!dataset.empty() ? dataset[0].t.size() : 0);
   n = num_poses;
   r = 5;
-  ROPTALG algorithm = ROPTALG::RTR;
-  bool verbose = false;
-  PGOAgentParameters options(d, r, algorithm, verbose);
+  PGOAgentParameters options(d, r, num_robots);
 
   /**
   ###########################################

@@ -11,7 +11,7 @@ TEST(testDPGO, LineGraph) {
   r = 3;
   ROPTALG algorithm = ROPTALG::RTR;
   bool verbose = false;
-  PGOAgentParameters options(d, r, algorithm, verbose);
+  PGOAgentParameters options(d, r, 1, algorithm, verbose);
 
   Matrix R = Matrix::Identity(d, d);
   Matrix t = Matrix::Random(d, 1);
