@@ -36,6 +36,8 @@ PGOAgent::PGOAgent(unsigned ID, const PGOAgentParameters &params)
       mInstanceNumber(0), mIterationNumber(0), mNumPosesReceived(0),
       logger(params.logDirectory) {
   if (mParams.verbose) std::cout << mParams << std::endl;
+  relativeChanges.assign(mParams.numRobots, 1e3);
+  funcDecreases.assign(mParams.numRobots, 1e3);
   // Initialize X
   X = Matrix::Zero(r, d + 1);
   X.block(0, 0, d, d) = Matrix::Identity(d, d);
@@ -380,6 +382,9 @@ void PGOAgent::reset() {
   mIterationNumber = 0;
   mNumPosesReceived = 0;
 
+  relativeChanges.assign(mParams.numRobots, 1e3);
+  funcDecreases.assign(mParams.numRobots, 1e3);
+
   odometry.clear();
   privateLoopClosures.clear();
   sharedLoopClosures.clear();
@@ -682,6 +687,42 @@ void PGOAgent::setGlobalAnchor(const Matrix &M) {
   assert(M.rows() == relaxation_rank());
   assert(M.cols() == dimension() + 1);
   globalAnchor.emplace(M);
+}
+
+bool PGOAgent::shouldTerminate() {
+  // terminate if reached maximum iterations
+  if (iteration_number() > mParams.maxNumIters) {
+    std::cout << "Reached maximum iterations." << std::endl;
+    return true;
+  }
+
+  // terminate if all agents satisfy relative change condition
+  bool relative_change_reached = true;
+  for (size_t i = 0; i < relativeChanges.size(); ++i) {
+    if (relativeChanges[i] > mParams.relChangeTol) {
+      relative_change_reached = false;
+      break;
+    }
+  }
+  if (relative_change_reached) {
+    std::cout << "Reached relative change stopping condition" << std::endl;
+    return true;
+  }
+
+  // terminate if all agents satisfy function decrease condition
+  bool func_decrease_reached = true;
+  for (size_t i = 0; i < funcDecreases.size(); ++i) {
+    if (funcDecreases[i] > mParams.funcDecreaseTol) {
+      func_decrease_reached = false;
+      break;
+    }
+  }
+  if (func_decrease_reached) {
+    std::cout << "Reached function decrease stopping condition." << std::endl;
+    return true;
+  }
+
+  return false;
 }
 
 }  // namespace DPGO

@@ -225,6 +225,12 @@ class PGOAgent {
   bool getXComponent(unsigned index, Matrix &Mout);
 
   /**
+   * @brief determine if the termination condition is satisfied
+   * @return boolean
+   */
+  bool shouldTerminate();
+
+  /**
   Initiate a new thread that runs runOptimizationLoop()
   */
   void startOptimizationLoop(double freq);
@@ -301,6 +307,10 @@ class PGOAgent {
 
   // Logging
   PGOLogger logger;
+
+  // Data structures needed to check termination condition
+  std::vector<double> relativeChanges;
+  std::vector<double> funcDecreases;
 
   // whether there is request to terminate optimization thread
   bool mFinishRequested = false;
