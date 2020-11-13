@@ -34,12 +34,10 @@ using std::vector;
 namespace DPGO {
 
 PGOAgent::PGOAgent(unsigned ID, const PGOAgentParameters &params)
-    : mID(ID), mCluster(ID),
-      d(params.d), r(params.r), n(1),
-      verbose(params.verbose),
-      mState(PGOAgentState::WAIT_FOR_DATA),
-      rate(1),algorithm(params.algorithm),
-      logData(params.logData), logger(params.logDirectory){
+    : mID(ID), mCluster(ID), d(params.d), r(params.r), n(1),
+      mState(PGOAgentState::WAIT_FOR_DATA), algorithm(params.algorithm),
+      mInstanceNumber(0), mIterationNumber(0), mNumPosesReceived(0),
+      logData(params.logData), logger(params.logDirectory), verbose(params.verbose) {
 
   // Initialize X
   X = Matrix::Zero(r, d + 1);
@@ -200,6 +198,8 @@ void PGOAgent::updateNeighborPose(unsigned neighborCluster, unsigned neighborID,
   assert(var.cols() == d + 1);
 
   PoseID nID = std::make_pair(neighborID, neighborPose);
+
+  mNumPosesReceived++;
 
   // Do not store this pose if not needed
   if (neighborSharedPoses.find(nID) == neighborSharedPoses.end()) return;
@@ -376,8 +376,12 @@ void PGOAgent::reset() {
     }
   }
 
-  // Yulun: assume that the old lifting matrix can still be used
+  // Assume that the old lifting matrix can still be used
   mState = PGOAgentState::WAIT_FOR_DATA;
+
+  mInstanceNumber++;
+  mIterationNumber = 0;
+  mNumPosesReceived = 0;
 
   odometry.clear();
   privateLoopClosures.clear();
@@ -393,6 +397,10 @@ void PGOAgent::reset() {
   X.block(0, 0, d, d) = Matrix::Identity(d, d);
 
   mCluster = mID;
+}
+
+void PGOAgent::iterate() {
+  mIterationNumber++;
 }
 
 ROPTResult PGOAgent::optimize() {

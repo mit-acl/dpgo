@@ -20,6 +20,7 @@
 #include <mutex>
 #include <set>
 #include <thread>
+#include <utility>
 #include <vector>
 #include <optional>
 
@@ -80,7 +81,7 @@ struct PGOAgentParameters {
                      std::string logDir = "")
       : d(dIn), r(rIn),
         algorithm(algorithmIn), verbose(v),
-        logData(log), logDirectory(logDir) {}
+        logData(log), logDirectory(std::move(logDir)) {}
 };
 
 class PGOAgent {
@@ -91,21 +92,6 @@ class PGOAgent {
 
   ~PGOAgent();
 
-  /** Helper function to reset the internal solution
-      In deployment, probably should not use this
-   */
-  void setX(const Matrix &Xin);
-
-  /**
-  Get internal solution
-  */
-  bool getX(Matrix &Mout);
-
-  /**
-  Get the ith component of the current solution
-  */
-  bool getXComponent(unsigned index, Matrix &Mout);
-
   /**
   Initialize the local pose graph from the input factors
   */
@@ -115,10 +101,9 @@ class PGOAgent {
       const std::vector<RelativeSEMeasurement> &inputSharedLoopClosures);
 
   /**
-  Store the pose of a neighboring robot who shares loop closure with this robot
-  */
-  void updateNeighborPose(unsigned neighborCluster, unsigned neighborID,
-                          unsigned neighborPose, const Matrix &var);
+   * @brief Iterate and performs necessary bookkeeping
+   */
+  void iterate();
 
   /**
   Optimize pose graph by a single iteration.
@@ -128,24 +113,19 @@ class PGOAgent {
   ROPTResult optimize();
 
   /**
-  Return the current state of this agent
-  */
-  inline PGOAgentState getState() const { return mState; }
-
-  /**
   Reset this agent to have empty pose graph
   */
   void reset();
 
   /**
-  Return the cluster that this robot belongs to
-  */
-  inline unsigned getCluster() const { return mCluster; }
-
-  /**
   Return ID of this robot
   */
   inline unsigned getID() const { return mID; }
+
+  /**
+  Return the cluster that this robot belongs to
+  */
+  inline unsigned getCluster() const { return mCluster; }
 
   /**
   Return number of poses of this robot
@@ -161,6 +141,32 @@ class PGOAgent {
   Get relaxation rank
   */
   inline unsigned relaxation_rank() const { return r; }
+
+  /**
+   * @brief Get current instance number
+   */
+  inline unsigned instance_number() const { return mInstanceNumber; }
+
+  /**
+   * @brief Get current global iteration number
+   */
+  inline unsigned iteration_number() const { return mIterationNumber; }
+
+  /**
+   * @brief get the current state of this agent
+   * @return PGOAgentState struct
+   */
+  inline PGOAgentState getState() const { return mState; }
+
+  /**
+   * @brief Update local copy of a neighbor agent's pose
+   * @param neighborCluster the cluster the neighbor agent belongs to
+   * @param neighborID the ID of the neighbor agent
+   * @param neighborPose local index of the received neighbor pose
+   * @param var Actual value of the received pose
+   */
+  void updateNeighborPose(unsigned neighborCluster, unsigned neighborID,
+                          unsigned neighborPose, const Matrix &var);
 
   /**
    * Get vector of pose indices needed from the neighbor agent
@@ -189,6 +195,21 @@ class PGOAgent {
   Return a map of shared poses of this robot, that need to be sent to others
   */
   PoseDict getSharedPoses();
+
+  /** Helper function to reset the internal solution
+    In deployment, probably should not use this
+ */
+  void setX(const Matrix &Xin);
+
+  /**
+  Get internal solution
+  */
+  bool getX(Matrix &Mout);
+
+  /**
+  Get the ith component of the current solution
+  */
+  bool getXComponent(unsigned index, Matrix &Mout);
 
   /**
   Initiate a new thread that runs runOptimizationLoop()
@@ -231,30 +252,39 @@ class PGOAgent {
   // Dimension
   unsigned d;
 
-  // Relaxed rank in Riemanian optimization problem
+  // Relaxed rank in Riemannian optimization problem
   unsigned r;
 
   // Number of poses
   unsigned n;
 
-  // Verbose flag
-  bool verbose;
-
   // Current state of this agent
   PGOAgentState mState;
 
-  // Rate in Hz of the optimization loop
+  // Rate in Hz of the optimization loop (only used in asynchronous mode)
   double rate;
-
-  // whether there is request to terminate optimization thread
-  bool mFinishRequested = false;
 
   // Optimization algorithm
   ROPTALG algorithm;
 
+  // Current PGO instance
+  unsigned mInstanceNumber;
+
+  // Current global iteration counter (this is only meaningful in synchronous mode)
+  unsigned mIterationNumber;
+
+  // Total number of neighbor poses received
+  unsigned mNumPosesReceived;
+
   // Logging
   bool logData;
   PGOLogger logger;
+
+  // Verbose flag
+  bool verbose;
+
+  // whether there is request to terminate optimization thread
+  bool mFinishRequested = false;
 
   // Solution before rounding
   Matrix X;
