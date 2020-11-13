@@ -60,8 +60,16 @@ struct PGOAgentParameters {
   // Relaxed rank in Riemannian optimization
   unsigned r;
 
+  // Total number of robots
+  unsigned numRobots;
+
   // Riemannian optimization algorithm
   ROPTALG algorithm;
+
+  // Stopping conditions
+  unsigned maxNumIters;  // Maximum number of global iterations
+  double relChangeTol;  // Tolerance on relative change
+  double funcDecreaseTol; // Tolerance on function decrease
 
   // Verbose flag
   bool verbose;
@@ -73,22 +81,25 @@ struct PGOAgentParameters {
   std::string logDirectory;
 
   // Default constructor
-  PGOAgentParameters(unsigned dIn,
-                     unsigned rIn,
+  PGOAgentParameters(unsigned dIn, unsigned rIn, unsigned numRobotsIn = 1,
                      ROPTALG algorithmIn = ROPTALG::RTR,
-                     bool v = false,
-                     bool log = false,
-                     std::string logDir = "")
-      : d(dIn), r(rIn),
-        algorithm(algorithmIn), verbose(v),
-        logData(log), logDirectory(std::move(logDir)) {}
+                     unsigned maxIters = 500, double changeTol = 1e-3, double funcDecTol = 1e-5,
+                     bool v = false, bool log = false, std::string logDir = "")
+      : d(dIn), r(rIn), numRobots(numRobotsIn),
+        algorithm(algorithmIn),
+        maxNumIters(maxIters), relChangeTol(changeTol), funcDecreaseTol(funcDecTol),
+        verbose(v), logData(log), logDirectory(std::move(logDir)) {}
 
   inline friend std::ostream &operator<<(
       std::ostream &os, const PGOAgentParameters &params) {
     os << "PGOAgent parameters: " << std::endl;
     os << "dimension: " << params.d << std::endl;
     os << "relaxation rank: " << params.r << std::endl;
+    os << "number of robots: " << params.numRobots << std::endl;
     os << "algorithm: " << params.algorithm << std::endl;
+    os << "max iterations: " << params.maxNumIters << std::endl;
+    os << "relative change tol: " << params.relChangeTol << std::endl;
+    os << "function decrease tol: " << params.funcDecreaseTol << std::endl;
     os << "verbose: " << params.verbose << std::endl;
     os << "log data: " << params.logData << std::endl;
     os << "log directory: " << params.logDirectory << std::endl;
