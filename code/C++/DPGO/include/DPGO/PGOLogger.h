@@ -23,7 +23,7 @@ class PGOLogger {
    * @brief Constructor
    * @param logDir directory to store all log files
    */
-  explicit PGOLogger(const std::string &logDir);
+  explicit PGOLogger(std::string logDir);
 
   ~PGOLogger();
 

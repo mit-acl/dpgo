@@ -119,6 +119,11 @@ void PGOAgent::setPoseGraph(
     Matrix T = localChordalInitialization();
     X = YLift.value() * T;  // Lift to correct relaxation rank
     mState = PGOAgentState::INITIALIZED;
+
+    // Save initial trajectory
+    if (mParams.logData) {
+      logger.logTrajectory(dimension(), num_poses(), T, "trajectory_initial.csv");
+    }
   }
 }
 
@@ -283,6 +288,11 @@ void PGOAgent::updateNeighborPose(unsigned neighborCluster, unsigned neighborID,
       mCluster = neighborCluster;
       mState = PGOAgentState::INITIALIZED;
 
+      // Log initial trajectory
+      if (mParams.logData) {
+          logger.logTrajectory(dimension(), num_poses(), T, "trajectory_initial.csv");
+      }
+
       if (optimizationHalted) startOptimizationLoop(rate);
     }
   }
@@ -371,7 +381,7 @@ void PGOAgent::reset() {
   if (mParams.logData) {
     Matrix T;
     if (getTrajectoryInGlobalFrame(T)) {
-      logger.logTrajectory(dimension(), num_poses(), T, "optimized_trajectory.csv");
+      logger.logTrajectory(dimension(), num_poses(), T, "trajectory_optimized.csv");
     }
   }
 
@@ -403,6 +413,14 @@ void PGOAgent::reset() {
 
 void PGOAgent::iterate() {
   mIterationNumber++;
+
+  // Save early stopped solution
+  if (mIterationNumber == 50 && mParams.logData) {
+    Matrix T;
+    if (getTrajectoryInGlobalFrame(T)) {
+      logger.logTrajectory(dimension(), num_poses(), T, "trajectory_early_stop.csv");
+    }
+  }
 }
 
 ROPTResult PGOAgent::optimize() {

@@ -7,10 +7,11 @@
 #include <cassert>
 #include <DPGO/PGOLogger.h>
 #include <Eigen/Geometry>
+#include <utility>
 
 namespace DPGO {
 
-PGOLogger::PGOLogger(const std::string &logDir) : logDirectory(logDir) {}
+PGOLogger::PGOLogger(std::string logDir) : logDirectory(std::move(logDir)) {}
 
 PGOLogger::~PGOLogger() = default;
 
