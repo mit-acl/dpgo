@@ -5,7 +5,7 @@ project(DPGO)
 
 message(STATUS "CXX compiler version: " ${CMAKE_CXX_COMPILER_VERSION})
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -march=native")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -pthread -O3")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -pthread -O3")
 
 find_package(Threads REQUIRED)
 
@@ -26,7 +26,7 @@ add_library(DPGO SHARED
 	src/QuadraticProblem.cpp
 	src/QuadraticOptimizer.cpp
 	src/DPGO_utils.cpp
-	)
+	src/PGOLogger.cpp)
 
 target_include_directories(DPGO PUBLIC 
 	${EXTERNAL_INCLUDES}

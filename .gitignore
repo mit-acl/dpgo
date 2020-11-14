@@ -67,3 +67,6 @@ Thumbs.db
 
 # Vscode #
 .vscode
+
+# CLion #
+.idea

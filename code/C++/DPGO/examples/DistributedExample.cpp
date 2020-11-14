@@ -12,6 +12,7 @@
 #include <DPGO/QuadraticProblem.h>
 
 #include <cstdlib>
+#include <cassert>
 #include <fstream>
 #include <iostream>
 
@@ -55,9 +56,7 @@ int main(int argc, char** argv) {
   d = (!dataset.empty() ? dataset[0].t.size() : 0);
   n = num_poses;
   r = 5;
-  ROPTALG algorithm = ROPTALG::RTR;
-  bool verbose = false;
-  PGOAgentParameters options(d, r, algorithm, verbose);
+  PGOAgentParameters options(d, r, num_robots);
 
   /**
   ###########################################
@@ -144,7 +143,7 @@ int main(int argc, char** argv) {
   std::uniform_int_distribution<int> distribution(0, num_robots - 1);
 
   for (unsigned iter = 0; iter < numIters; ++iter) {
-    // exchange public poses
+    // Exchange public poses
     for (unsigned robot1 = 0; robot1 < (unsigned)num_robots; ++robot1) {
       if (agents[robot1]->getCluster() != 0) continue;
       PoseDict sharedPoses = agents[robot1]->getSharedPoses();
@@ -161,23 +160,30 @@ int main(int argc, char** argv) {
       }
     }
 
-    // randomly select a robot to optimize
-    unsigned robot = (unsigned)distribution(generator);
-    agents[robot]->optimize();
+    // Randomly select a robot to optimize
+    unsigned selectedRobot = (unsigned)distribution(generator);
+    for (unsigned robot = 0; robot < (unsigned)num_robots; ++robot) {
+      PGOAgent* robotPtr = agents[robot];
+      assert(robotPtr->instance_number() == 0);
+      assert(robotPtr->iteration_number() == iter);
+      robotPtr->iterate();
+      if (robot == selectedRobot) robotPtr->optimize();
+    }
 
+    // Evaluate cost at this iteration
     for (unsigned robot = 0; robot < (unsigned)num_robots; ++robot) {
       unsigned startIdx = robot * num_poses_per_robot;
       unsigned endIdx = (robot + 1) * num_poses_per_robot;  // non-inclusive
       if (robot == (unsigned)num_robots - 1) endIdx = n;
 
-      Xopt.block(0, startIdx * (d + 1), r, (endIdx - startIdx) * (d + 1)) =
-          agents[robot]->getX();
+      Matrix Xrobot;
+      agents[robot]->getX(Xrobot);
+      Xopt.block(0, startIdx * (d + 1), r, (endIdx - startIdx) * (d + 1)) = Xrobot;
     }
 
-    // Evaluate
     cout << "Iter = " << iter << " | "
          << "cost = " << (Xopt * ConLapT * Xopt.transpose()).trace() << " | "
-         << "robot = " << robot << endl;
+         << "robot = " << selectedRobot << endl;
   }
 
   exit(0);
