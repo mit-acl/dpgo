@@ -75,10 +75,17 @@ Project a given matrix to the rotation group
 Matrix projectToRotationGroup(const Matrix& M);
 
 /**
+ * @brief project an input matrix M to the Stiefel manifold
+ * @param M
+ * @return orthogonal projection of M to Stiefel manifold
+ */
+Matrix projectToStiefelManifold(const Matrix& M);
+
+/**
 Generate a random element of the Stiefel element
 The returned value is guaranteed to be the same for each d and r
 */
-Matrix fixedStiefelVariable(const unsigned d, const unsigned r);
+Matrix fixedStiefelVariable(unsigned d, unsigned r);
 
 }  // namespace DPGO
 

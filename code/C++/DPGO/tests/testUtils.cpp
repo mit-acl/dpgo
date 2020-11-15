@@ -21,3 +21,15 @@ TEST(testDPGO, testStiefelRepeat) {
     ASSERT_LE((Y_ - Y).norm(), 1e-5);
   }
 }
+
+TEST(testDPGO, testStiefelProjection) {
+  size_t d = 3;
+  size_t r = 5;
+  Matrix I = Matrix::Identity(d, d);
+  for (size_t j = 0; j < 50; ++ j) {
+    Matrix M = Matrix::Random(r,d);
+    Matrix Y = projectToStiefelManifold(M);
+    Matrix D = Y.transpose() * Y - I;
+    ASSERT_LE(D.norm(), 1e-5);
+  }
+}
