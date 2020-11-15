@@ -63,7 +63,10 @@ struct PGOAgentParameters {
   // Total number of robots
   unsigned numRobots;
 
-  // Riemannian optimization algorithm
+  // Use Nesterov acceleration
+  bool acceleration;
+
+  // Riemannian optimization algorithm used when solving local subproblem
   ROPTALG algorithm;
 
   // Stopping conditions
@@ -82,27 +85,28 @@ struct PGOAgentParameters {
 
   // Default constructor
   PGOAgentParameters(unsigned dIn, unsigned rIn, unsigned numRobotsIn = 1,
-                     ROPTALG algorithmIn = ROPTALG::RTR,
+                     bool accel = false, ROPTALG algorithmIn = ROPTALG::RTR,
                      unsigned maxIters = 500, double changeTol = 1e-3, double funcDecTol = 1e-5,
                      bool v = false, bool log = false, std::string logDir = "")
       : d(dIn), r(rIn), numRobots(numRobotsIn),
-        algorithm(algorithmIn),
+        acceleration(accel), algorithm(algorithmIn),
         maxNumIters(maxIters), relChangeTol(changeTol), funcDecreaseTol(funcDecTol),
         verbose(v), logData(log), logDirectory(std::move(logDir)) {}
 
   inline friend std::ostream &operator<<(
       std::ostream &os, const PGOAgentParameters &params) {
     os << "PGOAgent parameters: " << std::endl;
-    os << "dimension: " << params.d << std::endl;
-    os << "relaxation rank: " << params.r << std::endl;
-    os << "number of robots: " << params.numRobots << std::endl;
-    os << "algorithm: " << params.algorithm << std::endl;
-    os << "max iterations: " << params.maxNumIters << std::endl;
-    os << "relative change tol: " << params.relChangeTol << std::endl;
-    os << "function decrease tol: " << params.funcDecreaseTol << std::endl;
-    os << "verbose: " << params.verbose << std::endl;
-    os << "log data: " << params.logData << std::endl;
-    os << "log directory: " << params.logDirectory << std::endl;
+    os << "Dimension: " << params.d << std::endl;
+    os << "Relaxation rank: " << params.r << std::endl;
+    os << "Number of robots: " << params.numRobots << std::endl;
+    os << "Use Nesterov acceleration: " << params.acceleration << std::endl;
+    os << "Local optimization algorithm: " << params.algorithm << std::endl;
+    os << "Max iterations: " << params.maxNumIters << std::endl;
+    os << "Relative change tol: " << params.relChangeTol << std::endl;
+    os << "Function decrease tol: " << params.funcDecreaseTol << std::endl;
+    os << "Verbose: " << params.verbose << std::endl;
+    os << "Log data: " << params.logData << std::endl;
+    os << "Log directory: " << params.logDirectory << std::endl;
     return os;
   }
 };
@@ -124,21 +128,34 @@ class PGOAgent {
       const std::vector<RelativeSEMeasurement> &inputSharedLoopClosures);
 
   /**
-   * @brief Iterate and performs necessary bookkeeping
+   * @brief operations at the beginning of each iteration.
+   * If acceleration is turned off, this function only involves bookkeeping.
+   * If acceleration is turned on, this function also involves computation.
    */
-  void iterate();
+  void preprocess();
 
   /**
   Optimize pose graph by a single iteration.
-  This process use both private and shared factors (communication required for
-  the latter)
+  This process use both private and shared factors.
   */
   ROPTResult optimize();
+
+  /**
+   * @brief operations at the end of each iteration.
+   * If acceleration is turned off, this function only involves bookkeeping.
+   * If acceleration is turned on, this function also involves computation.
+   */
+  void postprocess();
 
   /**
   Reset this agent to have empty pose graph
   */
   void reset();
+
+  /**
+   * @brief Reset variables used in Nesterov acceleration
+   */
+  void resetAcceleration();
 
   /**
   Return ID of this robot
@@ -254,7 +271,7 @@ class PGOAgent {
   /**
   Set the lifting matrix
   */
-  void setLiftingMatrix(const Matrix &Y);
+  void setLiftingMatrix(const Matrix &M);
 
   /**
   Set the global anchor
@@ -317,6 +334,18 @@ class PGOAgent {
 
   // Solution before rounding
   Matrix X;
+
+  // Auxiliary scalar used in acceleration
+  double gamma;
+
+  // Auxiliary scalar used in acceleration
+  double alpha;
+
+  // Auxiliary variable used in acceleration
+  Matrix Y;
+
+  // Auxiliary variable used in acceleration
+  Matrix V;
 
   // Lifting matrix shared by all agents
   std::optional<Matrix> YLift;

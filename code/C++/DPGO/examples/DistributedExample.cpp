@@ -160,14 +160,22 @@ int main(int argc, char** argv) {
       }
     }
 
-    // Randomly select a robot to optimize
-    unsigned selectedRobot = (unsigned)distribution(generator);
+    // Preprocess
     for (unsigned robot = 0; robot < (unsigned)num_robots; ++robot) {
       PGOAgent* robotPtr = agents[robot];
       assert(robotPtr->instance_number() == 0);
       assert(robotPtr->iteration_number() == iter);
-      robotPtr->iterate();
-      if (robot == selectedRobot) robotPtr->optimize();
+      robotPtr->preprocess();
+    }
+
+    // Randomly select a robot to optimize
+    unsigned selectedRobot = (unsigned)distribution(generator);
+    agents[selectedRobot]->optimize();
+
+    // Postprocess
+    for (unsigned robot = 0; robot < (unsigned)num_robots; ++robot) {
+      PGOAgent* robotPtr = agents[robot];
+      robotPtr->postprocess();
     }
 
     // Evaluate cost at this iteration

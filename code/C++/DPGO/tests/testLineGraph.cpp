@@ -9,9 +9,7 @@ TEST(testDPGO, LineGraph) {
   unsigned int d, r;
   d = 3;
   r = 3;
-  ROPTALG algorithm = ROPTALG::RTR;
-  bool verbose = false;
-  PGOAgentParameters options(d, r, 1, algorithm, verbose);
+  PGOAgentParameters options(d, r, 1);
 
   Matrix R = Matrix::Identity(d, d);
   Matrix t = Matrix::Random(d, 1);

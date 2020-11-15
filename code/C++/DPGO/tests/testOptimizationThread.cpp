@@ -11,9 +11,7 @@ TEST(testDPGO, OptimizationThreadBasic) {
   unsigned int d, r;
   d = 3;
   r = 3;
-  ROPTALG algorithm = ROPTALG::RTR;
-  bool verbose = false;
-  PGOAgentParameters options(d, r, 1, algorithm, verbose);
+  PGOAgentParameters options(d, r, 1);
 
   PGOAgent agent(0, options);
 
@@ -33,9 +31,7 @@ TEST(testDPGO, OptimizationThreadTriangleGraph) {
   unsigned int d, r;
   d = 3;
   r = 3;
-  ROPTALG algorithm = ROPTALG::RTR;
-  bool verbose = false;
-  PGOAgentParameters options(d, r, 1, algorithm, verbose);
+  PGOAgentParameters options(d, r, 1);
   PGOAgent agent(id, options);
 
   Matrix Tw0(d + 1, d + 1);

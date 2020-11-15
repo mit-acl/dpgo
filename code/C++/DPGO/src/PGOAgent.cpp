@@ -11,8 +11,6 @@
 #include <DPGO/QuadraticProblem.h>
 
 #include <Eigen/CholmodSupport>
-#include <Eigen/Dense>
-#include <Eigen/Sparse>
 #include <algorithm>
 #include <cassert>
 #include <chrono>
@@ -78,10 +76,10 @@ bool PGOAgent::getXComponent(const unsigned index, Matrix &Mout) {
   return true;
 }
 
-void PGOAgent::setLiftingMatrix(const Matrix &Y) {
-  assert(Y.rows() == r);
-  assert(Y.cols() == d);
-  YLift.emplace(Y);
+void PGOAgent::setLiftingMatrix(const Matrix &M) {
+  assert(M.rows() == r);
+  assert(M.cols() == d);
+  YLift.emplace(M);
 }
 
 void PGOAgent::setPoseGraph(
@@ -411,7 +409,7 @@ void PGOAgent::reset() {
   mCluster = mID;
 }
 
-void PGOAgent::iterate() {
+void PGOAgent::preprocess() {
   mIterationNumber++;
 
   // Save early stopped solution
@@ -421,6 +419,10 @@ void PGOAgent::iterate() {
       logger.logTrajectory(dimension(), num_poses(), T, "trajectory_early_stop.csv");
     }
   }
+}
+
+void PGOAgent::postprocess() {
+
 }
 
 ROPTResult PGOAgent::optimize() {
@@ -741,6 +743,15 @@ bool PGOAgent::shouldTerminate() {
   }
 
   return false;
+}
+
+void PGOAgent::resetAcceleration() {
+  assert(mParams.acceleration);
+  assert(mState == PGOAgentState::INITIALIZED);
+  gamma = 0;
+  alpha = 0;
+  V = X;
+  Y = X;
 }
 
 }  // namespace DPGO
