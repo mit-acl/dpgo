@@ -124,7 +124,14 @@ int main(int argc, char** argv) {
   vector<PGOAgent*> agents;
   for (unsigned robot = 0; robot < (unsigned)num_robots; ++robot) {
     PGOAgent* agent = new PGOAgent(robot, options);
-    if (robot > 0) agent->setLiftingMatrix(fixedStiefelVariable(d, r));
+
+    // All agents share a special, common matrix called the 'lifting matrix' which the first agent will generate
+    if (robot > 0) {
+      Matrix M;
+      agents[0]->getLiftingMatrix(M);
+      agent->setLiftingMatrix(M);
+    }
+
     agent->setPoseGraph(odometry[robot], private_loop_closures[robot],
                         shared_loop_closure[robot]);
     agents.push_back(agent);
