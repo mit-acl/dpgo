@@ -222,9 +222,20 @@ class PGOAgent {
   bool getTrajectoryInGlobalFrame(Matrix &Trajectory);
 
   /**
-  Return a map of shared poses of this robot, that need to be sent to others
-  */
-  PoseDict getSharedPoses();
+   * @brief Get a single public pose of this robot.
+   * Note that currently, this method does not check that the requested pose is a public pose
+   * @param index: index of the requested pose
+   * @param Mout: actual value of the pose
+   * @return true if the requested pose exists
+   */
+  bool getSharedPose(unsigned index, Matrix &Mout);
+
+  /**
+   * @brief Get a map of all public poses of this robot
+   * @param map: PoseDict object whose content will be filled
+   * @return true if the agent is properly initialized
+   */
+   bool getSharedPoseDict(PoseDict& map);
 
   /** Helper function to reset the internal solution
     In deployment, probably should not use this
@@ -235,11 +246,6 @@ class PGOAgent {
   Get internal solution
   */
   bool getX(Matrix &Mout);
-
-  /**
-  Get the ith component of the current solution
-  */
-  bool getXComponent(unsigned index, Matrix &Mout);
 
   /**
    * @brief determine if the termination condition is satisfied
@@ -335,18 +341,6 @@ class PGOAgent {
   // Solution before rounding
   Matrix X;
 
-  // Auxiliary scalar used in acceleration
-  double gamma;
-
-  // Auxiliary scalar used in acceleration
-  double alpha;
-
-  // Auxiliary variable used in acceleration
-  Matrix Y;
-
-  // Auxiliary variable used in acceleration
-  Matrix V;
-
   // Lifting matrix shared by all agents
   std::optional<Matrix> YLift;
 
@@ -440,6 +434,28 @@ class PGOAgent {
   Local pose graph optimization
   */
   Matrix localPoseGraphOptimization();
+
+ private:
+
+  // Auxiliary scalar used in acceleration
+  double gamma;
+
+  // Auxiliary scalar used in acceleration
+  double alpha;
+
+  // Auxiliary variable used in acceleration
+  Matrix Y;
+
+  // Auxiliary variable used in acceleration
+  Matrix V;
+
+  void updateGamma();
+
+  void updateAlpha();
+
+  void updateY();
+
+  void updateV();
 };
 
 }  // namespace DPGO

@@ -152,8 +152,10 @@ int main(int argc, char** argv) {
   for (unsigned iter = 0; iter < numIters; ++iter) {
     // Exchange public poses
     for (unsigned robot1 = 0; robot1 < (unsigned)num_robots; ++robot1) {
-      if (agents[robot1]->getCluster() != 0) continue;
-      PoseDict sharedPoses = agents[robot1]->getSharedPoses();
+      PoseDict sharedPoses;
+      if (!agents[robot1]->getSharedPoseDict(sharedPoses)) {
+        continue;
+      }
       for (unsigned robot2 = 0; robot2 < (unsigned)num_robots; ++robot2) {
         if (robot1 == robot2) continue;
 

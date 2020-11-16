@@ -60,19 +60,42 @@ void PGOAgent::setX(const Matrix &Xin) {
 }
 
 bool PGOAgent::getX(Matrix &Mout) {
-  if (mState == PGOAgentState::WAIT_FOR_DATA)
+  if (mState != PGOAgentState::INITIALIZED)
     return false;
   lock_guard<mutex> lock(mPosesMutex);
   Mout = X;
   return true;
 }
 
-bool PGOAgent::getXComponent(const unsigned index, Matrix &Mout) {
-  if (mState == PGOAgentState::WAIT_FOR_DATA)
+bool PGOAgent::getSharedPose(unsigned int index, Matrix &Mout) {
+  if (mState != PGOAgentState::INITIALIZED)
     return false;
   lock_guard<mutex> lock(mPosesMutex);
   if (index >= num_poses()) return false;
-  Mout = X.block(0, index * (d + 1), r, d + 1);
+  if (!mParams.acceleration) {
+    Mout = X.block(0, index * (d + 1), r, d + 1);
+  }
+  else{
+    Mout = Y.block(0, index * (d + 1), r, d + 1);
+  }
+  return true;
+}
+
+bool PGOAgent::getSharedPoseDict(PoseDict& map) {
+  if (mState != PGOAgentState::INITIALIZED)
+    return false;
+  map.clear();
+  lock_guard<mutex> lock(mPosesMutex);
+  Matrix M;
+  if (!mParams.acceleration) {
+    M = X;
+  }else {
+    M = Y;
+  }
+  for (const auto &mSharedPose : mSharedPoses) {
+    unsigned idx = std::get<1>(mSharedPose);
+    map[mSharedPose] = M.block(0, idx * (d + 1), r, d + 1);
+  }
   return true;
 }
 
@@ -341,16 +364,6 @@ bool PGOAgent::getTrajectoryInGlobalFrame(Matrix &Trajectory) {
 
   Trajectory = T;
   return true;
-}
-
-PoseDict PGOAgent::getSharedPoses() {
-  PoseDict map;
-  lock_guard<mutex> lock(mPosesMutex);
-  for (const auto &mSharedPose : mSharedPoses) {
-    unsigned idx = std::get<1>(mSharedPose);
-    map[mSharedPose] = X.block(0, idx * (d + 1), r, d + 1);
-  }
-  return map;
 }
 
 std::vector<unsigned> PGOAgent::getNeighborPublicPoses(
@@ -752,6 +765,34 @@ void PGOAgent::resetAcceleration() {
   alpha = 0;
   V = X;
   Y = X;
+}
+
+void PGOAgent::updateGamma() {
+  assert(mParams.acceleration);
+  assert(mState == PGOAgentState::INITIALIZED);
+  gamma = (1 + sqrt(1 + 4 * pow(mParams.numRobots, 2) * pow(gamma, 2))) / (2 * mParams.numRobots);
+}
+
+void PGOAgent::updateAlpha() {
+  assert(mParams.acceleration);
+  assert(mState == PGOAgentState::INITIALIZED);
+  alpha = 1 / (gamma * mParams.numRobots);
+}
+
+void PGOAgent::updateY() {
+  assert(mParams.acceleration);
+  assert(mState == PGOAgentState::INITIALIZED);
+  LiftedSEManifold manifold(relaxation_rank(), dimension(), num_poses());
+  Matrix M = (1 - alpha) * X + alpha * V;
+  Y = manifold.project(M);
+}
+
+void PGOAgent::updateV() {
+  assert(mParams.acceleration);
+  assert(mState == PGOAgentState::INITIALIZED);
+  LiftedSEManifold manifold(relaxation_rank(), dimension(), num_poses());
+  Matrix M = V + gamma * (X - Y);
+  V = manifold.project(M);
 }
 
 }  // namespace DPGO
