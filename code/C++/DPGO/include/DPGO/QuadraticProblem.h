@@ -33,11 +33,11 @@ class QuadraticProblem : public ROPTLIB::Problem {
   /** Default constructor; doesn't actually do anything */
   QuadraticProblem() {}
 
-  QuadraticProblem(const unsigned int nIn, const unsigned int dIn,
-                   const unsigned int rIn, const SparseMatrix& QIn,
+  QuadraticProblem(unsigned int nIn, unsigned int dIn,
+                   unsigned int rIn, const SparseMatrix& QIn,
                    const SparseMatrix& GIn);
 
-  virtual ~QuadraticProblem();
+  ~QuadraticProblem() override;
 
   /** Number of pose variables */
   unsigned int num_poses() const { return n; }
@@ -52,19 +52,19 @@ class QuadraticProblem : public ROPTLIB::Problem {
   double f(const Matrix& Y) const;
 
   /** Evaluates the problem objective */
-  double f(ROPTLIB::Variable* x) const;
+  double f(ROPTLIB::Variable* x) const override;
 
   /** Evaluates the Euclidean gradient of the function */
-  void EucGrad(ROPTLIB::Variable* x, ROPTLIB::Vector* g) const;
+  void EucGrad(ROPTLIB::Variable* x, ROPTLIB::Vector* g) const override;
 
   /** Evaluates the action of the Euclidean Hessian of the function */
   void EucHessianEta(ROPTLIB::Variable* x, ROPTLIB::Vector* v,
-                     ROPTLIB::Vector* Hv) const;
+                     ROPTLIB::Vector* Hv) const override;
 
   /** Evaluates the action of the Preconditioner for the Hessian of the function
    */
   void PreConditioner(ROPTLIB::Variable* x, ROPTLIB::Vector* inVec,
-                      ROPTLIB::Vector* outVec) const;
+                      ROPTLIB::Vector* outVec) const override;
 
   /** Evaluate the norm of the Riemannian gradient for the given solution */
   double gradNorm(const Matrix& Y) const;

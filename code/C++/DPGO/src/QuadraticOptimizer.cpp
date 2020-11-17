@@ -23,7 +23,7 @@ QuadraticOptimizer::QuadraticOptimizer(QuadraticProblem* p)
       trustRegionIterations(1),
       verbose(false) {}
 
-QuadraticOptimizer::~QuadraticOptimizer() {}
+QuadraticOptimizer::~QuadraticOptimizer() = default;
 
 Matrix QuadraticOptimizer::optimize(const Matrix& Y) {
   if (algorithm == ROPTALG::RTR) {
@@ -73,8 +73,7 @@ Matrix QuadraticOptimizer::trustRegion(const Matrix& Yinit) {
     Solver.Run();
   }
 
-  const ROPTLIB::ProductElement* Yopt =
-      static_cast<const ROPTLIB::ProductElement*>(Solver.GetXopt());
+  const auto* Yopt = dynamic_cast<const ROPTLIB::ProductElement*>(Solver.GetXopt());
   LiftedSEVariable VarOpt(r, d, n);
   Yopt->CopyTo(VarOpt.var());
 
@@ -125,8 +124,7 @@ Matrix QuadraticOptimizer::gradientDescentLS(const Matrix& Yinit) {
       (verbose ? ROPTLIB::DEBUGINFO::DETAILED : ROPTLIB::DEBUGINFO::NOOUTPUT);
   Solver.Run();
 
-  const ROPTLIB::ProductElement* Yopt =
-      static_cast<const ROPTLIB::ProductElement*>(Solver.GetXopt());
+  const auto* Yopt = dynamic_cast<const ROPTLIB::ProductElement*>(Solver.GetXopt());
   LiftedSEVariable VarOpt(r, d, n);
   Yopt->CopyTo(VarOpt.var());
   if (verbose) {

@@ -14,9 +14,9 @@ using namespace std;
 /*Define the namespace*/
 namespace DPGO {
 
-QuadraticProblem::QuadraticProblem(const unsigned int nIn,
-                                   const unsigned int dIn,
-                                   const unsigned int rIn,
+QuadraticProblem::QuadraticProblem(unsigned int nIn,
+                                   unsigned int dIn,
+                                   unsigned int rIn,
                                    const SparseMatrix& QIn,
                                    const SparseMatrix& GIn)
     : Q(QIn), G(GIn), n(nIn), d(dIn), r(rIn) {
