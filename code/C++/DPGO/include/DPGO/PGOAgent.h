@@ -128,24 +128,16 @@ class PGOAgent {
       const std::vector<RelativeSEMeasurement> &inputSharedLoopClosures);
 
   /**
-   * @brief operations at the beginning of each iteration.
-   * If acceleration is turned off, this function only involves bookkeeping.
-   * If acceleration is turned on, this function also involves computation.
+   * @brief perform a single iteration
+   * @param doOptimization: if true, this robot is selected to perform local optimization at this iteration
    */
-  void preprocess();
+  void iterate(bool doOptimization = false);
 
   /**
   Optimize pose graph by a single iteration.
   This process use both private and shared factors.
   */
   ROPTResult optimize();
-
-  /**
-   * @brief operations at the end of each iteration.
-   * If acceleration is turned off, this function only involves bookkeeping.
-   * If acceleration is turned on, this function also involves computation.
-   */
-  void postprocess();
 
   /**
   Reset this agent to have empty pose graph
@@ -155,7 +147,7 @@ class PGOAgent {
   /**
    * @brief Reset variables used in Nesterov acceleration
    */
-  void resetAcceleration();
+  void restartAcceleration();
 
   /**
   Return ID of this robot
@@ -235,7 +227,7 @@ class PGOAgent {
    * @param map: PoseDict object whose content will be filled
    * @return true if the agent is properly initialized
    */
-   bool getSharedPoseDict(PoseDict& map);
+  bool getSharedPoseDict(PoseDict &map);
 
   /** Helper function to reset the internal solution
     In deployment, probably should not use this
@@ -405,9 +397,10 @@ class PGOAgent {
       f(X) = 0.5<Q, XtX> + <X, G>
    * @param Q: the quadratic data matrix that will be modified in place
    * @param G: the linear data matrix that will be modified in place
+   * @param poseDict: a Map that contains the public pose values from the neighbors
    * @return true if the data matrices are computed successfully
    */
-  bool constructCostMatrices(SparseMatrix &Q, SparseMatrix &G);
+  bool constructCostMatrices(SparseMatrix &Q, SparseMatrix &G, const PoseDict &poseDict);
 
   /**
   Optimize pose graph by calling optimize().
@@ -436,6 +429,8 @@ class PGOAgent {
   Matrix localPoseGraphOptimization();
 
  private:
+  // Stores the auxiliary variables from neighbors (only used in acceleration)
+  PoseDict neighborAuxPoseDict;
 
   // Auxiliary scalar used in acceleration
   double gamma;
@@ -448,6 +443,9 @@ class PGOAgent {
 
   // Auxiliary variable used in acceleration
   Matrix V;
+
+  // Save previous iteration (for restarting)
+  Matrix XPrev;
 
   void updateGamma();
 

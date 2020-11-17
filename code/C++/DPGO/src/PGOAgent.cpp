@@ -72,29 +72,18 @@ bool PGOAgent::getSharedPose(unsigned int index, Matrix &Mout) {
     return false;
   lock_guard<mutex> lock(mPosesMutex);
   if (index >= num_poses()) return false;
-  if (!mParams.acceleration) {
-    Mout = X.block(0, index * (d + 1), r, d + 1);
-  }
-  else{
-    Mout = Y.block(0, index * (d + 1), r, d + 1);
-  }
+  Mout = X.block(0, index * (d + 1), r, d + 1);
   return true;
 }
 
-bool PGOAgent::getSharedPoseDict(PoseDict& map) {
+bool PGOAgent::getSharedPoseDict(PoseDict &map) {
   if (mState != PGOAgentState::INITIALIZED)
     return false;
   map.clear();
   lock_guard<mutex> lock(mPosesMutex);
-  Matrix M;
-  if (!mParams.acceleration) {
-    M = X;
-  }else {
-    M = Y;
-  }
   for (const auto &mSharedPose : mSharedPoses) {
     unsigned idx = std::get<1>(mSharedPose);
-    map[mSharedPose] = M.block(0, idx * (d + 1), r, d + 1);
+    map[mSharedPose] = X.block(0, idx * (d + 1), r, d + 1);
   }
   return true;
 }
@@ -133,7 +122,6 @@ void PGOAgent::setPoseGraph(
     measurements.insert(measurements.end(), sharedLoopClosures.begin(), sharedLoopClosures.end());
     logger.logMeasurements(measurements, "measurements.csv");
   }
-
 
   if (mID == 0) {
     // The first agent can further initialize its trajectory estimate
@@ -233,7 +221,7 @@ void PGOAgent::updateNeighborPose(unsigned neighborCluster, unsigned neighborID,
   if (mState == PGOAgentState::WAIT_FOR_INITIALIZATION) {
     if (neighborCluster == 0) {
       std::cout << "Agent " << mID << " informed by agent " << neighborID
-           << " to initialize! " << std::endl;
+                << " to initialize! " << std::endl;
 
       // Require the lifting matrix to initialize
       assert(YLift);
@@ -311,7 +299,7 @@ void PGOAgent::updateNeighborPose(unsigned neighborCluster, unsigned neighborID,
 
       // Log initial trajectory
       if (mParams.logData) {
-          logger.logTrajectory(dimension(), num_poses(), T, "trajectory_initial.csv");
+        logger.logTrajectory(dimension(), num_poses(), T, "trajectory_initial.csv");
       }
 
       if (optimizationHalted) startOptimizationLoop(rate);
@@ -422,7 +410,7 @@ void PGOAgent::reset() {
   mCluster = mID;
 }
 
-void PGOAgent::preprocess() {
+void PGOAgent::iterate(bool doOptimization) {
   mIterationNumber++;
 
   // Save early stopped solution
@@ -432,10 +420,10 @@ void PGOAgent::preprocess() {
       logger.logTrajectory(dimension(), num_poses(), T, "trajectory_early_stop.csv");
     }
   }
-}
 
-void PGOAgent::postprocess() {
-
+  if (doOptimization) {
+    optimize();
+  }
 }
 
 ROPTResult PGOAgent::optimize() {
@@ -466,9 +454,8 @@ ROPTResult PGOAgent::optimize() {
   auto startTime = std::chrono::high_resolution_clock::now();
   SparseMatrix Q((d + 1) * n, (d + 1) * n);
   SparseMatrix G(r, (d + 1) * n);
-  bool success =
-      constructCostMatrices(Q, G);
-  if (!success) {
+  if (!constructCostMatrices(Q, G, neighborPoseDict))
+  {
     if (mParams.verbose)
       std::cout << "Could not create cost matrices. Skip optimization!"
                 << std::endl;
@@ -503,13 +490,13 @@ ROPTResult PGOAgent::optimize() {
   // Update solution
   X = Xnext;
   assert(X.rows() == r);
-  assert(X.cols() == (d+1)*n);
+  assert(X.cols() == (d + 1) * n);
 
   return ROPTResult(true, fInit, gradNormInit, fOpt, gradNormOpt, relchange,
                     elapsedMs);
 }
 
-bool PGOAgent::constructCostMatrices(SparseMatrix &Q, SparseMatrix &G) {
+bool PGOAgent::constructCostMatrices(SparseMatrix &Q, SparseMatrix &G, const PoseDict &poseDict) {
 
   vector<RelativeSEMeasurement> privateMeasurements = odometry;
   privateMeasurements.insert(privateMeasurements.end(), privateLoopClosures.begin(), privateLoopClosures.end());
@@ -539,8 +526,8 @@ bool PGOAgent::constructCostMatrices(SparseMatrix &Q, SparseMatrix &G) {
 
       // Read neighbor's pose
       const PoseID nID = std::make_pair(m.r2, m.p2);
-      auto KVpair = neighborPoseDict.find(nID);
-      if (KVpair == neighborPoseDict.end()) {
+      auto KVpair = poseDict.find(nID);
+      if (KVpair == poseDict.end()) {
         return false;
       }
       Matrix Xj = KVpair->second;
@@ -570,8 +557,8 @@ bool PGOAgent::constructCostMatrices(SparseMatrix &Q, SparseMatrix &G) {
 
       // Read neighbor's pose
       const PoseID nID = std::make_pair(m.r1, m.p1);
-      auto KVpair = neighborPoseDict.find(nID);
-      if (KVpair == neighborPoseDict.end()) {
+      auto KVpair = poseDict.find(nID);
+      if (KVpair == poseDict.end()) {
         return false;
       }
       Matrix Xi = KVpair->second;
@@ -614,7 +601,7 @@ void PGOAgent::startOptimizationLoop(double freq) {
 void PGOAgent::runOptimizationLoop() {
   if (mParams.verbose)
     std::cout << "Agent " << mID << " optimization thread running at " << rate
-         << " Hz." << std::endl;
+              << " Hz." << std::endl;
 
   // Create exponential distribution with the desired rate
   std::random_device
@@ -758,7 +745,7 @@ bool PGOAgent::shouldTerminate() {
   return false;
 }
 
-void PGOAgent::resetAcceleration() {
+void PGOAgent::restartAcceleration() {
   assert(mParams.acceleration);
   assert(mState == PGOAgentState::INITIALIZED);
   gamma = 0;

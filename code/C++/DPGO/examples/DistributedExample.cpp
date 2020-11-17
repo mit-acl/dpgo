@@ -19,7 +19,7 @@
 using namespace std;
 using namespace DPGO;
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
   /**
   ###########################################
   Parse input dataset
@@ -73,10 +73,10 @@ int main(int argc, char** argv) {
 
   // create mapping from global pose index to local pose index
   map<unsigned, PoseID> PoseMap;
-  for (unsigned robot = 0; robot < (unsigned)num_robots; ++robot) {
+  for (unsigned robot = 0; robot < (unsigned) num_robots; ++robot) {
     unsigned startIdx = robot * num_poses_per_robot;
     unsigned endIdx = (robot + 1) * num_poses_per_robot;  // non-inclusive
-    if (robot == (unsigned)num_robots - 1) endIdx = n;
+    if (robot == (unsigned) num_robots - 1) endIdx = n;
     for (unsigned idx = startIdx; idx < endIdx; ++idx) {
       unsigned localIdx = idx - startIdx;  // this is the local ID of this pose
       PoseID pose = make_pair(robot, localIdx);
@@ -121,9 +121,9 @@ int main(int argc, char** argv) {
   Initialization
   ###########################################
   */
-  vector<PGOAgent*> agents;
-  for (unsigned robot = 0; robot < (unsigned)num_robots; ++robot) {
-    PGOAgent* agent = new PGOAgent(robot, options);
+  vector<PGOAgent *> agents;
+  for (unsigned robot = 0; robot < (unsigned) num_robots; ++robot) {
+    PGOAgent *agent = new PGOAgent(robot, options);
 
     // All agents share a special, common matrix called the 'lifting matrix' which the first agent will generate
     if (robot > 0) {
@@ -151,12 +151,12 @@ int main(int argc, char** argv) {
 
   for (unsigned iter = 0; iter < numIters; ++iter) {
     // Exchange public poses
-    for (unsigned robot1 = 0; robot1 < (unsigned)num_robots; ++robot1) {
+    for (unsigned robot1 = 0; robot1 < (unsigned) num_robots; ++robot1) {
       PoseDict sharedPoses;
       if (!agents[robot1]->getSharedPoseDict(sharedPoses)) {
         continue;
       }
-      for (unsigned robot2 = 0; robot2 < (unsigned)num_robots; ++robot2) {
+      for (unsigned robot2 = 0; robot2 < (unsigned) num_robots; ++robot2) {
         if (robot1 == robot2) continue;
 
         for (auto it = sharedPoses.begin(); it != sharedPoses.end(); ++it) {
@@ -169,29 +169,26 @@ int main(int argc, char** argv) {
       }
     }
 
-    // Preprocess
-    for (unsigned robot = 0; robot < (unsigned)num_robots; ++robot) {
-      PGOAgent* robotPtr = agents[robot];
+    // Randomly select a robot to optimize
+    unsigned selectedRobot = (unsigned) distribution(generator);
+
+    // All robots perform an iteration
+    for (unsigned robot = 0; robot < (unsigned) num_robots; ++robot) {
+      PGOAgent *robotPtr = agents[robot];
       assert(robotPtr->instance_number() == 0);
       assert(robotPtr->iteration_number() == iter);
-      robotPtr->preprocess();
-    }
-
-    // Randomly select a robot to optimize
-    unsigned selectedRobot = (unsigned)distribution(generator);
-    agents[selectedRobot]->optimize();
-
-    // Postprocess
-    for (unsigned robot = 0; robot < (unsigned)num_robots; ++robot) {
-      PGOAgent* robotPtr = agents[robot];
-      robotPtr->postprocess();
+      if (robot == selectedRobot) {
+        robotPtr->iterate(true);
+      }else{
+        robotPtr->iterate(false);
+      }
     }
 
     // Evaluate cost at this iteration
-    for (unsigned robot = 0; robot < (unsigned)num_robots; ++robot) {
+    for (unsigned robot = 0; robot < (unsigned) num_robots; ++robot) {
       unsigned startIdx = robot * num_poses_per_robot;
       unsigned endIdx = (robot + 1) * num_poses_per_robot;  // non-inclusive
-      if (robot == (unsigned)num_robots - 1) endIdx = n;
+      if (robot == (unsigned) num_robots - 1) endIdx = n;
 
       Matrix Xrobot;
       agents[robot]->getX(Xrobot);
