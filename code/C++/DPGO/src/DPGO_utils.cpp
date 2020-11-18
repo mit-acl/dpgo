@@ -347,7 +347,7 @@ void constructBMatrices(const std::vector<RelativeSEMeasurement> &measurements,
 }
 
 Matrix chordalInitialization(
-    const size_t dimension, const size_t num_poses,
+    size_t dimension, size_t num_poses,
     const std::vector<RelativeSEMeasurement> &measurements) {
     SparseMatrix B1, B2, B3;
   constructBMatrices(measurements, B1, B2, B3);

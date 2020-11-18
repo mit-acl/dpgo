@@ -58,7 +58,7 @@ Given a vector of relative pose measurements, compute the chordal relaxation of
 pose graph optimization
 */
 Matrix chordalInitialization(
-    const size_t dimension, const size_t num_poses,
+    size_t dimension, size_t num_poses,
     const std::vector<RelativeSEMeasurement>& measurements);
 
 /**
