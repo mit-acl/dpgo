@@ -49,10 +49,16 @@ PGOAgent::~PGOAgent() {
 
 void PGOAgent::setX(const Matrix &Xin) {
   lock_guard<mutex> lock(mPosesMutex);
+  assert(mState != PGOAgentState::WAIT_FOR_DATA);
+  assert(Xin.rows() == relaxation_rank());
+  assert(Xin.cols() == (dimension() + 1) * num_poses());
+  mState = PGOAgentState::INITIALIZED;
+  mCluster = 0;
   X = Xin;
-  n = X.cols() / (d + 1);
-  assert(X.cols() == n * (d + 1));
-  assert(X.rows() == r);
+  if (mParams.acceleration){
+    XPrev = X;
+    restartAcceleration();
+  }
   if (mParams.verbose)
     std::cout << "WARNING: Agent " << mID
               << " resets trajectory. New trajectory length: " << n

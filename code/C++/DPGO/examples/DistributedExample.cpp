@@ -13,7 +13,6 @@
 
 #include <cstdlib>
 #include <cassert>
-#include <fstream>
 #include <iostream>
 
 using namespace std;
@@ -47,7 +46,7 @@ int main(int argc, char **argv) {
 
   /**
   ###########################################
-  Set parameters for PGOAgent
+  Options
   ###########################################
   */
   unsigned int n, d, r;
@@ -55,8 +54,9 @@ int main(int argc, char **argv) {
   n = num_poses;
   r = 5;
   bool acceleration = true;
-  unsigned restartInterval = 100;
+  unsigned restartInterval = 30;
   unsigned numIters = 1000;
+  bool centralized_chordal_initialization = true;
 
   // Construct the centralized problem (used for evaluation)
   SparseMatrix QCentral = constructConnectionLaplacianSE(dataset);
@@ -145,6 +145,23 @@ int main(int argc, char **argv) {
   }
 
   /**
+  ############################################
+  Optional: centralized chordal initialization
+  ############################################
+  */
+  if (centralized_chordal_initialization) {
+    Matrix TChordal = chordalInitialization(d, n, dataset);
+    Matrix XChordal = fixedStiefelVariable(d, r) * TChordal;
+    std::cout << "Chordal initialization cost = " << problemCentral.f(XChordal) << std::endl;
+    for (unsigned robot = 0; robot < (unsigned) num_robots; ++robot) {
+      unsigned startIdx = robot * num_poses_per_robot;
+      unsigned endIdx = (robot + 1) * num_poses_per_robot;  // non-inclusive
+      if (robot == (unsigned) num_robots - 1) endIdx = n;
+      agents[robot]->setX(XChordal.block(0, startIdx * (d + 1), r, (endIdx - startIdx) * (d + 1)));
+    }
+  }
+
+  /**
   ###########################################
   Optimization loop
   ###########################################
@@ -154,6 +171,25 @@ int main(int argc, char **argv) {
   cout << "Running " << numIters << " iterations..." << endl;
   for (unsigned iter = 0; iter < numIters; ++iter) {
     PGOAgent *selectedRobotPtr = agents[selectedRobot];
+
+    // Evaluate cost at this iteration
+    for (unsigned robot = 0; robot < (unsigned) num_robots; ++robot) {
+      unsigned startIdx = robot * num_poses_per_robot;
+      unsigned endIdx = (robot + 1) * num_poses_per_robot;  // non-inclusive
+      if (robot == (unsigned) num_robots - 1) endIdx = n;
+
+      Matrix Xrobot;
+      if (agents[robot]->getX(Xrobot)) {
+        Xopt.block(0, startIdx * (d + 1), r, (endIdx - startIdx) * (d + 1)) = Xrobot;
+      }
+    }
+
+    std::cout << std::setprecision(5)
+              << "Iter = " << iter << " | "
+              << "robot = " << selectedRobotPtr->getID() << " | "
+              << "cost = " << 2 * problemCentral.f(Xopt) << " | "
+              << "gradnorm = " << problemCentral.gradNorm(Xopt) << std::endl;
+
 
     // Non-selected robots perform an iteration
     for (auto *robotPtr : agents) {
@@ -200,30 +236,6 @@ int main(int argc, char **argv) {
 
     // Selected robot update
     selectedRobotPtr->iterate(true);
-
-    // Evaluate cost at this iteration
-    bool allInitialized = true;
-    for (unsigned robot = 0; robot < (unsigned) num_robots; ++robot) {
-      unsigned startIdx = robot * num_poses_per_robot;
-      unsigned endIdx = (robot + 1) * num_poses_per_robot;  // non-inclusive
-      if (robot == (unsigned) num_robots - 1) endIdx = n;
-
-      Matrix Xrobot;
-      if (agents[robot]->getX(Xrobot)) {
-        Xopt.block(0, startIdx * (d + 1), r, (endIdx - startIdx) * (d + 1)) = Xrobot;
-      } else {
-        allInitialized = false;
-        break;
-      }
-    }
-
-    if (allInitialized) {
-      std::cout << std::setprecision(5)
-                << "Iter = " << iter << " | "
-                << "robot = " << selectedRobotPtr->getID() << " | "
-                << "cost = " << 2 * problemCentral.f(Xopt) << " | "
-                << "gradnorm = " << problemCentral.gradNorm(Xopt) << std::endl;
-    }
 
     // Select next robot
     std::vector<unsigned> neighbors = selectedRobotPtr->getNeighbors();
