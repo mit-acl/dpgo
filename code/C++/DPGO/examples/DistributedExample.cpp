@@ -50,24 +50,28 @@ int main(int argc, char **argv) {
   Set parameters for PGOAgent
   ###########################################
   */
-
   unsigned int n, d, r;
-  SparseMatrix ConLapT = constructConnectionLaplacianSE(dataset);
   d = (!dataset.empty() ? dataset[0].t.size() : 0);
   n = num_poses;
   r = 5;
-  PGOAgentParameters options(d, r, num_robots);
+  bool acceleration = true;
+  unsigned restartInterval = 100;
+  unsigned numIters = 1000;
+
+  // Construct the centralized problem (used for evaluation)
+  SparseMatrix QCentral = constructConnectionLaplacianSE(dataset);
+  SparseMatrix GCentral(r, (d + 1) * n);
+  QuadraticProblem problemCentral(n, d, r, QCentral, GCentral);
+
 
   /**
   ###########################################
-  Prepare dataset
+  Partition dataset into robots
   ###########################################
   */
   unsigned int num_poses_per_robot = num_poses / num_robots;
   if (num_poses_per_robot <= 0) {
-    cout << "More robots than total number of poses! Decrease the number of "
-            "robots"
-         << endl;
+    cout << "More robots than total number of poses! Decrease the number of robots" << endl;
     exit(1);
   }
 
@@ -123,6 +127,9 @@ int main(int argc, char **argv) {
   */
   vector<PGOAgent *> agents;
   for (unsigned robot = 0; robot < (unsigned) num_robots; ++robot) {
+    PGOAgentParameters options(d, r, num_robots, acceleration, restartInterval);
+    std::cout << options << std::endl;
+
     PGOAgent *agent = new PGOAgent(robot, options);
 
     // All agents share a special, common matrix called the 'lifting matrix' which the first agent will generate
@@ -142,62 +149,89 @@ int main(int argc, char **argv) {
   Optimization loop
   ###########################################
   */
-
-  unsigned numIters = 500;
   Matrix Xopt(r, n * (d + 1));
-  cout << "Running RBCD for " << numIters << " iterations..." << endl;
-  std::default_random_engine generator;
-  std::uniform_int_distribution<int> distribution(0, num_robots - 1);
-
+  unsigned selectedRobot = 0;
+  cout << "Running " << numIters << " iterations..." << endl;
   for (unsigned iter = 0; iter < numIters; ++iter) {
-    // Exchange public poses
-    for (unsigned robot1 = 0; robot1 < (unsigned) num_robots; ++robot1) {
-      PoseDict sharedPoses;
-      if (!agents[robot1]->getSharedPoseDict(sharedPoses)) {
-        continue;
-      }
-      for (unsigned robot2 = 0; robot2 < (unsigned) num_robots; ++robot2) {
-        if (robot1 == robot2) continue;
+    PGOAgent *selectedRobotPtr = agents[selectedRobot];
 
-        for (auto it = sharedPoses.begin(); it != sharedPoses.end(); ++it) {
-          PoseID nID = it->first;
-          Matrix var = it->second;
-          unsigned agentID = get<0>(nID);
-          unsigned localID = get<1>(nID);
-          agents[robot2]->updateNeighborPose(0, agentID, localID, var);
-        }
-      }
-    }
-
-    // Randomly select a robot to optimize
-    unsigned selectedRobot = (unsigned) distribution(generator);
-
-    // All robots perform an iteration
-    for (unsigned robot = 0; robot < (unsigned) num_robots; ++robot) {
-      PGOAgent *robotPtr = agents[robot];
+    // Non-selected robots perform an iteration
+    for (auto *robotPtr : agents) {
       assert(robotPtr->instance_number() == 0);
       assert(robotPtr->iteration_number() == iter);
-      if (robot == selectedRobot) {
-        robotPtr->iterate(true);
-      }else{
+      if (robotPtr->getID() != selectedRobot) {
         robotPtr->iterate(false);
       }
     }
 
+    // Selected robot requests public poses from others
+    for (auto *robotPtr : agents) {
+      if (robotPtr->getID() == selectedRobot) continue;
+      PoseDict sharedPoses;
+      if (!robotPtr->getSharedPoseDict(sharedPoses)) {
+        continue;
+      }
+      for (auto it = sharedPoses.begin(); it != sharedPoses.end(); ++it) {
+        PoseID nID = it->first;
+        Matrix var = it->second;
+        unsigned agentID = get<0>(nID);
+        unsigned localID = get<1>(nID);
+        selectedRobotPtr->updateNeighborPose(0, agentID, localID, var);
+      }
+    }
+
+    // When using acceleration, selected robot also requests auxiliary poses
+    if (acceleration) {
+      for (auto *robotPtr : agents) {
+        if (robotPtr->getID() == selectedRobot) continue;
+        PoseDict auxSharedPoses;
+        if (!robotPtr->getAuxSharedPoseDict(auxSharedPoses)) {
+          continue;
+        }
+        for (auto it = auxSharedPoses.begin(); it != auxSharedPoses.end(); ++it) {
+          PoseID nID = it->first;
+          Matrix var = it->second;
+          unsigned agentID = get<0>(nID);
+          unsigned localID = get<1>(nID);
+          selectedRobotPtr->updateAuxNeighborPose(0, agentID, localID, var);
+        }
+      }
+    }
+
+    // Selected robot update
+    selectedRobotPtr->iterate(true);
+
     // Evaluate cost at this iteration
+    bool allInitialized = true;
     for (unsigned robot = 0; robot < (unsigned) num_robots; ++robot) {
       unsigned startIdx = robot * num_poses_per_robot;
       unsigned endIdx = (robot + 1) * num_poses_per_robot;  // non-inclusive
       if (robot == (unsigned) num_robots - 1) endIdx = n;
 
       Matrix Xrobot;
-      agents[robot]->getX(Xrobot);
-      Xopt.block(0, startIdx * (d + 1), r, (endIdx - startIdx) * (d + 1)) = Xrobot;
+      if (agents[robot]->getX(Xrobot)) {
+        Xopt.block(0, startIdx * (d + 1), r, (endIdx - startIdx) * (d + 1)) = Xrobot;
+      } else {
+        allInitialized = false;
+        break;
+      }
     }
 
-    cout << "Iter = " << iter << " | "
-         << "cost = " << (Xopt * ConLapT * Xopt.transpose()).trace() << " | "
-         << "robot = " << selectedRobot << endl;
+    if (allInitialized) {
+      std::cout << std::setprecision(5)
+                << "Iter = " << iter << " | "
+                << "robot = " << selectedRobotPtr->getID() << " | "
+                << "cost = " << 2 * problemCentral.f(Xopt) << " | "
+                << "gradnorm = " << problemCentral.gradNorm(Xopt) << std::endl;
+    }
+
+    // Select next robot
+    std::vector<unsigned> neighbors = selectedRobotPtr->getNeighbors();
+    std::uniform_int_distribution<int> distribution(0, neighbors.size() - 1);
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    selectedRobot = neighbors[distribution(gen)];
+
   }
 
   exit(0);

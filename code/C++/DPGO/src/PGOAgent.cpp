@@ -76,6 +76,16 @@ bool PGOAgent::getSharedPose(unsigned int index, Matrix &Mout) {
   return true;
 }
 
+bool PGOAgent::getAuxSharedPose(unsigned int index, Matrix &Mout) {
+  assert(mParams.acceleration);
+  if (mState != PGOAgentState::INITIALIZED)
+    return false;
+  lock_guard<mutex> lock(mPosesMutex);
+  if (index >= num_poses()) return false;
+  Mout = Y.block(0, index * (d + 1), r, d + 1);
+  return true;
+}
+
 bool PGOAgent::getSharedPoseDict(PoseDict &map) {
   if (mState != PGOAgentState::INITIALIZED)
     return false;
@@ -84,6 +94,19 @@ bool PGOAgent::getSharedPoseDict(PoseDict &map) {
   for (const auto &mSharedPose : mSharedPoses) {
     unsigned idx = std::get<1>(mSharedPose);
     map[mSharedPose] = X.block(0, idx * (d + 1), r, d + 1);
+  }
+  return true;
+}
+
+bool PGOAgent::getAuxSharedPoseDict(PoseDict &map) {
+  assert(mParams.acceleration);
+  if (mState != PGOAgentState::INITIALIZED)
+    return false;
+  map.clear();
+  lock_guard<mutex> lock(mPosesMutex);
+  for (const auto &mSharedPose : mSharedPoses) {
+    unsigned idx = std::get<1>(mSharedPose);
+    map[mSharedPose] = Y.block(0, idx * (d + 1), r, d + 1);
   }
   return true;
 }
@@ -128,6 +151,10 @@ void PGOAgent::setPoseGraph(
     Matrix T = localChordalInitialization();
     X = YLift.value() * T;  // Lift to correct relaxation rank
     mState = PGOAgentState::INITIALIZED;
+    if (mParams.acceleration) {
+      XPrev = X;
+      restartAcceleration();
+    }
 
     // Save initial trajectory
     if (mParams.logData) {
@@ -245,6 +272,7 @@ void PGOAgent::updateNeighborPose(unsigned neighborCluster, unsigned neighborID,
       // Clear cache
       lock_guard<mutex> nLock(mNeighborPosesMutex);
       neighborPoseDict.clear();
+      neighborAuxPoseDict.clear();
 
       // Find the corresponding inter-robot loop closure
       RelativeSEMeasurement m;
@@ -297,6 +325,12 @@ void PGOAgent::updateNeighborPose(unsigned neighborCluster, unsigned neighborID,
       mCluster = neighborCluster;
       mState = PGOAgentState::INITIALIZED;
 
+      // Initialize auxiliary variables
+      if (mParams.acceleration) {
+        XPrev = X;
+        restartAcceleration();
+      }
+
       // Log initial trajectory
       if (mParams.logData) {
         logger.logTrajectory(dimension(), num_poses(), T, "trajectory_initial.csv");
@@ -311,6 +345,27 @@ void PGOAgent::updateNeighborPose(unsigned neighborCluster, unsigned neighborID,
   if (mState == PGOAgentState::INITIALIZED && neighborCluster == 0) {
     lock_guard<mutex> lock(mNeighborPosesMutex);
     neighborPoseDict[nID] = var;
+  }
+}
+
+void PGOAgent::updateAuxNeighborPose(unsigned neighborCluster, unsigned neighborID,
+                                     unsigned neighborPose, const Matrix &var) {
+  assert(neighborID != mID);
+  assert(var.rows() == r);
+  assert(var.cols() == d + 1);
+
+  PoseID nID = std::make_pair(neighborID, neighborPose);
+
+  mNumPosesReceived++;
+
+  // Do not store this pose if not needed
+  if (neighborSharedPoses.find(nID) == neighborSharedPoses.end()) return;
+
+  // Only save poses from neighbors if this agent is initialized
+  // and if the sending agent is also initialized
+  if (mState == PGOAgentState::INITIALIZED && neighborCluster == 0) {
+    lock_guard<mutex> lock(mNeighborPosesMutex);
+    neighborAuxPoseDict[nID] = var;
   }
 }
 
@@ -399,6 +454,7 @@ void PGOAgent::reset() {
   sharedLoopClosures.clear();
 
   neighborPoseDict.clear();
+  neighborAuxPoseDict.clear();
   mSharedPoses.clear();
   neighborSharedPoses.clear();
   neighborAgents.clear();
@@ -421,8 +477,30 @@ void PGOAgent::iterate(bool doOptimization) {
     }
   }
 
-  if (doOptimization) {
-    optimize();
+  if (mState != PGOAgentState::INITIALIZED) return;
+
+  if (mParams.acceleration) {
+    updateGamma();
+    updateAlpha();
+    updateY();
+    // update X
+    XPrev = X;
+    if (doOptimization) {
+      optimize();
+    } else {
+      X = Y;
+    }
+    updateV();
+    // Periodic restart
+    if (shouldRestart()) {
+      if (mParams.verbose) std::cout << "Restart!" << std::endl;
+      restartAcceleration();
+    }
+  } else {
+    // Standard update (no acceleration)
+    if (doOptimization) {
+      optimize();
+    }
   }
 }
 
@@ -450,50 +528,63 @@ ROPTResult PGOAgent::optimize() {
   // lock neighbor pose update
   unique_lock<mutex> lock(mNeighborPosesMutex);
 
-  // construct data matrices
+  // Construct optimization problem
   auto startTime = std::chrono::high_resolution_clock::now();
   SparseMatrix Q((d + 1) * n, (d + 1) * n);
   SparseMatrix G(r, (d + 1) * n);
-  if (!constructCostMatrices(Q, G, neighborPoseDict))
-  {
+  if (!constructCostMatrices(Q, G, neighborPoseDict)) {
     if (mParams.verbose)
       std::cout << "Could not create cost matrices. Skip optimization!"
                 << std::endl;
     return ROPTResult(false);
   }
-
-  // Read current estimates of the first k poses
-  Matrix Xcurr = X.block(0, 0, r, (d + 1) * n);
-  assert(Xcurr.cols() == Q.cols());
-
-  // Construct optimization problem
   QuadraticProblem problem(n, d, r, Q, G);
-  double fInit = problem.f(Xcurr);
-  double gradNormInit = problem.gradNorm(Xcurr);
 
-  // Initialize optimizer object
-  QuadraticOptimizer optimizer(&problem);
-  optimizer.setVerbose(mParams.verbose);
-  optimizer.setAlgorithm(mParams.algorithm);
+  // Compute statistics before optimization
+  XPrev = X;
+  double fInit = problem.f(X);
+  double gradNormInit = problem.gradNorm(X);
 
-  // Optimize
-  Matrix Xnext = optimizer.optimize(Xcurr);
+  // Optimize!
+  if (mParams.acceleration) {
+    // Construct auxiliary optimization problem
+    SparseMatrix QAux((d + 1) * n, (d + 1) * n);
+    SparseMatrix GAux(r, (d + 1) * n);
+    if (!constructCostMatrices(QAux, GAux, neighborAuxPoseDict)) {
+      if (mParams.verbose)
+        std::cout << "Could not create cost matrices. Skip optimization!"
+                  << std::endl;
+      return ROPTResult(false);
+    }
+    QuadraticProblem problemAux(n, d, r, QAux, GAux);
+    // Optimize auxiliary problem
+    QuadraticOptimizer optimizer(&problemAux);
+    optimizer.setVerbose(mParams.verbose);
+    optimizer.setAlgorithm(mParams.algorithm);
+    assert(Y.rows() == relaxation_rank());
+    assert(Y.cols() == (dimension() + 1) * num_poses());
+    X = optimizer.optimize(Y);
+  } else {
+    QuadraticOptimizer optimizer(&problem);
+    optimizer.setVerbose(mParams.verbose);
+    optimizer.setAlgorithm(mParams.algorithm);
+    assert(X.rows() == relaxation_rank());
+    assert(X.cols() == (dimension() + 1) * num_poses());
+    X = optimizer.optimize(X);
+  }
   auto counter = std::chrono::high_resolution_clock::now() - startTime;
-  double elapsedMs =
-      std::chrono::duration_cast<std::chrono::milliseconds>(counter).count();
-  double fOpt = problem.f(Xnext);
-  double gradNormOpt = problem.gradNorm(Xnext);
-  assert(fOpt <= fInit);
-  // Measure relative change as root mean squared change
-  double relchange = sqrt((Xnext - Xcurr).squaredNorm() / n);
+  double elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(counter).count();
+  double fOpt = problem.f(X);
+  double gradNormOpt = problem.gradNorm(X);
+  double relchange = sqrt((X - XPrev).squaredNorm() / n);
 
-  // Update solution
-  X = Xnext;
-  assert(X.rows() == r);
-  assert(X.cols() == (d + 1) * n);
+  // Sanity checks
+  assert(X.rows() == relaxation_rank());
+  assert(X.cols() == (dimension() + 1) * num_poses());
+  if (!mParams.acceleration)
+    assert(fOpt <= fInit);
 
-  return ROPTResult(true, fInit, gradNormInit, fOpt, gradNormOpt, relchange,
-                    elapsedMs);
+  return ROPTResult(true, fInit, gradNormInit, fOpt, gradNormOpt, relchange, elapsedMs);
 }
 
 bool PGOAgent::constructCostMatrices(SparseMatrix &Q, SparseMatrix &G, const PoseDict &poseDict) {
@@ -587,6 +678,9 @@ bool PGOAgent::constructCostMatrices(SparseMatrix &Q, SparseMatrix &G, const Pos
 }
 
 void PGOAgent::startOptimizationLoop(double freq) {
+  // Asynchronous updates currently restricted to non-accelerated updates
+  assert(!mParams.acceleration);
+
   if (isOptimizationRunning()) {
     if (mParams.verbose)
       std::cout << "WARNING: optimization thread already running! Skip..." << std::endl;
@@ -745,13 +839,20 @@ bool PGOAgent::shouldTerminate() {
   return false;
 }
 
+bool PGOAgent::shouldRestart() {
+  assert(mParams.acceleration);
+  return (mIterationNumber % mParams.restartInterval == 0);
+}
+
 void PGOAgent::restartAcceleration() {
   assert(mParams.acceleration);
-  assert(mState == PGOAgentState::INITIALIZED);
-  gamma = 0;
-  alpha = 0;
-  V = X;
-  Y = X;
+  if (mState == PGOAgentState::INITIALIZED) {
+    X = XPrev;
+    gamma = 0;
+    alpha = 0;
+    V = X;
+    Y = X;
+  }
 }
 
 void PGOAgent::updateGamma() {

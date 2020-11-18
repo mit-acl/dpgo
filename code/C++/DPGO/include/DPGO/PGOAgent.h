@@ -66,13 +66,20 @@ struct PGOAgentParameters {
   // Use Nesterov acceleration
   bool acceleration;
 
+  // Interval for fixed (periodic) restart
+  unsigned restartInterval;
+
   // Riemannian optimization algorithm used when solving local subproblem
   ROPTALG algorithm;
 
-  // Stopping conditions
-  unsigned maxNumIters;  // Maximum number of global iterations
-  double relChangeTol;  // Tolerance on relative change
-  double funcDecreaseTol; // Tolerance on function decrease
+  // Maximum number of global iterations
+  unsigned maxNumIters;
+
+  // Tolerance on relative change
+  double relChangeTol;
+
+  // Tolerance on function decrease
+  double funcDecreaseTol;
 
   // Verbose flag
   bool verbose;
@@ -85,11 +92,11 @@ struct PGOAgentParameters {
 
   // Default constructor
   PGOAgentParameters(unsigned dIn, unsigned rIn, unsigned numRobotsIn = 1,
-                     bool accel = false, ROPTALG algorithmIn = ROPTALG::RTR,
+                     bool accel = false, unsigned restartInt = 100, ROPTALG algorithmIn = ROPTALG::RTR,
                      unsigned maxIters = 500, double changeTol = 1e-3, double funcDecTol = 1e-5,
                      bool v = false, bool log = false, std::string logDir = "")
       : d(dIn), r(rIn), numRobots(numRobotsIn),
-        acceleration(accel), algorithm(algorithmIn),
+        acceleration(accel), restartInterval(restartInt), algorithm(algorithmIn),
         maxNumIters(maxIters), relChangeTol(changeTol), funcDecreaseTol(funcDecTol),
         verbose(v), logData(log), logDirectory(std::move(logDir)) {}
 
@@ -223,15 +230,30 @@ class PGOAgent {
   bool getSharedPose(unsigned index, Matrix &Mout);
 
   /**
+   * @brief Get auxiliary variable associated with a single public pose
+   * @param index
+   * @param Mout
+   * @return true if the requested pose exists
+   */
+  bool getAuxSharedPose(unsigned index, Matrix &Mout);
+
+  /**
    * @brief Get a map of all public poses of this robot
    * @param map: PoseDict object whose content will be filled
-   * @return true if the agent is properly initialized
+   * @return true if the agent is initialized
    */
   bool getSharedPoseDict(PoseDict &map);
 
+  /**
+   * @brief Get a map of all auxiliary variables associated with public poses of this robot
+   * @param map
+   * @return true if agent is initialized
+   */
+  bool getAuxSharedPoseDict(PoseDict &map);
+
   /** Helper function to reset the internal solution
     In deployment, probably should not use this
- */
+  */
   void setX(const Matrix &Xin);
 
   /**
@@ -244,6 +266,12 @@ class PGOAgent {
    * @return boolean
    */
   bool shouldTerminate();
+
+  /**
+   * @brief Check restart condition
+   * @return boolean
+   */
+  bool shouldRestart();
 
   /**
   Initiate a new thread that runs runOptimizationLoop()
@@ -285,6 +313,16 @@ class PGOAgent {
  */
   void updateNeighborPose(unsigned neighborCluster, unsigned neighborID,
                           unsigned neighborPose, const Matrix &var);
+
+  /**
+   * @brief Update local copy of a neighbor's auxiliary pose
+   * @param neighborCluster
+   * @param neighborID
+   * @param neighborPose
+   * @param var
+   */
+  void updateAuxNeighborPose(unsigned neighborCluster, unsigned neighborID,
+                             unsigned neighborPose, const Matrix &var);
 
  protected:
   // The unique ID associated to this robot
