@@ -26,12 +26,12 @@ int main(int argc, char **argv) {
   */
 
   if (argc < 3) {
-    cout << "Distributed pose-graph optimization. " << endl;
+    cout << "Multi-robot pose graph optimization example. " << endl;
     cout << "Usage: " << argv[0] << " [# robots] [input .g2o file]" << endl;
     exit(1);
   }
 
-  cout << "Distributed pose-graph optimization demo. " << endl;
+  cout << "Multi-robot pose graph optimization example. " << endl;
 
   int num_robots = atoi(argv[1]);
   if (num_robots <= 0) {

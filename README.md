@@ -27,7 +27,7 @@ make
 
 The built executables are located in directory build/bin. For a serialized demo of distributed PGO on one of the benchmark datasets, move to the top-level directory and run:
 ```
-./C++/build/bin/distributed-example 5 data/smallGrid3D.g2o
+./C++/build/bin/multi-robot-example 5 data/smallGrid3D.g2o
 ```
 
 Optionally, install the C++ library via,
