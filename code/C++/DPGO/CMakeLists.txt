@@ -44,6 +44,10 @@ add_executable(distributed-example
 	examples/DistributedExample.cpp)
 target_link_libraries(distributed-example DPGO)
 
+add_executable(chordal-initialization-example
+		examples/ChordalInitializationExample.cpp)
+target_link_libraries(chordal-initialization-example DPGO)
+
 ############################### TESTS ##########################################
 ### Add testing
 option(BUILD_DPGO_TESTS "Build tests" ON)

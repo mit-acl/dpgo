@@ -98,7 +98,7 @@ std::vector<RelativeSEMeasurement> read_g2o_file(const std::string &filename,
       measurement.p2 = j;
 
       // Raw measurements
-      measurement.t = Eigen::Vector2d(dx, dy);
+      measurement.t = Eigen::Matrix<double, 2, 1>(dx, dy);
       measurement.R = Eigen::Rotation2Dd(dtheta).toRotationMatrix();
 
       Eigen::Matrix2d TranCov;
@@ -137,7 +137,7 @@ std::vector<RelativeSEMeasurement> read_g2o_file(const std::string &filename,
       measurement.p2 = j;
 
       // Raw measurements
-      measurement.t = Eigen::Vector3d(dx, dy, dz);
+      measurement.t = Eigen::Matrix<double, 3, 1>(dx, dy, dz);
       measurement.R = Eigen::Quaterniond(dqw, dqx, dqy, dqz).toRotationMatrix();
 
       // Compute precisions
