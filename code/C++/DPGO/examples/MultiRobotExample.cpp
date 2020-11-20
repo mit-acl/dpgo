@@ -53,10 +53,10 @@ int main(int argc, char **argv) {
   d = (!dataset.empty() ? dataset[0].t.size() : 0);
   n = num_poses;
   r = 5;
-  bool acceleration = true;
+  bool acceleration = false;
   unsigned restartInterval = 30;
   unsigned numIters = 1000;
-  bool centralized_chordal_initialization = true;
+  bool centralized_chordal_initialization = false;
 
   // Construct the centralized problem (used for evaluation)
   SparseMatrix QCentral = constructConnectionLaplacianSE(dataset);
@@ -173,6 +173,7 @@ int main(int argc, char **argv) {
     PGOAgent *selectedRobotPtr = agents[selectedRobot];
 
     // Evaluate cost at this iteration
+    bool all_initialized = true;
     for (unsigned robot = 0; robot < (unsigned) num_robots; ++robot) {
       unsigned startIdx = robot * num_poses_per_robot;
       unsigned endIdx = (robot + 1) * num_poses_per_robot;  // non-inclusive
@@ -182,13 +183,17 @@ int main(int argc, char **argv) {
       if (agents[robot]->getX(Xrobot)) {
         Xopt.block(0, startIdx * (d + 1), r, (endIdx - startIdx) * (d + 1)) = Xrobot;
       }
+      else{
+        all_initialized = false;
+        break;
+      }
     }
-
-    std::cout << std::setprecision(5)
-              << "Iter = " << iter << " | "
-              << "robot = " << selectedRobotPtr->getID() << " | "
-              << "cost = " << 2 * problemCentral.f(Xopt) << " | "
-              << "gradnorm = " << problemCentral.gradNorm(Xopt) << std::endl;
+    if (all_initialized)
+      std::cout << std::setprecision(5)
+                << "Iter = " << iter << " | "
+                << "robot = " << selectedRobotPtr->getID() << " | "
+                << "cost = " << 2 * problemCentral.f(Xopt) << " | "
+                << "gradnorm = " << problemCentral.gradNorm(Xopt) << std::endl;
 
 
     // Non-selected robots perform an iteration
