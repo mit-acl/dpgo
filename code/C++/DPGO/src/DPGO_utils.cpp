@@ -255,8 +255,8 @@ SparseMatrix constructConnectionLaplacianSE(
   return AT * OmegaT * AT.transpose();
 }
 
-void constructBMatrices(const std::vector<RelativeSEMeasurement> &measurements,
-                        SparseMatrix &B1, SparseMatrix &B2, SparseMatrix &B3) {
+void constructBMatrices(const std::vector<RelativeSEMeasurement> &measurements, SparseMatrix &B1,
+                          SparseMatrix &B2, SparseMatrix &B3) {
   // Clear input matrices
   B1.setZero();
   B2.setZero();
@@ -268,38 +268,35 @@ void constructBMatrices(const std::vector<RelativeSEMeasurement> &measurements,
   std::vector<Eigen::Triplet<double>> triplets;
 
   // Useful quantities to cache
-  unsigned int d2 = d * d;
-  unsigned int d3 = d * d * d;
+  size_t d2 = d * d;
+  size_t d3 = d * d * d;
 
-  unsigned int i = 0;
-  unsigned int j = 0;  // Indices for the tail and head of the given measurement
-  double sqrttau = 0;
-  double sqrtkappa = 0;
-  size_t max_pair;  // Used for keeping track of the maximum pose that we've
-                    // encountered so far
+  size_t i, j; // Indices for the tail and head of the given measurement
+  double sqrttau;
+  size_t max_pair;
 
   /// Construct the matrix B1 from equation (69a) in the tech report
   triplets.reserve(2 * d * measurements.size());
 
-  for (unsigned int e = 0; e < measurements.size(); e++) {
+  for (size_t e = 0; e < measurements.size(); e++) {
     i = measurements[e].p1;
     j = measurements[e].p2;
     sqrttau = sqrt(measurements[e].tau);
 
     // Block corresponding to the tail of the measurement
-    for (unsigned int l = 0; l < d; l++) {
-      triplets.emplace_back(
-          e * d + l, i * d + l,
-          -sqrttau);  // Diagonal element corresponding to tail
+    for (size_t l = 0; l < d; l++) {
+      triplets.emplace_back(e * d + l, i * d + l,
+                            -sqrttau); // Diagonal element corresponding to tail
       triplets.emplace_back(e * d + l, j * d + l,
-                            sqrttau);  // Diagonal element corresponding to head
+                            sqrttau); // Diagonal element corresponding to head
     }
 
     // Keep track of the number of poses we've seen
     max_pair = std::max<size_t>(i, j);
-    if (max_pair > num_poses) num_poses = max_pair;
+    if (max_pair > num_poses)
+      num_poses = max_pair;
   }
-  num_poses++;  // Account for zero-based indexing
+  num_poses++; // Account for zero-based indexing
 
   B1.resize(d * measurements.size(), d * num_poses);
   B1.setFromTriplets(triplets.begin(), triplets.end());
@@ -308,10 +305,11 @@ void constructBMatrices(const std::vector<RelativeSEMeasurement> &measurements,
   triplets.clear();
   triplets.reserve(d2 * measurements.size());
 
-  for (unsigned int e = 0; e < measurements.size(); e++) {
+  for (size_t e = 0; e < measurements.size(); e++) {
     i = measurements[e].p1;
-    for (unsigned int k = 0; k < d; k++)
-      for (unsigned int r = 0; r < d; r++)
+    sqrttau = sqrt(measurements[e].tau);
+    for (size_t k = 0; k < d; k++)
+      for (size_t r = 0; r < d; r++)
         triplets.emplace_back(d * e + r, d2 * i + d * k + r,
                               -sqrttau * measurements[e].t(k));
   }
@@ -323,22 +321,22 @@ void constructBMatrices(const std::vector<RelativeSEMeasurement> &measurements,
   triplets.clear();
   triplets.reserve((d3 + d2) * measurements.size());
 
-  for (unsigned int e = 0; e < measurements.size(); e++) {
-    sqrtkappa = sqrt(measurements[e].kappa);
-    const Eigen::MatrixXd &R = measurements[e].R;
+  for (size_t e = 0; e < measurements.size(); e++) {
+    double sqrtkappa = std::sqrt(measurements[e].kappa);
+    const Matrix &R = measurements[e].R;
 
-    for (unsigned int r = 0; r < d; r++)
-      for (unsigned int c = 0; c < d; c++) {
-        i = measurements[e].p1;  // Tail of measurement
-        j = measurements[e].p2;  // Head of measurement
+    for (size_t r = 0; r < d; r++)
+      for (size_t c = 0; c < d; c++) {
+        i = measurements[e].p1; // Tail of measurement
+        j = measurements[e].p2; // Head of measurement
 
         // Representation of the -sqrt(kappa) * Rt(i,j) \otimes I_d block
-        for (unsigned int l = 0; l < d; l++)
+        for (size_t l = 0; l < d; l++)
           triplets.emplace_back(e * d2 + d * r + l, i * d2 + d * c + l,
                                 -sqrtkappa * R(c, r));
       }
 
-    for (unsigned l = 0; l < d2; l++)
+    for (size_t l = 0; l < d2; l++)
       triplets.emplace_back(e * d2 + l, j * d2 + l, sqrtkappa);
   }
 
