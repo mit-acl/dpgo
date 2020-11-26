@@ -43,6 +43,8 @@ void LiftedSEVector::setData(const Matrix &Y) {
   unsigned int r = sizes[0];
   unsigned int d = sizes[1];
   unsigned int n = MyVector->GetNumofElement();
+  assert(Y.rows() == r);
+  assert(Y.cols() == (d+1) * n);
 
   // Copy array data from Eigen matrix to ROPTLIB variable
   const double *matrix_data = Y.data();
