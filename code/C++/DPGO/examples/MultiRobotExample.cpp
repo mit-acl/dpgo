@@ -90,8 +90,7 @@ int main(int argc, char **argv) {
   vector<vector<RelativeSEMeasurement>> odometry(num_robots);
   vector<vector<RelativeSEMeasurement>> private_loop_closures(num_robots);
   vector<vector<RelativeSEMeasurement>> shared_loop_closure(num_robots);
-  for (size_t k = 0; k < dataset.size(); ++k) {
-    RelativeSEMeasurement mIn = dataset[k];
+  for (auto mIn : dataset) {
     PoseID src = PoseMap[mIn.p1];
     PoseID dst = PoseMap[mIn.p2];
 
@@ -161,9 +160,9 @@ int main(int argc, char **argv) {
       unsigned endIdx = (robot + 1) * num_poses_per_robot;  // non-inclusive
       if (robot == (unsigned) num_robots - 1) endIdx = n;
 
-      Matrix Xrobot;
-      if (agents[robot]->getX(Xrobot)) {
-        Xopt.block(0, startIdx * (d + 1), r, (endIdx - startIdx) * (d + 1)) = Xrobot;
+      Matrix XRobot;
+      if (agents[robot]->getX(XRobot)) {
+        Xopt.block(0, startIdx * (d + 1), r, (endIdx - startIdx) * (d + 1)) = XRobot;
       } else {
         all_initialized = false;
         break;
@@ -174,7 +173,7 @@ int main(int argc, char **argv) {
                 << "Iter = " << iter << " | "
                 << "robot = " << selectedRobotPtr->getID() << " | "
                 << "cost = " << 2 * problemCentral.f(Xopt) << " | "
-                << "gradnorm = " << problemCentral.gradNorm(Xopt) << std::endl;
+                << "gradnorm = " << problemCentral.RieGradNorm(Xopt) << std::endl;
 
 
     // Non-selected robots perform an iteration
@@ -210,9 +209,9 @@ int main(int argc, char **argv) {
         if (!robotPtr->getAuxSharedPoseDict(auxSharedPoses)) {
           continue;
         }
-        for (auto it = auxSharedPoses.begin(); it != auxSharedPoses.end(); ++it) {
-          PoseID nID = it->first;
-          Matrix var = it->second;
+        for (auto &auxSharedPose : auxSharedPoses) {
+          PoseID nID = auxSharedPose.first;
+          Matrix var = auxSharedPose.second;
           unsigned agentID = get<0>(nID);
           unsigned localID = get<1>(nID);
           selectedRobotPtr->updateAuxNeighborPose(0, agentID, localID, var);
@@ -225,11 +224,14 @@ int main(int argc, char **argv) {
 
     // Select next robot
     std::vector<unsigned> neighbors = selectedRobotPtr->getNeighbors();
-    std::uniform_int_distribution<int> distribution(0, neighbors.size() - 1);
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    selectedRobot = neighbors[distribution(gen)];
-
+    if (neighbors.empty()) {
+      selectedRobot = selectedRobotPtr->getID();
+    } else {
+      std::uniform_int_distribution<int> distribution(0, neighbors.size() - 1);
+      std::random_device rd;
+      std::mt19937 gen(rd());
+      selectedRobot = neighbors[distribution(gen)];
+    }
   }
 
   exit(0);
