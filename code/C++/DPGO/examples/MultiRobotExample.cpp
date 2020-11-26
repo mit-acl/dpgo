@@ -144,6 +144,41 @@ int main(int argc, char **argv) {
 
   /**
   ###########################################
+  Initialization Loop
+  ###########################################
+  */
+  while (true) {
+    for (auto *robotTx : agents) {
+      PoseDict sharedPoses;
+      if (!robotTx->getSharedPoseDict(sharedPoses)) {
+        continue;
+      }
+      for (auto *robotRx : agents) {
+        if (robotTx->getID() != robotRx->getID()) {
+          for (auto &sharedPose : sharedPoses) {
+            PoseID nID = sharedPose.first;
+            Matrix var = sharedPose.second;
+            unsigned agentID = get<0>(nID);
+            unsigned localID = get<1>(nID);
+            robotRx->updateNeighborPose(0, agentID, localID, var);
+          }
+        }
+      }
+    }
+    bool Initialized = true;
+    for (auto *robotPtr : agents) {
+      if (robotPtr->getState() != PGOAgentState::INITIALIZED) {
+        Initialized = false;
+        break;
+      }
+    }
+    if (Initialized) {
+      break;
+    }
+  }
+
+  /**
+  ###########################################
   Optimization loop
   ###########################################
   */
@@ -152,29 +187,6 @@ int main(int argc, char **argv) {
   cout << "Running " << numIters << " iterations..." << endl;
   for (unsigned iter = 0; iter < numIters; ++iter) {
     PGOAgent *selectedRobotPtr = agents[selectedRobot];
-
-    // Evaluate cost at this iteration
-    bool all_initialized = true;
-    for (unsigned robot = 0; robot < (unsigned) num_robots; ++robot) {
-      unsigned startIdx = robot * num_poses_per_robot;
-      unsigned endIdx = (robot + 1) * num_poses_per_robot;  // non-inclusive
-      if (robot == (unsigned) num_robots - 1) endIdx = n;
-
-      Matrix XRobot;
-      if (agents[robot]->getX(XRobot)) {
-        Xopt.block(0, startIdx * (d + 1), r, (endIdx - startIdx) * (d + 1)) = XRobot;
-      } else {
-        all_initialized = false;
-        break;
-      }
-    }
-    if (all_initialized)
-      std::cout << std::setprecision(5)
-                << "Iter = " << iter << " | "
-                << "robot = " << selectedRobotPtr->getID() << " | "
-                << "cost = " << 2 * problemCentral.f(Xopt) << " | "
-                << "gradnorm = " << problemCentral.RieGradNorm(Xopt) << std::endl;
-
 
     // Non-selected robots perform an iteration
     for (auto *robotPtr : agents) {
@@ -222,15 +234,38 @@ int main(int argc, char **argv) {
     // Selected robot update
     selectedRobotPtr->iterate(true);
 
-    // Select next robot
+    // Form centralized solution
+    for (unsigned robot = 0; robot < (unsigned) num_robots; ++robot) {
+      unsigned startIdx = robot * num_poses_per_robot;
+      unsigned endIdx = (robot + 1) * num_poses_per_robot;  // non-inclusive
+      if (robot == (unsigned) num_robots - 1) endIdx = n;
+
+      Matrix XRobot;
+      if (agents[robot]->getX(XRobot)) {
+        Xopt.block(0, startIdx * (d + 1), r, (endIdx - startIdx) * (d + 1)) = XRobot;
+      }
+    }
+    std::cout << std::setprecision(5)
+              << "Iter = " << iter << " | "
+              << "robot = " << selectedRobotPtr->getID() << " | "
+              << "cost = " << 2 * problemCentral.f(Xopt) << " | "
+              << "gradnorm = " << problemCentral.RieGradNorm(Xopt) << std::endl;
+    Matrix RGrad = problemCentral.RieGrad(Xopt);
+
+    // Select next robot with largest gradient norm
     std::vector<unsigned> neighbors = selectedRobotPtr->getNeighbors();
     if (neighbors.empty()) {
       selectedRobot = selectedRobotPtr->getID();
     } else {
-      std::uniform_int_distribution<int> distribution(0, neighbors.size() - 1);
-      std::random_device rd;
-      std::mt19937 gen(rd());
-      selectedRobot = neighbors[distribution(gen)];
+      std::vector<double> gradNorms;
+      for (size_t robot = 0; robot < (unsigned) num_robots; ++robot) {
+        unsigned startIdx = robot * num_poses_per_robot;
+        unsigned endIdx = (robot + 1) * num_poses_per_robot;  // non-inclusive
+        if (robot == (unsigned) num_robots - 1) endIdx = n;
+        Matrix RGradRobot = RGrad.block(0, startIdx * (d + 1), r, (endIdx - startIdx) * (d + 1));
+        gradNorms.push_back(RGradRobot.norm());
+      }
+      selectedRobot = std::max_element(gradNorms.begin(), gradNorms.end()) - gradNorms.begin();
     }
   }
 

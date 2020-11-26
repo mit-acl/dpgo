@@ -66,8 +66,6 @@ void PGOAgent::setX(const Matrix &Xin) {
 }
 
 bool PGOAgent::getX(Matrix &Mout) {
-  if (mState != PGOAgentState::INITIALIZED)
-    return false;
   lock_guard<mutex> lock(mPosesMutex);
   Mout = X;
   return true;

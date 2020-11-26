@@ -251,14 +251,17 @@ class PGOAgent {
    */
   bool getAuxSharedPoseDict(PoseDict &map);
 
-  /** Helper function to reset the internal solution
-    In deployment, probably should not use this
-  */
+  /**
+   * @brief Helper function to reset internal solution. Currently only for debugging.
+   * @param Xin
+   */
   void setX(const Matrix &Xin);
 
   /**
-  Get internal solution
-  */
+   * @brief Helper function to get internal solution. Note that this method disregards whether the agent is initialized.
+   * @param Mout
+   * @return
+   */
   bool getX(Matrix &Mout);
 
   /**
