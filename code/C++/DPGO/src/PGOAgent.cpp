@@ -549,7 +549,7 @@ ROPTResult PGOAgent::optimize() {
   // Compute statistics before optimization
   XPrev = X;
   double fInit = problem.f(X);
-  double gradNormInit = problem.gradNorm(X);
+  double gradNormInit = problem.RieGradNorm(X);
 
   // Optimize!
   if (mParams.acceleration) {
@@ -581,7 +581,7 @@ ROPTResult PGOAgent::optimize() {
   auto counter = std::chrono::high_resolution_clock::now() - startTime;
   double elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(counter).count();
   double fOpt = problem.f(X);
-  double gradNormOpt = problem.gradNorm(X);
+  double gradNormOpt = problem.RieGradNorm(X);
   double relchange = sqrt((X - XPrev).squaredNorm() / n);
 
   // Sanity checks

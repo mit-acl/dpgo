@@ -17,18 +17,18 @@ namespace DPGO {
 QuadraticProblem::QuadraticProblem(unsigned int nIn,
                                    unsigned int dIn,
                                    unsigned int rIn,
-                                   const SparseMatrix& QIn,
-                                   const SparseMatrix& GIn)
+                                   const SparseMatrix &QIn,
+                                   const SparseMatrix &GIn)
     : Q(QIn), G(GIn), n(nIn), d(dIn), r(rIn) {
-  SetUseGrad(true);
-  SetUseHess(true);
 
   M = new LiftedSEManifold(r, d, n);
   Variable = new LiftedSEVariable(r, d, n);
   Vector = new LiftedSEVector(r, d, n);
   HessianVectorProduct = new LiftedSEVector(r, d, n);
 
-  SetDomain(M->getManifold());
+  ROPTLIB::Problem::SetUseGrad(true);
+  ROPTLIB::Problem::SetUseHess(true);
+  ROPTLIB::Problem::SetDomain(M->getManifold());
 
   SparseMatrix P = Q;
   for (unsigned row = 0; row < P.rows(); ++row) {
@@ -36,7 +36,7 @@ QuadraticProblem::QuadraticProblem(unsigned int nIn,
   }
   solver.compute(P);
   if (solver.info() != Eigen::Success) {
-    cout << "WARNING: Precon.compute() failed." << endl;
+    cout << "WARNING: preconditioner failed." << endl;
   }
 }
 
@@ -47,17 +47,17 @@ QuadraticProblem::~QuadraticProblem() {
   delete M;
 }
 
-double QuadraticProblem::f(const Matrix& Y) const {
+double QuadraticProblem::f(const Matrix &Y) const {
   return 0.5 * (Y * Q * Y.transpose()).trace() + (Y * G.transpose()).trace();
 }
 
-double QuadraticProblem::f(ROPTLIB::Variable* x) const {
+double QuadraticProblem::f(ROPTLIB::Variable *x) const {
   x->CopyTo(Variable->var());
   Matrix Y = Variable->getData();
   return f(Y);
 }
 
-void QuadraticProblem::EucGrad(ROPTLIB::Variable* x, ROPTLIB::Vector* g) const {
+void QuadraticProblem::EucGrad(ROPTLIB::Variable *x, ROPTLIB::Vector *g) const {
   x->CopyTo(Variable->var());
   Matrix Y = Variable->getData();
   Matrix EGrad = Y * Q + G;
@@ -65,8 +65,8 @@ void QuadraticProblem::EucGrad(ROPTLIB::Variable* x, ROPTLIB::Vector* g) const {
   Vector->vec()->CopyTo(g);
 }
 
-void QuadraticProblem::EucHessianEta(ROPTLIB::Variable* x, ROPTLIB::Vector* v,
-                                     ROPTLIB::Vector* Hv) const {
+void QuadraticProblem::EucHessianEta(ROPTLIB::Variable *x, ROPTLIB::Vector *v,
+                                     ROPTLIB::Vector *Hv) const {
   v->CopyTo(Vector->vec());
   Matrix inVec = Vector->getData();
   Matrix outVec = inVec * Q;
@@ -74,9 +74,9 @@ void QuadraticProblem::EucHessianEta(ROPTLIB::Variable* x, ROPTLIB::Vector* v,
   HessianVectorProduct->vec()->CopyTo(Hv);
 }
 
-void QuadraticProblem::PreConditioner(ROPTLIB::Variable* x,
-                                      ROPTLIB::Vector* inVec,
-                                      ROPTLIB::Vector* outVec) const {
+void QuadraticProblem::PreConditioner(ROPTLIB::Variable *x,
+                                      ROPTLIB::Vector *inVec,
+                                      ROPTLIB::Vector *outVec) const {
   inVec->CopyTo(Vector->vec());
   Matrix HV = solver.solve(Vector->getData().transpose()).transpose();
   if (solver.info() != Eigen::Success) {
@@ -89,13 +89,17 @@ void QuadraticProblem::PreConditioner(ROPTLIB::Variable* x,
   Vector->vec()->CopyTo(outVec);
 }
 
-double QuadraticProblem::gradNorm(const Matrix& Y) const {
+Matrix QuadraticProblem::RieGrad(const Matrix &Y) const {
   Variable->setData(Y);
   LiftedSEVector EGrad(r, d, n);
   LiftedSEVector RGrad(r, d, n);
   EucGrad(Variable->var(), EGrad.vec());
   M->getManifold()->Projection(Variable->var(), EGrad.vec(), RGrad.vec());
-  return RGrad.getData().norm();
+  return RGrad.getData();
+}
+
+double QuadraticProblem::RieGradNorm(const Matrix &Y) const {
+  return RieGrad(Y).norm();
 }
 
 }  // namespace DPGO
