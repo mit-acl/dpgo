@@ -53,10 +53,9 @@ int main(int argc, char **argv) {
   d = (!dataset.empty() ? dataset[0].t.size() : 0);
   n = num_poses;
   r = 5;
-  bool acceleration = false;
+  bool acceleration = true;
   unsigned restartInterval = 30;
   unsigned numIters = 1000;
-  bool centralized_chordal_initialization = false;
 
   // Construct the centralized problem (used for evaluation)
   SparseMatrix QCentral = constructConnectionLaplacianSE(dataset);
@@ -130,7 +129,7 @@ int main(int argc, char **argv) {
     PGOAgentParameters options(d, r, num_robots, acceleration, restartInterval);
     std::cout << options << std::endl;
 
-    PGOAgent *agent = new PGOAgent(robot, options);
+    auto *agent = new PGOAgent(robot, options);
 
     // All agents share a special, common matrix called the 'lifting matrix' which the first agent will generate
     if (robot > 0) {
@@ -142,23 +141,6 @@ int main(int argc, char **argv) {
     agent->setPoseGraph(odometry[robot], private_loop_closures[robot],
                         shared_loop_closure[robot]);
     agents.push_back(agent);
-  }
-
-  /**
-  ############################################
-  Optional: centralized chordal initialization
-  ############################################
-  */
-  if (centralized_chordal_initialization) {
-    Matrix TChordal = chordalInitialization(d, n, dataset);
-    Matrix XChordal = fixedStiefelVariable(d, r) * TChordal;
-    std::cout << "Chordal initialization cost = " << problemCentral.f(XChordal) << std::endl;
-    for (unsigned robot = 0; robot < (unsigned) num_robots; ++robot) {
-      unsigned startIdx = robot * num_poses_per_robot;
-      unsigned endIdx = (robot + 1) * num_poses_per_robot;  // non-inclusive
-      if (robot == (unsigned) num_robots - 1) endIdx = n;
-      agents[robot]->setX(XChordal.block(0, startIdx * (d + 1), r, (endIdx - startIdx) * (d + 1)));
-    }
   }
 
   /**
@@ -182,8 +164,7 @@ int main(int argc, char **argv) {
       Matrix Xrobot;
       if (agents[robot]->getX(Xrobot)) {
         Xopt.block(0, startIdx * (d + 1), r, (endIdx - startIdx) * (d + 1)) = Xrobot;
-      }
-      else{
+      } else {
         all_initialized = false;
         break;
       }
@@ -212,9 +193,9 @@ int main(int argc, char **argv) {
       if (!robotPtr->getSharedPoseDict(sharedPoses)) {
         continue;
       }
-      for (auto it = sharedPoses.begin(); it != sharedPoses.end(); ++it) {
-        PoseID nID = it->first;
-        Matrix var = it->second;
+      for (auto &sharedPose : sharedPoses) {
+        PoseID nID = sharedPose.first;
+        Matrix var = sharedPose.second;
         unsigned agentID = get<0>(nID);
         unsigned localID = get<1>(nID);
         selectedRobotPtr->updateNeighborPose(0, agentID, localID, var);
