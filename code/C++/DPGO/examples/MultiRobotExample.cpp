@@ -245,12 +245,18 @@ int main(int argc, char **argv) {
         Xopt.block(0, startIdx * (d + 1), r, (endIdx - startIdx) * (d + 1)) = XRobot;
       }
     }
+    Matrix RGrad = problemCentral.RieGrad(Xopt);
+    double RGradNorm  = RGrad.norm();
     std::cout << std::setprecision(5)
               << "Iter = " << iter << " | "
               << "robot = " << selectedRobotPtr->getID() << " | "
               << "cost = " << 2 * problemCentral.f(Xopt) << " | "
-              << "gradnorm = " << problemCentral.RieGradNorm(Xopt) << std::endl;
-    Matrix RGrad = problemCentral.RieGrad(Xopt);
+              << "gradnorm = " << RGradNorm << std::endl;
+
+    // Exit if gradient norm is sufficiently small
+    if (RGradNorm < 0.1) {
+      break;
+    }
 
     // Select next robot with largest gradient norm
     std::vector<unsigned> neighbors = selectedRobotPtr->getNeighbors();
