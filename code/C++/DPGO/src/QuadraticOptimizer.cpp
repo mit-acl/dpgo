@@ -8,7 +8,6 @@
 #include <DPGO/QuadraticOptimizer.h>
 
 #include <iostream>
-#include <stdexcept>
 
 #include "RSD.h"
 #include "RTRNewton.h"
@@ -21,17 +20,38 @@ QuadraticOptimizer::QuadraticOptimizer(QuadraticProblem* p)
       algorithm(ROPTALG::RTR),
       gradientDescentStepsize(1e-3),
       trustRegionIterations(1),
-      verbose(false) {}
+      verbose(false) {
+  result.success = false;
+}
 
 QuadraticOptimizer::~QuadraticOptimizer() = default;
 
 Matrix QuadraticOptimizer::optimize(const Matrix& Y) {
+  // Compute statistics before optimization
+  double fInit = problem->f(Y);
+  double gradNormInit = problem->RieGradNorm(Y);
+  auto startTime = std::chrono::high_resolution_clock::now();
+
+  // Optimize!
+  Matrix YOpt;
   if (algorithm == ROPTALG::RTR) {
-    return trustRegion(Y);
+    YOpt = trustRegion(Y);
   } else {
     assert(algorithm == ROPTALG::RGD);
-    return gradientDescent(Y);
+    YOpt = gradientDescent(Y);
   }
+
+  // Compute statistics after optimization
+  auto counter = std::chrono::high_resolution_clock::now() - startTime;
+  double elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(counter).count();
+  double fOpt = problem->f(YOpt);
+  double gradNormOpt = problem->RieGradNorm(YOpt);
+  double relchange = sqrt((YOpt - Y).squaredNorm() / problem->num_poses());
+
+  // Save statistics
+  result = ROPTResult(true, fInit, gradNormInit, fOpt, gradNormOpt, relchange, elapsedMs);
+
+  return YOpt;
 }
 
 Matrix QuadraticOptimizer::trustRegion(const Matrix& Yinit) {
@@ -46,10 +66,10 @@ Matrix QuadraticOptimizer::trustRegion(const Matrix& Yinit) {
   ROPTLIB::RTRNewton Solver(problem, VarInit.var());
   double initFunc = problem->f(VarInit.var());
   Solver.Stop_Criterion =
-      ROPTLIB::StopCrit::GRAD_F_0;  // Stoping criterion based on relative gradient norm
-  Solver.Tolerance = 1e-6;     // Tolerance associated with stopping criterion
-  Solver.maximum_Delta = 1e2;  // Maximum trust-region radius
-  Solver.initial_Delta = 1e1;
+      ROPTLIB::StopCrit::GRAD_F_0;  // Stopping criterion based on relative gradient norm
+  Solver.Tolerance = 1e-6;          // Tolerance associated with stopping criterion
+  Solver.maximum_Delta = 1e2;       // Maximum trust-region radius
+  Solver.initial_Delta = 1e1;       // Initial trust-region radius
   if (verbose) {
     Solver.Debug = ROPTLIB::DEBUGINFO::ITERRESULT;
   } else {
@@ -101,8 +121,7 @@ Matrix QuadraticOptimizer::gradientDescent(const Matrix& Yinit) {
   // problem->PreConditioner(VarInit.var(), RGrad.vec(), RGrad.vec());
 
   // Update
-  M.getManifold()->ScaleTimesVector(VarInit.var(), -gradientDescentStepsize,
-                                    RGrad.vec(), RGrad.vec());
+  M.getManifold()->ScaleTimesVector(VarInit.var(), -gradientDescentStepsize, RGrad.vec(), RGrad.vec());
   M.getManifold()->Retraction(VarInit.var(), RGrad.vec(), VarNext.var());
 
   return VarNext.getData();
@@ -127,12 +146,6 @@ Matrix QuadraticOptimizer::gradientDescentLS(const Matrix& Yinit) {
   const auto* Yopt = dynamic_cast<const ROPTLIB::ProductElement*>(Solver.GetXopt());
   LiftedSEVariable VarOpt(r, d, n);
   Yopt->CopyTo(VarOpt.var());
-  if (verbose) {
-    std::cout << "Initial objective value: " << problem->f(VarInit.var())
-              << std::endl;
-    std::cout << "Final objective value: " << Solver.Getfinalfun() << std::endl;
-    std::cout << "Final gradient norm: " << Solver.Getnormgf() << std::endl;
-  }
 
   return VarOpt.getData();
 }

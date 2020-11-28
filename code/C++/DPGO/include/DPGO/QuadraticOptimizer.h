@@ -53,12 +53,20 @@ class QuadraticOptimizer {
   */
   void setTrustRegionIterations(unsigned iter) { trustRegionIterations = iter; }
 
+  /**
+  Return optimization result
+  */
+  ROPTResult getOptResult() const {return result; };
+
  private:
   // Underlying Riemannian Optimization Problem
   QuadraticProblem *problem;
 
   // Optimization algorithm to be used
   ROPTALG algorithm;
+
+  // Optimization result
+  ROPTResult result;
 
   // step size (only for RGD)
   double gradientDescentStepsize;
