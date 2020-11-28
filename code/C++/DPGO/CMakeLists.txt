@@ -28,7 +28,7 @@ add_library(DPGO SHARED
 	src/DPGO_utils.cpp
 	src/PGOLogger.cpp)
 
-target_include_directories(DPGO PUBLIC 
+target_include_directories(DPGO PUBLIC
 	${EXTERNAL_INCLUDES}
 	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 	$<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/eigen>
@@ -47,6 +47,10 @@ target_link_libraries(multi-robot-example DPGO)
 add_executable(chordal-initialization-example
 		examples/ChordalInitializationExample.cpp)
 target_link_libraries(chordal-initialization-example DPGO)
+
+add_executable(single-robot-example
+	examples/SingleRobotExample.cpp)
+target_link_libraries(single-robot-example DPGO)
 
 ############################### TESTS ##########################################
 ### Add testing
@@ -85,25 +89,25 @@ if(BUILD_DPGO_TESTS)
 	endif()
 
 	add_executable(
-		testDPGO 
+		testDPGO
 		tests/testUtils.cpp
 		tests/testConstruction.cpp
 		tests/testLineGraph.cpp
 		tests/testTriangleGraph.cpp
 		tests/testOptimizationThread.cpp
 		)
-	target_include_directories(testDPGO PUBLIC 
+	target_include_directories(testDPGO PUBLIC
 		${EXTERNAL_INCLUDES}
 		${CMAKE_CURRENT_SOURCE_DIR}/include>
 		${CMAKE_SOURCE_DIR}/eigen>
 	)
 	target_link_libraries(
-		testDPGO 
+		testDPGO
 		gtest_main
 		DPGO
 		)
 	add_test(
-		NAME testDPGO 
+		NAME testDPGO
 		COMMAND ${CMAKE_BINARY_DIR}/${CMAKE_INSTALL_BINDIR}/unit_tests
 		)
 endif(BUILD_DPGO_TESTS)
@@ -113,7 +117,7 @@ include(CMakePackageConfigHelpers)
 set(INSTALL_CONFIGDIR ${CMAKE_INSTALL_LIBDIR}/cmake/DPGO)
 
 install(TARGETS DPGO
-  EXPORT 	DPGOTargets	
+  EXPORT 	DPGOTargets
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
 
@@ -161,4 +165,3 @@ if(NOT TARGET uninstall)
   add_custom_target(uninstall
     COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake)
 endif()
-
