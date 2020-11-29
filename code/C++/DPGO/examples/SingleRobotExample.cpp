@@ -97,6 +97,7 @@ int main(int argc, char** argv) {
 
   unsigned numIters = 10;
   cout << "Running optimization for " << numIters << " iterations..." << endl;
+
   for (unsigned iter = 0; iter < numIters; ++iter) {
 
     // Performs a single iteration
