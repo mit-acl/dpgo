@@ -23,7 +23,7 @@ TEST(testDPGO, LineGraph) {
     odometry.push_back(m);
   }
   agent.setPoseGraph(odometry, private_loop_closures, shared_loop_closures);
-  agent.optimize();
+  agent.iterate();
 
   ASSERT_EQ(agent.getID(), id);
   ASSERT_EQ(agent.getCluster(), id);

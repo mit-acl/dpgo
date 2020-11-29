@@ -54,7 +54,7 @@ TEST(testDPGO, TriangleGraph) {
   agent.getTrajectoryInLocalFrame(Testimated);
   ASSERT_LE((Ttrue - Testimated).norm(), 1e-4);
 
-  agent.optimize();
+  agent.iterate();
 
   ASSERT_EQ(agent.getID(), id);
   ASSERT_EQ(agent.getCluster(), id);

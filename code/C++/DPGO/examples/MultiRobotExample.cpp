@@ -54,7 +54,7 @@ int main(int argc, char **argv) {
   n = num_poses;
   r = 5;
   bool acceleration = true;
-  unsigned restartInterval = 30;
+  unsigned restartInterval = 50;
   unsigned numIters = 1000;
 
   // Construct the centralized problem (used for evaluation)

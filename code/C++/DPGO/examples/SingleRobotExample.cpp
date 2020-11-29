@@ -50,7 +50,6 @@ int main(int argc, char** argv) {
   */
 
   unsigned int n, d, r;    //vector<float> PoseData;
-  SparseMatrix ConLapT = constructConnectionLaplacianSE(dataset);
   d = (!dataset.empty() ? dataset[0].t.size() : 0);
   n = num_poses;
   r = 5;
@@ -59,9 +58,7 @@ int main(int argc, char** argv) {
   vector<RelativeSEMeasurement> odometry;
   vector<RelativeSEMeasurement> private_loop_closures;
   vector<RelativeSEMeasurement> shared_loop_closure;
-  for (size_t k = 0; k < dataset.size(); ++k) {
-    RelativeSEMeasurement mIn = dataset[k];
-
+  for (auto mIn : dataset) {
     unsigned srcIdx = mIn.p1;
     unsigned dstIdx = mIn.p2;
 
@@ -76,6 +73,11 @@ int main(int argc, char** argv) {
       private_loop_closures.push_back(m);
     }
   }
+
+  // Construct the centralized problem (used for evaluation)
+  SparseMatrix QCentral = constructConnectionLaplacianSE(dataset);
+  SparseMatrix GCentral(r, (d + 1) * n);
+  QuadraticProblem problemCentral(n, d, r, QCentral, GCentral);
 
   /**
   ###########################################
@@ -94,20 +96,19 @@ int main(int argc, char** argv) {
   */
 
   unsigned numIters = 10;
-  Matrix Xopt(r, n * (d + 1));
   cout << "Running optimization for " << numIters << " iterations..." << endl;
   for (unsigned iter = 0; iter < numIters; ++iter) {
 
-    // optimize the robot
-    agent->optimize();
+    // Performs a single iteration
+    agent->iterate();
 
-    Matrix Xrobot;
-    agent->getX(Xrobot);
-    Xopt.block(0, 0, r, n * (d + 1)) = Xrobot;
+    // Get solution
+    Matrix X;
+    agent->getX(X);
 
     // Evaluate
     cout << "Iter = " << iter << " | "
-         << "cost = " << (Xopt * ConLapT * Xopt.transpose()).trace() << endl;
+         << "cost = " << 2 * problemCentral.f(X) << endl;
   }
 
   exit(0);
