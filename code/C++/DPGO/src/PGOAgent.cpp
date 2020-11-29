@@ -30,7 +30,8 @@ namespace DPGO {
 
 PGOAgent::PGOAgent(unsigned ID, const PGOAgentParameters &params)
     : mID(ID), mCluster(ID), d(params.d), r(params.r), n(1),
-      mState(PGOAgentState::WAIT_FOR_DATA), mParams(params),
+      mParams(params), mState(PGOAgentState::WAIT_FOR_DATA),
+      mStatus(ID, 0, 0, false, 0),
       mInstanceNumber(0), mIterationNumber(0), mNumPosesReceived(0),
       logger(params.logDirectory) {
   if (mParams.verbose) std::cout << mParams << std::endl;
@@ -55,7 +56,7 @@ void PGOAgent::setX(const Matrix &Xin) {
   mState = PGOAgentState::INITIALIZED;
   mCluster = 0;
   X = Xin;
-  if (mParams.acceleration){
+  if (mParams.acceleration) {
     XPrev = X;
     restartAcceleration();
   }
@@ -443,12 +444,13 @@ void PGOAgent::reset() {
     }
   }
 
-  // Assume that the old lifting matrix can still be used
-  mState = PGOAgentState::WAIT_FOR_DATA;
-
   mInstanceNumber++;
   mIterationNumber = 0;
   mNumPosesReceived = 0;
+
+  // Assume that the old lifting matrix can still be used
+  mState = PGOAgentState::WAIT_FOR_DATA;
+  mStatus = PGOAgentStatus(getID(), mInstanceNumber, mIterationNumber, false, 0);
 
   relativeChanges.assign(mParams.numRobots, 1e3);
   funcDecreases.assign(mParams.numRobots, 1e3);
@@ -481,114 +483,50 @@ void PGOAgent::iterate(bool doOptimization) {
     }
   }
 
-  if (mState != PGOAgentState::INITIALIZED) return;
-
-  if (mParams.acceleration) {
-    updateGamma();
-    updateAlpha();
-    updateY();
-    // update X
+  // Perform iteration
+  if (mState == PGOAgentState::INITIALIZED) {
+    // Save current iterate
     XPrev = X;
-    if (doOptimization) {
-      optimize();
+
+    // lock pose update
+    unique_lock<mutex> tLock(mPosesMutex);
+
+    // lock measurements
+    unique_lock<mutex> mLock(mMeasurementsMutex);
+
+    // lock neighbor pose update
+    unique_lock<mutex> lock(mNeighborPosesMutex);
+
+    bool success;
+    if (mParams.acceleration) {
+      updateGamma();
+      updateAlpha();
+      updateY();
+      success = updateX(doOptimization, true);
+      updateV();
+      // Periodic restart
+      if (shouldRestart()) {
+        if (mParams.verbose) std::cout << "Restart!" << std::endl;
+        X = XPrev;
+        updateX(doOptimization, false);
+        V = X;
+        Y = X;
+        gamma = 0;
+        alpha = 0;
+      }
     } else {
-      X = Y;
+      success = updateX(doOptimization, false);
     }
-    updateV();
-    // Periodic restart
-    if (shouldRestart()) {
-      if (mParams.verbose) std::cout << "Restart!" << std::endl;
-      restartAcceleration();
-    }
-  } else {
-    // Standard update (no acceleration)
+
+    // Update status
     if (doOptimization) {
-      optimize();
+      mStatus.agentID = getID();
+      mStatus.instanceNumber = instance_number();
+      mStatus.iterationNumber = iteration_number();
+      mStatus.optimizationSuccess = success;
+      mStatus.relativeChange = sqrt((X - XPrev).squaredNorm() / num_poses());
     }
   }
-}
-
-ROPTResult PGOAgent::optimize() {
-  if (mParams.verbose) std::cout << "Agent " << mID << " optimize..." << std::endl;
-
-  if (mState != PGOAgentState::INITIALIZED) {
-    if (mParams.verbose)
-      std::cout << "Not initialized. Skip optimization!" << std::endl;
-    return ROPTResult(false);
-  }
-
-  if (odometry.empty()) {
-    if (mParams.verbose)
-      std::cout << "No odometry measurement. Skip optimization!" << std::endl;
-    return ROPTResult(false);
-  }
-
-  // lock pose update
-  unique_lock<mutex> tLock(mPosesMutex);
-
-  // lock measurements
-  unique_lock<mutex> mLock(mMeasurementsMutex);
-
-  // lock neighbor pose update
-  unique_lock<mutex> lock(mNeighborPosesMutex);
-
-  // Construct optimization problem
-  auto startTime = std::chrono::high_resolution_clock::now();
-  SparseMatrix Q((d + 1) * n, (d + 1) * n);
-  SparseMatrix G(r, (d + 1) * n);
-  if (!constructCostMatrices(Q, G, neighborPoseDict)) {
-    if (mParams.verbose)
-      std::cout << "Could not create cost matrices. Skip optimization!"
-                << std::endl;
-    return ROPTResult(false);
-  }
-  QuadraticProblem problem(n, d, r, Q, G);
-
-  // Compute statistics before optimization
-  XPrev = X;
-  double fInit = problem.f(X);
-  double gradNormInit = problem.RieGradNorm(X);
-
-  // Optimize!
-  if (mParams.acceleration) {
-    // Construct auxiliary optimization problem
-    SparseMatrix QAux((d + 1) * n, (d + 1) * n);
-    SparseMatrix GAux(r, (d + 1) * n);
-    if (!constructCostMatrices(QAux, GAux, neighborAuxPoseDict)) {
-      if (mParams.verbose)
-        std::cout << "Could not create cost matrices. Skip optimization!"
-                  << std::endl;
-      return ROPTResult(false);
-    }
-    QuadraticProblem problemAux(n, d, r, QAux, GAux);
-    // Optimize auxiliary problem
-    QuadraticOptimizer optimizer(&problemAux);
-    optimizer.setVerbose(mParams.verbose);
-    optimizer.setAlgorithm(mParams.algorithm);
-    assert(Y.rows() == relaxation_rank());
-    assert(Y.cols() == (dimension() + 1) * num_poses());
-    X = optimizer.optimize(Y);
-  } else {
-    QuadraticOptimizer optimizer(&problem);
-    optimizer.setVerbose(mParams.verbose);
-    optimizer.setAlgorithm(mParams.algorithm);
-    assert(X.rows() == relaxation_rank());
-    assert(X.cols() == (dimension() + 1) * num_poses());
-    X = optimizer.optimize(X);
-  }
-  auto counter = std::chrono::high_resolution_clock::now() - startTime;
-  double elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(counter).count();
-  double fOpt = problem.f(X);
-  double gradNormOpt = problem.RieGradNorm(X);
-  double relchange = sqrt((X - XPrev).squaredNorm() / n);
-
-  // Sanity checks
-  assert(X.rows() == relaxation_rank());
-  assert(X.cols() == (dimension() + 1) * num_poses());
-  if (!mParams.acceleration)
-    assert(fOpt <= fInit);
-
-  return ROPTResult(true, fInit, gradNormInit, fOpt, gradNormOpt, relchange, elapsedMs);
 }
 
 bool PGOAgent::constructCostMatrices(SparseMatrix &Q, SparseMatrix &G, const PoseDict &poseDict) {
@@ -713,7 +651,7 @@ void PGOAgent::runOptimizationLoop() {
 
     usleep(sleepUs);
 
-    optimize();
+    iterate(true);
 
     // Check if finish requested
     if (mFinishRequested) {
@@ -823,20 +761,7 @@ bool PGOAgent::shouldTerminate() {
     }
   }
   if (relative_change_reached) {
-    std::cout << "Reached relative change stopping condition" << std::endl;
-    return true;
-  }
-
-  // terminate if all agents satisfy function decrease condition
-  bool func_decrease_reached = true;
-  for (size_t i = 0; i < funcDecreases.size(); ++i) {
-    if (funcDecreases[i] > mParams.funcDecreaseTol) {
-      func_decrease_reached = false;
-      break;
-    }
-  }
-  if (func_decrease_reached) {
-    std::cout << "Reached function decrease stopping condition." << std::endl;
+    std::cout << "Reached relative change stopping condition." << std::endl;
     return true;
   }
 
@@ -885,6 +810,66 @@ void PGOAgent::updateV() {
   LiftedSEManifold manifold(relaxation_rank(), dimension(), num_poses());
   Matrix M = V + gamma * (X - Y);
   V = manifold.project(M);
+}
+
+bool PGOAgent::updateX(bool doOptimization, bool acceleration) {
+  if (!doOptimization) {
+    if (acceleration) {
+      X = Y;
+    }
+    return true;
+  }
+
+  if (mParams.verbose) std::cout << "Agent " << mID << " optimize..." << std::endl;
+
+  if (acceleration)
+    assert(mParams.acceleration);
+
+  assert(mState == PGOAgentState::INITIALIZED);
+
+  // Construct data matrices
+  SparseMatrix Q((d + 1) * n, (d + 1) * n);
+  SparseMatrix G(r, (d + 1) * n);
+  if (acceleration) {
+    if (!constructCostMatrices(Q, G, neighborAuxPoseDict)) {
+      if (mParams.verbose)
+        std::cout << "Could not create cost matrices from auxiliary variables! Skip optimization..."
+                  << std::endl;
+      return false;
+    }
+  } else {
+    if (!constructCostMatrices(Q, G, neighborPoseDict)) {
+      if (mParams.verbose)
+        std::cout << "Could not create cost matrices! Skip optimization..."
+                  << std::endl;
+      return false;
+    }
+  }
+
+  // Initialize optimization problem
+  QuadraticProblem problem(n, d, r, Q, G);
+
+  // Initialize optimizer
+  QuadraticOptimizer optimizer(&problem);
+  optimizer.setVerbose(mParams.verbose);
+  optimizer.setAlgorithm(mParams.algorithm);
+
+  // Starting solution
+  Matrix XInit;
+  if (acceleration) {
+    XInit = Y;
+  } else {
+    XInit = X;
+  }
+  assert(XInit.rows() == relaxation_rank());
+  assert(XInit.cols() == (dimension() + 1) * num_poses());
+
+  // Optimize!
+  X = optimizer.optimize(XInit);
+  assert(X.rows() == relaxation_rank());
+  assert(X.cols() == (dimension() + 1) * num_poses());
+
+  return true;
 }
 
 }  // namespace DPGO

@@ -8,6 +8,8 @@
 #include <DPGO/QuadraticOptimizer.h>
 
 #include <iostream>
+#include <cassert>
+#include <chrono>
 
 #include "RSD.h"
 #include "RTRNewton.h"
@@ -47,6 +49,7 @@ Matrix QuadraticOptimizer::optimize(const Matrix& Y) {
   double fOpt = problem->f(YOpt);
   double gradNormOpt = problem->RieGradNorm(YOpt);
   double relchange = sqrt((YOpt - Y).squaredNorm() / problem->num_poses());
+  assert(fOpt <= fInit);
 
   // Save statistics
   result = ROPTResult(true, fInit, gradNormInit, fOpt, gradNormOpt, relchange, elapsedMs);

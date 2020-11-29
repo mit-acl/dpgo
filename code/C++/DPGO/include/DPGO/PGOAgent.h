@@ -78,9 +78,6 @@ struct PGOAgentParameters {
   // Tolerance on relative change
   double relChangeTol;
 
-  // Tolerance on function decrease
-  double funcDecreaseTol;
-
   // Verbose flag
   bool verbose;
 
@@ -93,11 +90,11 @@ struct PGOAgentParameters {
   // Default constructor
   PGOAgentParameters(unsigned dIn, unsigned rIn, unsigned numRobotsIn = 1,
                      bool accel = false, unsigned restartInt = 100, ROPTALG algorithmIn = ROPTALG::RTR,
-                     unsigned maxIters = 500, double changeTol = 1e-3, double funcDecTol = 1e-5,
+                     unsigned maxIters = 500, double changeTol = 5e-3,
                      bool v = false, bool log = false, std::string logDir = "")
       : d(dIn), r(rIn), numRobots(numRobotsIn),
         acceleration(accel), restartInterval(restartInt), algorithm(algorithmIn),
-        maxNumIters(maxIters), relChangeTol(changeTol), funcDecreaseTol(funcDecTol),
+        maxNumIters(maxIters), relChangeTol(changeTol),
         verbose(v), logData(log), logDirectory(std::move(logDir)) {}
 
   inline friend std::ostream &operator<<(
@@ -110,10 +107,46 @@ struct PGOAgentParameters {
     os << "Local optimization algorithm: " << params.algorithm << std::endl;
     os << "Max iterations: " << params.maxNumIters << std::endl;
     os << "Relative change tol: " << params.relChangeTol << std::endl;
-    os << "Function decrease tol: " << params.funcDecreaseTol << std::endl;
     os << "Verbose: " << params.verbose << std::endl;
     os << "Log data: " << params.logData << std::endl;
     os << "Log directory: " << params.logDirectory << std::endl;
+    return os;
+  }
+};
+
+// Status of an agent to be shared with its peers
+struct PGOAgentStatus {
+  // Unique ID of this agent
+  unsigned agentID;
+
+  // Current problem instance number
+  unsigned instanceNumber;
+
+  // Current global iteration number
+  unsigned iterationNumber;
+
+  // Whether the agent has changed its estimates at this iteration
+  bool optimizationSuccess;
+
+  // The relative change of the agent's estimate
+  double relativeChange;
+
+  // Constructor
+  PGOAgentStatus(unsigned id, unsigned instance, unsigned iteration, bool suc, double rc)
+      : agentID(id),
+        instanceNumber(instance),
+        iterationNumber(iteration),
+        optimizationSuccess(suc),
+        relativeChange(rc) {}
+
+  inline friend std::ostream &operator<<(
+      std::ostream &os, const PGOAgentStatus &status) {
+    os << "PGOAgent status: " << std::endl;
+    os << "ID: " << status.agentID << std::endl;
+    os << "Instance number: " << status.instanceNumber << std::endl;
+    os << "Iteration number: " << status.iterationNumber << std::endl;
+    os << "Optimization success: " << status.optimizationSuccess << std::endl;
+    os << "Relative change: " << status.relativeChange << std::endl;
     return os;
   }
 };
@@ -138,13 +171,7 @@ class PGOAgent {
    * @brief perform a single iteration
    * @param doOptimization: if true, this robot is selected to perform local optimization at this iteration
    */
-  void iterate(bool doOptimization = false);
-
-  /**
-  Optimize pose graph by a single iteration.
-  This process use both private and shared factors.
-  */
-  ROPTResult optimize();
+  void iterate(bool doOptimization = true);
 
   /**
   Reset this agent to have empty pose graph
@@ -343,11 +370,14 @@ class PGOAgent {
   // Number of poses
   unsigned n;
 
+  // Parameter settings
+  const PGOAgentParameters mParams;
+
   // Current state of this agent
   PGOAgentState mState;
 
-  // Parameter settings
-  const PGOAgentParameters mParams;
+  // Current status of this agent (to be shared with others)
+  PGOAgentStatus mStatus;
 
   // Rate in Hz of the optimization loop (only used in asynchronous mode)
   double rate;
@@ -491,6 +521,14 @@ class PGOAgent {
   void updateGamma();
 
   void updateAlpha();
+
+  /**
+   * @brief Update X variable
+   * @param doOptimization Whether this agent is selected to perform optimization
+   * @param acceleration true to use acceleration
+   * @return true if update is successful
+   */
+  bool updateX(bool doOptimization = false, bool acceleration = false);
 
   void updateY();
 
