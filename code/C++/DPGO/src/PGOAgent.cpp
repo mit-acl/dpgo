@@ -35,8 +35,7 @@ PGOAgent::PGOAgent(unsigned ID, const PGOAgentParameters &params)
       mInstanceNumber(0), mIterationNumber(0), mNumPosesReceived(0),
       logger(params.logDirectory) {
   if (mParams.verbose) std::cout << mParams << std::endl;
-  relativeChanges.assign(mParams.numRobots, 1e3);
-  funcDecreases.assign(mParams.numRobots, 1e3);
+  mTeamStatus.assign(mParams.numRobots, PGOAgentStatus());
   // Initialize X
   X = Matrix::Zero(r, d + 1);
   X.block(0, 0, d, d) = Matrix::Identity(d, d);
@@ -58,7 +57,7 @@ void PGOAgent::setX(const Matrix &Xin) {
   X = Xin;
   if (mParams.acceleration) {
     XPrev = X;
-    restartAcceleration();
+    initializeAcceleration();
   }
   if (mParams.verbose)
     std::cout << "WARNING: Agent " << mID
@@ -158,7 +157,7 @@ void PGOAgent::setPoseGraph(
     mState = PGOAgentState::INITIALIZED;
     if (mParams.acceleration) {
       XPrev = X;
-      restartAcceleration();
+      initializeAcceleration();
     }
 
     // Save initial trajectory
@@ -333,7 +332,7 @@ void PGOAgent::updateNeighborPose(unsigned neighborCluster, unsigned neighborID,
       // Initialize auxiliary variables
       if (mParams.acceleration) {
         XPrev = X;
-        restartAcceleration();
+        initializeAcceleration();
       }
 
       // Log initial trajectory
@@ -452,9 +451,6 @@ void PGOAgent::reset() {
   mState = PGOAgentState::WAIT_FOR_DATA;
   mStatus = PGOAgentStatus(getID(), mInstanceNumber, mIterationNumber, false, 0);
 
-  relativeChanges.assign(mParams.numRobots, 1e3);
-  funcDecreases.assign(mParams.numRobots, 1e3);
-
   odometry.clear();
   privateLoopClosures.clear();
   sharedLoopClosures.clear();
@@ -464,6 +460,7 @@ void PGOAgent::reset() {
   mSharedPoses.clear();
   neighborSharedPoses.clear();
   neighborAgents.clear();
+  mTeamStatus.assign(mParams.numRobots, PGOAgentStatus());
 
   n = 1;
   X = Matrix::Zero(r, d + 1);
@@ -754,8 +751,11 @@ bool PGOAgent::shouldTerminate() {
 
   // terminate if all agents satisfy relative change condition
   bool relative_change_reached = true;
-  for (size_t i = 0; i < relativeChanges.size(); ++i) {
-    if (relativeChanges[i] > mParams.relChangeTol) {
+  for (size_t robot = 0; robot < mParams.numRobots; ++robot) {
+    PGOAgentStatus robotStatus = mTeamStatus[robot];
+    if (robotStatus.agentID != robot ||
+        !robotStatus.optimizationSuccess ||
+        robotStatus.relativeChange > mParams.relChangeTol) {
       relative_change_reached = false;
       break;
     }
@@ -773,7 +773,7 @@ bool PGOAgent::shouldRestart() {
   return (mIterationNumber % mParams.restartInterval == 0);
 }
 
-void PGOAgent::restartAcceleration() {
+void PGOAgent::initializeAcceleration() {
   assert(mParams.acceleration);
   if (mState == PGOAgentState::INITIALIZED) {
     X = XPrev;

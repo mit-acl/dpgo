@@ -104,6 +104,7 @@ struct PGOAgentParameters {
     os << "Relaxation rank: " << params.r << std::endl;
     os << "Number of robots: " << params.numRobots << std::endl;
     os << "Use Nesterov acceleration: " << params.acceleration << std::endl;
+    os << "Fixed restart interval: " << params.restartInterval << std::endl;
     os << "Local optimization algorithm: " << params.algorithm << std::endl;
     os << "Max iterations: " << params.maxNumIters << std::endl;
     os << "Relative change tol: " << params.relChangeTol << std::endl;
@@ -132,6 +133,8 @@ struct PGOAgentStatus {
   double relativeChange;
 
   // Constructor
+  PGOAgentStatus() = default;
+
   PGOAgentStatus(unsigned id, unsigned instance, unsigned iteration, bool suc, double rc)
       : agentID(id),
         instanceNumber(instance),
@@ -181,7 +184,7 @@ class PGOAgent {
   /**
    * @brief Reset variables used in Nesterov acceleration
    */
-  void restartAcceleration();
+  void initializeAcceleration();
 
   /**
   Return ID of this robot
@@ -394,9 +397,8 @@ class PGOAgent {
   // Logging
   PGOLogger logger;
 
-  // Data structures needed to check termination condition
-  std::vector<double> relativeChanges;
-  std::vector<double> funcDecreases;
+  // Store status of peer agents
+  std::vector<PGOAgentStatus> mTeamStatus;
 
   // whether there is request to terminate optimization thread
   bool mFinishRequested = false;
