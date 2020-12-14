@@ -247,7 +247,6 @@ void PGOAgent::updateNeighborPose(unsigned neighborCluster, unsigned neighborID,
 
   // Do not store this pose if not needed
   if (neighborSharedPoses.find(nID) == neighborSharedPoses.end()) {
-    std::cout << "Discard public poses not needed!" << std::endl;
     return;
   }
 
