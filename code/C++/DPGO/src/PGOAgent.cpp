@@ -31,15 +31,15 @@ namespace DPGO {
 PGOAgent::PGOAgent(unsigned ID, const PGOAgentParameters &params)
     : mID(ID), mCluster(ID), d(params.d), r(params.r), n(1),
       mParams(params), mState(PGOAgentState::WAIT_FOR_DATA),
-      mStatus(ID, 0, 0, false, 0),
+      mStatus(ID, mState, 0, 0, false, 0),
       mInstanceNumber(0), mIterationNumber(0), mNumPosesReceived(0),
       logger(params.logDirectory) {
   if (mParams.verbose) std::cout << mParams << std::endl;
-  mTeamStatus.assign(mParams.numRobots, PGOAgentStatus());
   // Initialize X
   X = Matrix::Zero(r, d + 1);
   X.block(0, 0, d, d) = Matrix::Identity(d, d);
   if (mID == 0) setLiftingMatrix(fixedStiefelVariable(d, r));
+  resetTeamStatus();
 }
 
 PGOAgent::~PGOAgent() {
@@ -246,7 +246,10 @@ void PGOAgent::updateNeighborPose(unsigned neighborCluster, unsigned neighborID,
   mNumPosesReceived++;
 
   // Do not store this pose if not needed
-  if (neighborSharedPoses.find(nID) == neighborSharedPoses.end()) return;
+  if (neighborSharedPoses.find(nID) == neighborSharedPoses.end()) {
+    std::cout << "Discard public poses not needed!" << std::endl;
+    return;
+  }
 
   // Check if this agent is ready to initialize
   if (mState == PGOAgentState::WAIT_FOR_INITIALIZATION) {
@@ -354,6 +357,7 @@ void PGOAgent::updateNeighborPose(unsigned neighborCluster, unsigned neighborID,
 
 void PGOAgent::updateAuxNeighborPose(unsigned neighborCluster, unsigned neighborID,
                                      unsigned neighborPose, const Matrix &var) {
+  assert(mParams.acceleration);
   assert(neighborID != mID);
   assert(var.rows() == r);
   assert(var.cols() == d + 1);
@@ -441,6 +445,11 @@ void PGOAgent::reset() {
     if (getTrajectoryInGlobalFrame(T)) {
       logger.logTrajectory(dimension(), num_poses(), T, "trajectory_optimized.csv");
     }
+
+    // Save solution before rounding
+    std::string filename = mParams.logDirectory + "X.txt";
+    std::ofstream file(filename);
+    file << X ;
   }
 
   mInstanceNumber++;
@@ -449,7 +458,7 @@ void PGOAgent::reset() {
 
   // Assume that the old lifting matrix can still be used
   mState = PGOAgentState::WAIT_FOR_DATA;
-  mStatus = PGOAgentStatus(getID(), mInstanceNumber, mIterationNumber, false, 0);
+  mStatus = PGOAgentStatus(getID(), getState(), mInstanceNumber, mIterationNumber, false, 0);
 
   odometry.clear();
   privateLoopClosures.clear();
@@ -460,7 +469,7 @@ void PGOAgent::reset() {
   mSharedPoses.clear();
   neighborSharedPoses.clear();
   neighborAgents.clear();
-  mTeamStatus.assign(mParams.numRobots, PGOAgentStatus());
+  resetTeamStatus();
 
   n = 1;
   X = Matrix::Zero(r, d + 1);
@@ -518,6 +527,7 @@ void PGOAgent::iterate(bool doOptimization) {
     // Update status
     if (doOptimization) {
       mStatus.agentID = getID();
+      mStatus.state = getState();
       mStatus.instanceNumber = instance_number();
       mStatus.iterationNumber = iteration_number();
       mStatus.optimizationSuccess = success;
@@ -870,6 +880,13 @@ bool PGOAgent::updateX(bool doOptimization, bool acceleration) {
   assert(X.cols() == (dimension() + 1) * num_poses());
 
   return true;
+}
+
+void PGOAgent::resetTeamStatus() {
+  mTeamStatus.clear();
+  for (unsigned robot = 0; robot < mParams.numRobots; ++robot) {
+    mTeamStatus.push_back(PGOAgentStatus(robot));
+  }
 }
 
 }  // namespace DPGO

@@ -120,6 +120,9 @@ struct PGOAgentStatus {
   // Unique ID of this agent
   unsigned agentID;
 
+  // Current state of this agent
+  PGOAgentState state;
+
   // Current problem instance number
   unsigned instanceNumber;
 
@@ -133,10 +136,14 @@ struct PGOAgentStatus {
   double relativeChange;
 
   // Constructor
-  PGOAgentStatus() = default;
-
-  PGOAgentStatus(unsigned id, unsigned instance, unsigned iteration, bool suc, double rc)
+  PGOAgentStatus(unsigned id,
+                 PGOAgentState s = PGOAgentState::WAIT_FOR_DATA,
+                 unsigned instance = 0,
+                 unsigned iteration = 0,
+                 bool suc = false,
+                 double rc = 0)
       : agentID(id),
+        state(s),
         instanceNumber(instance),
         iterationNumber(iteration),
         optimizationSuccess(suc),
@@ -146,6 +153,7 @@ struct PGOAgentStatus {
       std::ostream &os, const PGOAgentStatus &status) {
     os << "PGOAgent status: " << std::endl;
     os << "ID: " << status.agentID << std::endl;
+    os << "State: " << status.state << std::endl;
     os << "Instance number: " << status.instanceNumber << std::endl;
     os << "Iteration number: " << status.iterationNumber << std::endl;
     os << "Optimization success: " << status.optimizationSuccess << std::endl;
@@ -226,6 +234,16 @@ class PGOAgent {
    * @return PGOAgentState struct
    */
   inline PGOAgentState getState() const { return mState; }
+
+  /**
+   * @brief get the current status of this agent
+   * @return
+   */
+  inline PGOAgentStatus getStatus() {
+    mStatus.agentID = getID();
+    mStatus.state = getState();
+    return mStatus;
+  }
 
   /**
    * Get vector of pose indices needed from the neighbor agent
@@ -535,6 +553,8 @@ class PGOAgent {
   void updateY();
 
   void updateV();
+
+  void resetTeamStatus();
 };
 
 }  // namespace DPGO
