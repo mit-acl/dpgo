@@ -126,8 +126,6 @@ int main(int argc, char **argv) {
   vector<PGOAgent *> agents;
   for (unsigned robot = 0; robot < (unsigned) num_robots; ++robot) {
     PGOAgentParameters options(d, r, num_robots, acceleration, restartInterval);
-    options.logData = true;
-    options.logDirectory = std::string("/home/yulun/git/dpgo/code/C++/DPGO/logs") + std::string("/agent") + std::to_string(robot) + "/";
     std::cout << options << std::endl;
 
     auto *agent = new PGOAgent(robot, options);
