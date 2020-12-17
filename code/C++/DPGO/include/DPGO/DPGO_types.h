@@ -36,10 +36,8 @@ enum ROPTALG {
         Output statistics of Riemannian optimization
 */
 struct ROPTResult {
-  ROPTResult() {}
-  ROPTResult(bool suc) : success(suc) {}
-  ROPTResult(bool suc, double f0, double gn0, double fStar, double gnStar,
-             double relchange, double ms)
+  ROPTResult(bool suc = false, double f0 = 0, double gn0 = 0, double fStar = 0, double gnStar = 0,
+             double relchange = 0, double ms = 0)
       : success(suc),
         fInit(f0),
         gradNormInit(gn0),

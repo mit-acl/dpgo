@@ -19,19 +19,19 @@ namespace DPGO {
 
 class QuadraticOptimizer {
  public:
-  QuadraticOptimizer(QuadraticProblem* p);
+  QuadraticOptimizer(QuadraticProblem *p);
 
   ~QuadraticOptimizer();
 
   /**
   Optimize from the given initial guess
   */
-  Matrix optimize(const Matrix& Y);
+  Matrix optimize(const Matrix &Y);
 
   /**
-  Optimize using chordal initialization
-  */
-  Matrix optimize();
+   * Set optimization problem
+   */
+  void setProblem(QuadraticProblem *p) { problem = p; }
 
   /**
   Turn on/off verbose output
@@ -53,12 +53,20 @@ class QuadraticOptimizer {
   */
   void setTrustRegionIterations(unsigned iter) { trustRegionIterations = iter; }
 
+  /**
+  Return optimization result
+  */
+  ROPTResult getOptResult() const {return result; };
+
  private:
   // Underlying Riemannian Optimization Problem
-  QuadraticProblem* problem;
+  QuadraticProblem *problem;
 
   // Optimization algorithm to be used
   ROPTALG algorithm;
+
+  // Optimization result
+  ROPTResult result;
 
   // step size (only for RGD)
   double gradientDescentStepsize;
@@ -70,13 +78,13 @@ class QuadraticOptimizer {
   bool verbose;
 
   // Apply RTR
-  Matrix trustRegion(const Matrix& Yinit);
+  Matrix trustRegion(const Matrix &Yinit);
 
   // Apply a single RGD iteration with constant step size
-  Matrix gradientDescent(const Matrix& Yinit);
+  Matrix gradientDescent(const Matrix &Yinit);
 
   // Apply gradient descent with line search
-  Matrix gradientDescentLS(const Matrix& Yinit);
+  Matrix gradientDescentLS(const Matrix &Yinit);
 };
 
 }  // namespace DPGO

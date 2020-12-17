@@ -13,7 +13,7 @@
 #include <fstream>
 #include <iostream>
 #include <random>
-#include <sstream>
+#include <cassert>
 
 namespace DPGO {
 
@@ -345,7 +345,7 @@ void constructBMatrices(const std::vector<RelativeSEMeasurement> &measurements, 
 }
 
 Matrix chordalInitialization(
-    const size_t dimension, const size_t num_poses,
+    size_t dimension, size_t num_poses,
     const std::vector<RelativeSEMeasurement> &measurements) {
     SparseMatrix B1, B2, B3;
   constructBMatrices(measurements, B1, B2, B3);
@@ -438,7 +438,15 @@ Matrix projectToRotationGroup(const Matrix &M) {
   }
 }
 
-Matrix fixedStiefelVariable(const unsigned d, const unsigned r) {
+Matrix projectToStiefelManifold(const Matrix& M) {
+  size_t r = M.rows();
+  size_t d = M.cols();
+  assert(r >= d);
+  Eigen::JacobiSVD<Matrix> svd(M, Eigen::ComputeThinU | Eigen::ComputeThinV);
+  return svd.matrixU() * svd.matrixV().transpose();
+}
+
+Matrix fixedStiefelVariable(unsigned d, unsigned r) {
   std::srand(1);
   ROPTLIB::StieVariable var(r, d);
   var.RandInManifold();

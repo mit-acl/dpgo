@@ -28,7 +28,7 @@ LiftedSEVector::~LiftedSEVector() {
 }
 
 Matrix LiftedSEVector::getData() {
-  ProductElement *T = static_cast<ProductElement *>(MyVector->GetElement(0));
+  auto *T = dynamic_cast<ProductElement *>(MyVector->GetElement(0));
   const int *sizes = T->GetElement(0)->Getsize();
   unsigned int r = sizes[0];
   unsigned int d = sizes[1];
@@ -38,12 +38,13 @@ Matrix LiftedSEVector::getData() {
 }
 
 void LiftedSEVector::setData(const Matrix &Y) {
-  ProductElement *T =
-      static_cast<ROPTLIB::ProductElement *>(MyVector->GetElement(0));
+  auto *T = dynamic_cast<ROPTLIB::ProductElement *>(MyVector->GetElement(0));
   const int *sizes = T->GetElement(0)->Getsize();
   unsigned int r = sizes[0];
   unsigned int d = sizes[1];
   unsigned int n = MyVector->GetNumofElement();
+  assert(Y.rows() == r);
+  assert(Y.cols() == (d+1) * n);
 
   // Copy array data from Eigen matrix to ROPTLIB variable
   const double *matrix_data = Y.data();

@@ -20,6 +20,9 @@ void PGOLogger::logMeasurements(std::vector<RelativeSEMeasurement> &measurements
   file.open(logDirectory + filename);
   if (!file.is_open()) return;
 
+  size_t d = measurements[0].R.rows();
+  if (d == 2) return;
+
   // Insert header row
   file << "robot_src,pose_src,robot_dst,pose_dst,qx,qy,qz,qw,tx,ty,tz,kappa,tau\n";
 
@@ -46,6 +49,7 @@ void PGOLogger::logMeasurements(std::vector<RelativeSEMeasurement> &measurements
 }
 
 void PGOLogger::logTrajectory(unsigned int d, unsigned int n, const Matrix &T, const std::string &filename) {
+  if (d == 2) return;
   assert(T.rows() == d);
   assert(T.cols() == (d + 1) * n);
   std::ofstream file;

@@ -28,7 +28,7 @@ class PGOLogger {
   ~PGOLogger();
 
   /*!
-   * @brief log trajectory to file
+   * @brief log trajectory to file (currently only work for 3D data)
    * @param d dimension (2 or 3)
    * @param n number of poses
    * @param T d-by-(d+1)*n matrix where each d-by-(d+1) block represents a pose
@@ -37,7 +37,7 @@ class PGOLogger {
   void logTrajectory(unsigned d, unsigned n, const Matrix &T, const std::string &filename);
 
   /*!
-   * @brief log measurements to file
+   * @brief log measurements to file (currently only work for 3D data)
    * @param measurements a vector of relative pose measurements
    * @param filename
    */

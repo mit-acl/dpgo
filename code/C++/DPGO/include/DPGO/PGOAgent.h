@@ -63,13 +63,20 @@ struct PGOAgentParameters {
   // Total number of robots
   unsigned numRobots;
 
-  // Riemannian optimization algorithm
+  // Use Nesterov acceleration
+  bool acceleration;
+
+  // Interval for fixed (periodic) restart
+  unsigned restartInterval;
+
+  // Riemannian optimization algorithm used when solving local subproblem
   ROPTALG algorithm;
 
-  // Stopping conditions
-  unsigned maxNumIters;  // Maximum number of global iterations
-  double relChangeTol;  // Tolerance on relative change
-  double funcDecreaseTol; // Tolerance on function decrease
+  // Maximum number of global iterations
+  unsigned maxNumIters;
+
+  // Tolerance on relative change
+  double relChangeTol;
 
   // Verbose flag
   bool verbose;
@@ -82,27 +89,75 @@ struct PGOAgentParameters {
 
   // Default constructor
   PGOAgentParameters(unsigned dIn, unsigned rIn, unsigned numRobotsIn = 1,
-                     ROPTALG algorithmIn = ROPTALG::RTR,
-                     unsigned maxIters = 500, double changeTol = 1e-3, double funcDecTol = 1e-5,
+                     bool accel = false, unsigned restartInt = 100, ROPTALG algorithmIn = ROPTALG::RTR,
+                     unsigned maxIters = 500, double changeTol = 5e-3,
                      bool v = false, bool log = false, std::string logDir = "")
       : d(dIn), r(rIn), numRobots(numRobotsIn),
-        algorithm(algorithmIn),
-        maxNumIters(maxIters), relChangeTol(changeTol), funcDecreaseTol(funcDecTol),
+        acceleration(accel), restartInterval(restartInt), algorithm(algorithmIn),
+        maxNumIters(maxIters), relChangeTol(changeTol),
         verbose(v), logData(log), logDirectory(std::move(logDir)) {}
 
   inline friend std::ostream &operator<<(
       std::ostream &os, const PGOAgentParameters &params) {
     os << "PGOAgent parameters: " << std::endl;
-    os << "dimension: " << params.d << std::endl;
-    os << "relaxation rank: " << params.r << std::endl;
-    os << "number of robots: " << params.numRobots << std::endl;
-    os << "algorithm: " << params.algorithm << std::endl;
-    os << "max iterations: " << params.maxNumIters << std::endl;
-    os << "relative change tol: " << params.relChangeTol << std::endl;
-    os << "function decrease tol: " << params.funcDecreaseTol << std::endl;
-    os << "verbose: " << params.verbose << std::endl;
-    os << "log data: " << params.logData << std::endl;
-    os << "log directory: " << params.logDirectory << std::endl;
+    os << "Dimension: " << params.d << std::endl;
+    os << "Relaxation rank: " << params.r << std::endl;
+    os << "Number of robots: " << params.numRobots << std::endl;
+    os << "Use Nesterov acceleration: " << params.acceleration << std::endl;
+    os << "Fixed restart interval: " << params.restartInterval << std::endl;
+    os << "Local optimization algorithm: " << params.algorithm << std::endl;
+    os << "Max iterations: " << params.maxNumIters << std::endl;
+    os << "Relative change tol: " << params.relChangeTol << std::endl;
+    os << "Verbose: " << params.verbose << std::endl;
+    os << "Log data: " << params.logData << std::endl;
+    os << "Log directory: " << params.logDirectory << std::endl;
+    return os;
+  }
+};
+
+// Status of an agent to be shared with its peers
+struct PGOAgentStatus {
+  // Unique ID of this agent
+  unsigned agentID;
+
+  // Current state of this agent
+  PGOAgentState state;
+
+  // Current problem instance number
+  unsigned instanceNumber;
+
+  // Current global iteration number
+  unsigned iterationNumber;
+
+  // Whether the agent has changed its estimates at this iteration
+  bool optimizationSuccess;
+
+  // The relative change of the agent's estimate
+  double relativeChange;
+
+  // Constructor
+  PGOAgentStatus(unsigned id,
+                 PGOAgentState s = PGOAgentState::WAIT_FOR_DATA,
+                 unsigned instance = 0,
+                 unsigned iteration = 0,
+                 bool suc = false,
+                 double rc = 0)
+      : agentID(id),
+        state(s),
+        instanceNumber(instance),
+        iterationNumber(iteration),
+        optimizationSuccess(suc),
+        relativeChange(rc) {}
+
+  inline friend std::ostream &operator<<(
+      std::ostream &os, const PGOAgentStatus &status) {
+    os << "PGOAgent status: " << std::endl;
+    os << "ID: " << status.agentID << std::endl;
+    os << "State: " << status.state << std::endl;
+    os << "Instance number: " << status.instanceNumber << std::endl;
+    os << "Iteration number: " << status.iterationNumber << std::endl;
+    os << "Optimization success: " << status.optimizationSuccess << std::endl;
+    os << "Relative change: " << status.relativeChange << std::endl;
     return os;
   }
 };
@@ -124,21 +179,20 @@ class PGOAgent {
       const std::vector<RelativeSEMeasurement> &inputSharedLoopClosures);
 
   /**
-   * @brief Iterate and performs necessary bookkeeping
+   * @brief perform a single iteration
+   * @param doOptimization: if true, this robot is selected to perform local optimization at this iteration
    */
-  void iterate();
-
-  /**
-  Optimize pose graph by a single iteration.
-  This process use both private and shared factors (communication required for
-  the latter)
-  */
-  ROPTResult optimize();
+  void iterate(bool doOptimization = true);
 
   /**
   Reset this agent to have empty pose graph
   */
   void reset();
+
+  /**
+   * @brief Reset variables used in Nesterov acceleration
+   */
+  void initializeAcceleration();
 
   /**
   Return ID of this robot
@@ -182,6 +236,16 @@ class PGOAgent {
   inline PGOAgentState getState() const { return mState; }
 
   /**
+   * @brief get the current status of this agent
+   * @return
+   */
+  inline PGOAgentStatus getStatus() {
+    mStatus.agentID = getID();
+    mStatus.state = getState();
+    return mStatus;
+  }
+
+  /**
    * Get vector of pose indices needed from the neighbor agent
    */
   std::vector<unsigned> getNeighborPublicPoses(
@@ -205,30 +269,60 @@ class PGOAgent {
   bool getTrajectoryInGlobalFrame(Matrix &Trajectory);
 
   /**
-  Return a map of shared poses of this robot, that need to be sent to others
-  */
-  PoseDict getSharedPoses();
+   * @brief Get a single public pose of this robot.
+   * Note that currently, this method does not check that the requested pose is a public pose
+   * @param index: index of the requested pose
+   * @param Mout: actual value of the pose
+   * @return true if the requested pose exists
+   */
+  bool getSharedPose(unsigned index, Matrix &Mout);
 
-  /** Helper function to reset the internal solution
-    In deployment, probably should not use this
- */
+  /**
+   * @brief Get auxiliary variable associated with a single public pose
+   * @param index
+   * @param Mout
+   * @return true if the requested pose exists
+   */
+  bool getAuxSharedPose(unsigned index, Matrix &Mout);
+
+  /**
+   * @brief Get a map of all public poses of this robot
+   * @param map: PoseDict object whose content will be filled
+   * @return true if the agent is initialized
+   */
+  bool getSharedPoseDict(PoseDict &map);
+
+  /**
+   * @brief Get a map of all auxiliary variables associated with public poses of this robot
+   * @param map
+   * @return true if agent is initialized
+   */
+  bool getAuxSharedPoseDict(PoseDict &map);
+
+  /**
+   * @brief Helper function to reset internal solution. Currently only for debugging.
+   * @param Xin
+   */
   void setX(const Matrix &Xin);
 
   /**
-  Get internal solution
-  */
+   * @brief Helper function to get internal solution. Note that this method disregards whether the agent is initialized.
+   * @param Mout
+   * @return
+   */
   bool getX(Matrix &Mout);
-
-  /**
-  Get the ith component of the current solution
-  */
-  bool getXComponent(unsigned index, Matrix &Mout);
 
   /**
    * @brief determine if the termination condition is satisfied
    * @return boolean
    */
   bool shouldTerminate();
+
+  /**
+   * @brief Check restart condition
+   * @return boolean
+   */
+  bool shouldRestart();
 
   /**
   Initiate a new thread that runs runOptimizationLoop()
@@ -254,7 +348,7 @@ class PGOAgent {
   /**
   Set the lifting matrix
   */
-  void setLiftingMatrix(const Matrix &Y);
+  void setLiftingMatrix(const Matrix &M);
 
   /**
   Set the global anchor
@@ -270,6 +364,16 @@ class PGOAgent {
  */
   void updateNeighborPose(unsigned neighborCluster, unsigned neighborID,
                           unsigned neighborPose, const Matrix &var);
+
+  /**
+   * @brief Update local copy of a neighbor's auxiliary pose
+   * @param neighborCluster
+   * @param neighborID
+   * @param neighborPose
+   * @param var
+   */
+  void updateAuxNeighborPose(unsigned neighborCluster, unsigned neighborID,
+                             unsigned neighborPose, const Matrix &var);
 
  protected:
   // The unique ID associated to this robot
@@ -287,11 +391,14 @@ class PGOAgent {
   // Number of poses
   unsigned n;
 
+  // Parameter settings
+  const PGOAgentParameters mParams;
+
   // Current state of this agent
   PGOAgentState mState;
 
-  // Parameter settings
-  const PGOAgentParameters mParams;
+  // Current status of this agent (to be shared with others)
+  PGOAgentStatus mStatus;
 
   // Rate in Hz of the optimization loop (only used in asynchronous mode)
   double rate;
@@ -308,9 +415,8 @@ class PGOAgent {
   // Logging
   PGOLogger logger;
 
-  // Data structures needed to check termination condition
-  std::vector<double> relativeChanges;
-  std::vector<double> funcDecreases;
+  // Store status of peer agents
+  std::vector<PGOAgentStatus> mTeamStatus;
 
   // whether there is request to terminate optimization thread
   bool mFinishRequested = false;
@@ -382,9 +488,10 @@ class PGOAgent {
       f(X) = 0.5<Q, XtX> + <X, G>
    * @param Q: the quadratic data matrix that will be modified in place
    * @param G: the linear data matrix that will be modified in place
+   * @param poseDict: a Map that contains the public pose values from the neighbors
    * @return true if the data matrices are computed successfully
    */
-  bool constructCostMatrices(SparseMatrix &Q, SparseMatrix &G);
+  bool constructCostMatrices(SparseMatrix &Q, SparseMatrix &G, const PoseDict &poseDict);
 
   /**
   Optimize pose graph by calling optimize().
@@ -411,6 +518,43 @@ class PGOAgent {
   Local pose graph optimization
   */
   Matrix localPoseGraphOptimization();
+
+ private:
+  // Stores the auxiliary variables from neighbors (only used in acceleration)
+  PoseDict neighborAuxPoseDict;
+
+  // Auxiliary scalar used in acceleration
+  double gamma;
+
+  // Auxiliary scalar used in acceleration
+  double alpha;
+
+  // Auxiliary variable used in acceleration
+  Matrix Y;
+
+  // Auxiliary variable used in acceleration
+  Matrix V;
+
+  // Save previous iteration (for restarting)
+  Matrix XPrev;
+
+  void updateGamma();
+
+  void updateAlpha();
+
+  /**
+   * @brief Update X variable
+   * @param doOptimization Whether this agent is selected to perform optimization
+   * @param acceleration true to use acceleration
+   * @return true if update is successful
+   */
+  bool updateX(bool doOptimization = false, bool acceleration = false);
+
+  void updateY();
+
+  void updateV();
+
+  void resetTeamStatus();
 };
 
 }  // namespace DPGO

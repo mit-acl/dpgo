@@ -30,14 +30,12 @@ namespace DPGO {
 */
 class QuadraticProblem : public ROPTLIB::Problem {
  public:
-  /** Default constructor; doesn't actually do anything */
-  QuadraticProblem() {}
 
-  QuadraticProblem(const unsigned int nIn, const unsigned int dIn,
-                   const unsigned int rIn, const SparseMatrix& QIn,
-                   const SparseMatrix& GIn);
+  QuadraticProblem(unsigned int nIn, unsigned int dIn,
+                   unsigned int rIn, const SparseMatrix &QIn,
+                   const SparseMatrix &GIn);
 
-  virtual ~QuadraticProblem();
+  ~QuadraticProblem() override;
 
   /** Number of pose variables */
   unsigned int num_poses() const { return n; }
@@ -48,26 +46,58 @@ class QuadraticProblem : public ROPTLIB::Problem {
   /** Relaxation rank in Riemannian optimization problem */
   unsigned int relaxation_rank() const { return r; }
 
-  /** Evaluates the problem objective */
-  double f(const Matrix& Y) const;
-
-  /** Evaluates the problem objective */
-  double f(ROPTLIB::Variable* x) const;
-
-  /** Evaluates the Euclidean gradient of the function */
-  void EucGrad(ROPTLIB::Variable* x, ROPTLIB::Vector* g) const;
-
-  /** Evaluates the action of the Euclidean Hessian of the function */
-  void EucHessianEta(ROPTLIB::Variable* x, ROPTLIB::Vector* v,
-                     ROPTLIB::Vector* Hv) const;
-
-  /** Evaluates the action of the Preconditioner for the Hessian of the function
+  /**
+   * @brief Evaluate objective function
+   * @param Y
+   * @return
    */
-  void PreConditioner(ROPTLIB::Variable* x, ROPTLIB::Vector* inVec,
-                      ROPTLIB::Vector* outVec) const;
+  double f(const Matrix &Y) const;
 
-  /** Evaluate the norm of the Riemannian gradient for the given solution */
-  double gradNorm(const Matrix& Y) const;
+  /**
+   * @brief Evaluate objective function
+   * @param x
+   * @return
+   */
+  double f(ROPTLIB::Variable *x) const override;
+
+  /**
+   * @brief Evaluate Euclidean gradient
+   * @param x
+   * @param g
+   */
+  void EucGrad(ROPTLIB::Variable *x, ROPTLIB::Vector *g) const override;
+
+  /**
+   * @brief Evaluate Hessian-vector product
+   * @param x
+   * @param v
+   * @param Hv
+   */
+  void EucHessianEta(ROPTLIB::Variable *x, ROPTLIB::Vector *v,
+                     ROPTLIB::Vector *Hv) const override;
+
+  /**
+   * @brief Evaluate preconditioner
+   * @param x
+   * @param inVec
+   * @param outVec
+   */
+  void PreConditioner(ROPTLIB::Variable *x, ROPTLIB::Vector *inVec,
+                      ROPTLIB::Vector *outVec) const override;
+
+  /**
+   * @brief Compute the Riemannian gradient at Y (represented in matrix form)
+   * @param Y current point on the manifold (matrix form)
+   * @return Riemannian gradient at Y as a matrix
+   */
+  Matrix RieGrad(const Matrix &Y) const;
+
+  /**
+   * @brief Compute Riemannian gradient norm at Y
+   * @param Y current point on the manifold (matrix form)
+   * @return Norm of the Riemannian gradient
+   */
+  double RieGradNorm(const Matrix &Y) const;
 
   /** The quadratic component of the cost function */
   const SparseMatrix Q;
@@ -76,35 +106,22 @@ class QuadraticProblem : public ROPTLIB::Problem {
   const SparseMatrix G;
 
  private:
-  /** Number of poses */
-  unsigned int n = 0;
+  // Number of poses
+  const unsigned int n = 0;
 
-  /** Dimensionality of the Euclidean space */
-  unsigned int d = 0;
+  // Dimensionality of the Euclidean space
+  const unsigned int d = 0;
 
-  /** The rank of the rank-restricted relaxation */
-  unsigned int r = 0;
+  // The rank of the rank-restricted relaxation
+  const unsigned int r = 0;
 
-  /**
-  Manifold object
-  */
-  LiftedSEManifold* M;
+  // ROPTLIB objects
+  LiftedSEManifold *M;
+  LiftedSEVariable *Variable;
+  LiftedSEVector *Vector;
+  LiftedSEVector *HessianVectorProduct;
 
-  /**
-  Manifold variable
-  */
-  LiftedSEVariable* Variable;
-
-  /**
-  Tangent vectors
-  */
-  LiftedSEVector* Vector;
-
-  LiftedSEVector* HessianVectorProduct;
-
-  /**
-  Solver used by preconditioner
-  */
+  // Preconditioning solver
   Eigen::CholmodDecomposition<SparseMatrix> solver;
 };
 

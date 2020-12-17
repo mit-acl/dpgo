@@ -40,9 +40,9 @@ target_include_directories(DPGO PUBLIC
 target_link_libraries(DPGO ${CMAKE_THREAD_LIBS_INIT} roptlib ${CHOLMOD_LIBRARIES} ${SPQR_LIBRARIES} )
 
 # Build Distributed PGO example
-add_executable(distributed-example
-	examples/DistributedExample.cpp)
-target_link_libraries(distributed-example DPGO)
+add_executable(multi-robot-example
+		examples/MultiRobotExample.cpp)
+target_link_libraries(multi-robot-example DPGO)
 
 add_executable(chordal-initialization-example
 		examples/ChordalInitializationExample.cpp)

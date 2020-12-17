@@ -9,9 +9,7 @@ TEST(testDPGO, LineGraph) {
   unsigned int d, r;
   d = 3;
   r = 3;
-  ROPTALG algorithm = ROPTALG::RTR;
-  bool verbose = false;
-  PGOAgentParameters options(d, r, 1, algorithm, verbose);
+  PGOAgentParameters options(d, r, 1);
 
   Matrix R = Matrix::Identity(d, d);
   Matrix t = Matrix::Random(d, 1);
@@ -25,7 +23,7 @@ TEST(testDPGO, LineGraph) {
     odometry.push_back(m);
   }
   agent.setPoseGraph(odometry, private_loop_closures, shared_loop_closures);
-  agent.optimize();
+  agent.iterate();
 
   ASSERT_EQ(agent.getID(), id);
   ASSERT_EQ(agent.getCluster(), id);
