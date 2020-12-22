@@ -168,64 +168,49 @@ void PGOAgent::setPoseGraph(
 }
 
 void PGOAgent::addOdometry(const RelativeSEMeasurement &factor) {
+  assert(mState != PGOAgentState::INITIALIZED);
   // check that this is a odometry measurement
   assert(factor.r1 == mID);
   assert(factor.r2 == mID);
-  assert(factor.p1 == n - 1);
-  assert(factor.p2 == n);
+  assert(factor.p1 + 1 == factor.p2);
   assert(factor.R.rows() == d && factor.R.cols() == d);
   assert(factor.t.rows() == d && factor.t.cols() == 1);
 
-  lock_guard<mutex> tLock(mPosesMutex);
-  lock_guard<mutex> nLock(mNeighborPosesMutex);
-
-  Matrix X_ = X;
-  assert(X_.cols() == (d + 1) * n);
-  assert(X_.rows() == r);
-  X = Matrix::Zero(r, (d + 1) * (n + 1));
-  X.block(0, 0, r, (d + 1) * n) = X_;
-
-  Matrix currR = X.block(0, (n - 1) * (d + 1), r, d);
-  Matrix currt = X.block(0, (n - 1) * (d + 1) + d, r, 1);
-
-  // initialize next pose by propagating odometry
-  Matrix nextR = currR * factor.R;
-  Matrix nextt = currt + currR * factor.t;
-  X.block(0, n * (d + 1), r, d) = nextR;
-  X.block(0, n * (d + 1) + d, r, 1) = nextt;
-
-  n++;
-  assert((d + 1) * n == X.cols());
+  // update number of poses
+  n = std::max(n, (unsigned) factor.p2 + 1);
 
   lock_guard<mutex> mLock(mMeasurementsMutex);
   odometry.push_back(factor);
 }
 
 void PGOAgent::addPrivateLoopClosure(const RelativeSEMeasurement &factor) {
+  assert(mState != PGOAgentState::INITIALIZED);
   assert(factor.r1 == mID);
   assert(factor.r2 == mID);
-  assert(factor.p1 < n);
-  assert(factor.p2 < n);
   assert(factor.R.rows() == d && factor.R.cols() == d);
   assert(factor.t.rows() == d && factor.t.cols() == 1);
+
+  // update number of poses
+  n = std::max(n, (unsigned) std::max(factor.p1 + 1, factor.p2 + 1));
 
   lock_guard<mutex> lock(mMeasurementsMutex);
   privateLoopClosures.push_back(factor);
 }
 
 void PGOAgent::addSharedLoopClosure(const RelativeSEMeasurement &factor) {
+  assert(mState != PGOAgentState::INITIALIZED);
   assert(factor.R.rows() == d && factor.R.cols() == d);
   assert(factor.t.rows() == d && factor.t.cols() == 1);
 
   if (factor.r1 == mID) {
-    assert(factor.p1 < n);
     assert(factor.r2 != mID);
+    n = std::max(n, (unsigned) factor.p1 + 1);
     mSharedPoses.insert(std::make_pair(mID, factor.p1));
     neighborSharedPoses.insert(std::make_pair(factor.r2, factor.p2));
     neighborAgents.insert(factor.r2);
   } else {
     assert(factor.r2 == mID);
-    assert(factor.p2 < n);
+    n = std::max(n, (unsigned) factor.p2 + 1);
     mSharedPoses.insert(std::make_pair(mID, factor.p2));
     neighborSharedPoses.insert(std::make_pair(factor.r1, factor.p1));
     neighborAgents.insert(factor.r1);
@@ -270,7 +255,6 @@ void PGOAgent::updateNeighborPose(unsigned neighborCluster, unsigned neighborID,
 
       // Halt insertion of new poses
       lock_guard<mutex> tLock(mPosesMutex);
-      assert(X.cols() == n * (d + 1));
 
       // Halt insertion of new measurements
       lock_guard<mutex> mLock(mMeasurementsMutex);
