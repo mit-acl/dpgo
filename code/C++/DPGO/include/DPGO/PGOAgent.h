@@ -63,14 +63,14 @@ struct PGOAgentParameters {
   // Total number of robots
   unsigned numRobots;
 
+  // Riemannian optimization algorithm used when solving local subproblem
+  ROPTALG algorithm;
+
   // Use Nesterov acceleration
   bool acceleration;
 
   // Interval for fixed (periodic) restart
   unsigned restartInterval;
-
-  // Riemannian optimization algorithm used when solving local subproblem
-  ROPTALG algorithm;
 
   // Maximum number of global iterations
   unsigned maxNumIters;
@@ -89,11 +89,13 @@ struct PGOAgentParameters {
 
   // Default constructor
   PGOAgentParameters(unsigned dIn, unsigned rIn, unsigned numRobotsIn = 1,
-                     bool accel = false, unsigned restartInt = 100, ROPTALG algorithmIn = ROPTALG::RTR,
+                     ROPTALG algorithmIn = ROPTALG::RTR,
+                     bool accel = false, unsigned restartInt = 30,
                      unsigned maxIters = 500, double changeTol = 5e-3,
                      bool v = false, bool log = false, std::string logDir = "")
       : d(dIn), r(rIn), numRobots(numRobotsIn),
-        acceleration(accel), restartInterval(restartInt), algorithm(algorithmIn),
+        algorithm(algorithmIn),
+        acceleration(accel), restartInterval(restartInt),
         maxNumIters(maxIters), relChangeTol(changeTol),
         verbose(v), logData(log), logDirectory(std::move(logDir)) {}
 
