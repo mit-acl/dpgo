@@ -54,7 +54,6 @@ int main(int argc, char **argv) {
   n = num_poses;
   r = 5;
   bool acceleration = true;
-  unsigned restartInterval = 50;
   unsigned numIters = 1000;
 
   // Construct the centralized problem (used for evaluation)
@@ -125,7 +124,8 @@ int main(int argc, char **argv) {
   */
   vector<PGOAgent *> agents;
   for (unsigned robot = 0; robot < (unsigned) num_robots; ++robot) {
-    PGOAgentParameters options(d, r, num_robots, acceleration, restartInterval);
+    PGOAgentParameters options(d, r, num_robots);
+    options.acceleration = acceleration;
     std::cout << options << std::endl;
 
     auto *agent = new PGOAgent(robot, options);
@@ -143,38 +143,17 @@ int main(int argc, char **argv) {
   }
 
   /**
-  ###########################################
-  Initialization Loop
-  ###########################################
+  ##########################################################################################
+  For this demo, we initialize each robot's estimate from the centralized chordal relaxation
+  ##########################################################################################
   */
-  while (true) {
-    for (auto *robotTx : agents) {
-      PoseDict sharedPoses;
-      if (!robotTx->getSharedPoseDict(sharedPoses)) {
-        continue;
-      }
-      for (auto *robotRx : agents) {
-        if (robotTx->getID() != robotRx->getID()) {
-          for (auto &sharedPose : sharedPoses) {
-            PoseID nID = sharedPose.first;
-            Matrix var = sharedPose.second;
-            unsigned agentID = get<0>(nID);
-            unsigned localID = get<1>(nID);
-            robotRx->updateNeighborPose(0, agentID, localID, var);
-          }
-        }
-      }
-    }
-    bool Initialized = true;
-    for (auto *robotPtr : agents) {
-      if (robotPtr->getState() != PGOAgentState::INITIALIZED) {
-        Initialized = false;
-        break;
-      }
-    }
-    if (Initialized) {
-      break;
-    }
+  Matrix TChordal = chordalInitialization(d, n, dataset);
+  Matrix XChordal = fixedStiefelVariable(d, r) * TChordal; // Lift estimate to the correct relaxation rank
+  for (unsigned robot = 0; robot < (unsigned) num_robots; ++robot) {
+    unsigned startIdx = robot * num_poses_per_robot;
+    unsigned endIdx = (robot + 1) * num_poses_per_robot;  // non-inclusive
+    if (robot == (unsigned) num_robots - 1) endIdx = n;
+    agents[robot]->setX(XChordal.block(0, startIdx * (d + 1), r, (endIdx - startIdx) * (d + 1)));
   }
 
   /**
