@@ -427,6 +427,7 @@ void PGOAgent::reset() {
     Matrix T;
     if (getTrajectoryInGlobalFrame(T)) {
       logger.logTrajectory(dimension(), num_poses(), T, "trajectory_optimized.csv");
+      std::cout << "Saved optimized trajectory to " << mParams.logDirectory << std::endl;
     }
 
     // Save solution before rounding
@@ -454,6 +455,10 @@ void PGOAgent::reset() {
   neighborAgents.clear();
   resetTeamStatus();
 
+  mOptimizationRequested = false;
+  mPublishPublicPosesRequested = false;
+  mPublishWeightsRequested = false;
+
   n = 1;
   X = Matrix::Zero(r, d + 1);
   X.block(0, 0, d, d) = Matrix::Identity(d, d);
@@ -471,6 +476,8 @@ void PGOAgent::iterate(bool doOptimization) {
       logger.logTrajectory(dimension(), num_poses(), T, "trajectory_early_stop.csv");
     }
   }
+
+  // TODO: Update measurement weights (GNC)
 
   // Perform iteration
   if (mState == PGOAgentState::INITIALIZED) {
@@ -507,7 +514,11 @@ void PGOAgent::iterate(bool doOptimization) {
       success = updateX(doOptimization, false);
     }
 
-    // Update status
+    // In acceleration mode, agent's estimate changes at every iteration
+    if (mParams.acceleration) {
+      mPublishPublicPosesRequested = true;
+    }
+
     if (doOptimization) {
       mStatus.agentID = getID();
       mStatus.state = getState();
@@ -529,6 +540,9 @@ bool PGOAgent::constructCostMatrices(SparseMatrix &Q, SparseMatrix &G, const Pos
   Q = constructConnectionLaplacianSE(privateMeasurements);
 
   for (auto m : sharedMeasurements) {
+    double kappa = m.weight * m.kappa;
+    double tau = m.weight * m.tau;
+
     // Construct relative SE matrix in homogeneous form
     Matrix T = Matrix::Zero(d + 1, d + 1);
     T.block(0, 0, d, d) = m.R;
@@ -538,9 +552,9 @@ bool PGOAgent::constructCostMatrices(SparseMatrix &Q, SparseMatrix &G, const Pos
     // Construct aggregate weight matrix
     Matrix Omega = Matrix::Zero(d + 1, d + 1);
     for (unsigned row = 0; row < d; ++row) {
-      Omega(row, row) = m.kappa;
+      Omega(row, row) = kappa;
     }
-    Omega(d, d) = m.tau;
+    Omega(d, d) = tau;
 
     if (m.r1 == mID) {
       // First pose belongs to this robot
@@ -644,7 +658,7 @@ void PGOAgent::runOptimizationLoop() {
     iterate(true);
 
     // Check if finish requested
-    if (mFinishRequested) {
+    if (mEndLoopRequested) {
       break;
     }
   }
@@ -653,7 +667,7 @@ void PGOAgent::runOptimizationLoop() {
 void PGOAgent::endOptimizationLoop() {
   if (!isOptimizationRunning()) return;
 
-  mFinishRequested = true;
+  mEndLoopRequested = true;
 
   // wait for thread to finish
   mOptimizationThread->join();
@@ -662,7 +676,7 @@ void PGOAgent::endOptimizationLoop() {
 
   mOptimizationThread = nullptr;
 
-  mFinishRequested = false;  // reset request flag
+  mEndLoopRequested = false;  // reset request flag
 
   if (mParams.verbose)
     std::cout << "Agent " << mID << " optimization thread exited. " << std::endl;
@@ -742,23 +756,24 @@ bool PGOAgent::shouldTerminate() {
     return true;
   }
 
-  // terminate if all agents satisfy relative change condition
-  bool relative_change_reached = true;
   for (size_t robot = 0; robot < mParams.numRobots; ++robot) {
     PGOAgentStatus robotStatus = mTeamStatus[robot];
-    if (robotStatus.agentID != robot ||
-        !robotStatus.optimizationSuccess ||
-        robotStatus.relativeChange > mParams.relChangeTol) {
-      relative_change_reached = false;
-      break;
+    assert(robotStatus.agentID == robot);
+    if (robotStatus.state != PGOAgentState::INITIALIZED) {
+      return false;
     }
   }
-  if (relative_change_reached) {
-    std::cout << "Reached relative change stopping condition." << std::endl;
-    return true;
+
+  // Check if all agents reached relative change tolerance
+  for (size_t robot = 0; robot < mParams.numRobots; ++robot) {
+    PGOAgentStatus robotStatus = mTeamStatus[robot];
+    if (!robotStatus.optimizationSuccess ||
+        robotStatus.relativeChange > mParams.relChangeTol) {
+      return false;
+    }
   }
 
-  return false;
+  return true;
 }
 
 bool PGOAgent::shouldRestart() {

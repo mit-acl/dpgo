@@ -72,6 +72,12 @@ struct PGOAgentParameters {
   // Interval for fixed (periodic) restart
   unsigned restartInterval;
 
+  // Use Graduated Non-Convexity
+  bool GNC;
+
+  // Interval for GNC weight updates
+  unsigned GNCWeightUpdateInterval;
+
   // Maximum number of global iterations
   unsigned maxNumIters;
 
@@ -91,11 +97,13 @@ struct PGOAgentParameters {
   PGOAgentParameters(unsigned dIn, unsigned rIn, unsigned numRobotsIn = 1,
                      ROPTALG algorithmIn = ROPTALG::RTR,
                      bool accel = false, unsigned restartInt = 30,
+                     bool gnc = false, unsigned gncInt = 30,
                      unsigned maxIters = 500, double changeTol = 5e-3,
                      bool v = false, bool log = false, std::string logDir = "")
       : d(dIn), r(rIn), numRobots(numRobotsIn),
         algorithm(algorithmIn),
         acceleration(accel), restartInterval(restartInt),
+        GNC(gnc), GNCWeightUpdateInterval(gncInt),
         maxNumIters(maxIters), relChangeTol(changeTol),
         verbose(v), logData(log), logDirectory(std::move(logDir)) {}
 
@@ -107,6 +115,8 @@ struct PGOAgentParameters {
     os << "Number of robots: " << params.numRobots << std::endl;
     os << "Use Nesterov acceleration: " << params.acceleration << std::endl;
     os << "Fixed restart interval: " << params.restartInterval << std::endl;
+    os << "Use Graduated Non-Convexity: " << params.GNC << std::endl;
+    os << "GNC weight update interval: " << params.GNCWeightUpdateInterval << std::endl;
     os << "Local optimization algorithm: " << params.algorithm << std::endl;
     os << "Max iterations: " << params.maxNumIters << std::endl;
     os << "Relative change tol: " << params.relChangeTol << std::endl;
@@ -189,7 +199,7 @@ class PGOAgent {
   /**
   Reset this agent to have empty pose graph
   */
-  void reset();
+  virtual void reset();
 
   /**
    * @brief Reset variables used in Nesterov acceleration
@@ -244,6 +254,8 @@ class PGOAgent {
   inline PGOAgentStatus getStatus() {
     mStatus.agentID = getID();
     mStatus.state = getState();
+    mStatus.instanceNumber = instance_number();
+    mStatus.iterationNumber = iteration_number();
     return mStatus;
   }
 
@@ -420,8 +432,17 @@ class PGOAgent {
   // Store status of peer agents
   std::vector<PGOAgentStatus> mTeamStatus;
 
-  // whether there is request to terminate optimization thread
-  bool mFinishRequested = false;
+  // Request to perform single local optimization step
+  bool mOptimizationRequested = false;
+
+  // Request to publish public poses
+  bool mPublishPublicPosesRequested = false;
+
+  // Request to publish measurement weights
+  bool mPublishWeightsRequested = false;
+
+  // Request to terminate optimization thread
+  bool mEndLoopRequested = false;
 
   // Solution before rounding
   Matrix X;

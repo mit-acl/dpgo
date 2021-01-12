@@ -43,7 +43,7 @@ struct RelativeSEMeasurement {
   /** Translational measurement precision */
   double tau;
 
-  /** Weight between (0,1) used in robust optimization */
+  /** Weight between (0,1) used in Graduated Non-Convexity */
   double weight;
 
   /** Simple default constructor; does nothing */
@@ -77,6 +77,7 @@ struct RelativeSEMeasurement {
     os << "t: " << std::endl << measurement.t << std::endl;
     os << "Kappa: " << measurement.kappa << std::endl;
     os << "Tau: " << measurement.tau << std::endl;
+    os << "Weight: " << measurement.weight << std::endl;
 
     return os;
   }

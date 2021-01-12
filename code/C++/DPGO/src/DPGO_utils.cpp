@@ -50,6 +50,7 @@ std::vector<RelativeSEMeasurement> read_g2o_file(const std::string &filename,
 
   // A single measurement, whose values we will fill in
   DPGO::RelativeSEMeasurement measurement;
+  measurement.weight = 1.0;
 
   // A string used to contain the contents of a single line
   std::string line;
@@ -236,9 +237,9 @@ void constructOrientedConnectionIncidenceMatrixSE(
     for (size_t r = 0; r < d + 1; r++) A.insert(j * dh + r, k * dh + r) = +1;
 
     /// Assign isotropic weights in diagonal matrix
-    for (size_t r = 0; r < d; r++) diagonal[k * dh + r] = meas.kappa;
+    for (size_t r = 0; r < d; r++) diagonal[k * dh + r] = meas.weight * meas.kappa;
 
-    diagonal[k * dh + d] = meas.tau;
+    diagonal[k * dh + d] = meas.weight * meas.tau;
   }
 
   A.makeCompressed();
