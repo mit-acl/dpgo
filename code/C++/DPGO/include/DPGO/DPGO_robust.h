@@ -117,12 +117,19 @@ class GNC {
    */
   virtual double weight(double r) const = 0;
 
- protected:
+  /**
+   * @brief Return the parameter settings
+   * @return
+   */
+  GNCParameters getParams() const {return mParams;}
+
   /**
    * @brief Update the Mu parameter in GNC.
    * Exact implementation depends on robust cost functions (see Remark 5 of GNC paper)
    */
   virtual void updateMu() = 0;
+
+ protected:
 
   // Current iteration
   size_t mIterationNumber;
@@ -141,8 +148,7 @@ class GNC_TLS : public GNC {
  public:
   GNC_TLS(const GNCParameters &params);
   double weight(double r) const override;
-
- protected:
+  void resetMu();
   void updateMu() override;
 };
 

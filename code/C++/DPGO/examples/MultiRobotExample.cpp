@@ -126,7 +126,6 @@ int main(int argc, char **argv) {
   for (unsigned robot = 0; robot < (unsigned) num_robots; ++robot) {
     PGOAgentParameters options(d, r, num_robots);
     options.acceleration = acceleration;
-    std::cout << options << std::endl;
 
     auto *agent = new PGOAgent(robot, options);
 

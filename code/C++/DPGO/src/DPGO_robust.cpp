@@ -65,8 +65,7 @@ double MEstimatorTruncatedL2::weight(double x) const {
 
 GNC_TLS::GNC_TLS(const GNCParameters &params) : GNC(params) {
   // For TLS, initialize set Mu to be close to zero
-  // TODO: proper distributed initialization of Mu
-  mu = 0.1;
+  resetMu();
 }
 
 double GNC_TLS::weight(double r) const {
@@ -84,8 +83,15 @@ double GNC_TLS::weight(double r) const {
   }
 }
 
+void GNC_TLS::resetMu() {
+  // TODO: proper initialization of Mu in distributed setting
+  mu = 0.05;
+}
+
 void GNC_TLS::updateMu() {
   mIterationNumber++ ;
-  mu = mParams.muStep * mu;
+  if (mIterationNumber < mParams.maxIters) {
+    mu = mParams.muStep * mu;
+  }
 }
 }  // namespace DPGO

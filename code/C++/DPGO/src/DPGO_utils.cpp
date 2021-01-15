@@ -88,7 +88,7 @@ std::vector<RelativeSEMeasurement> read_g2o_file(const std::string &filename,
 
       // Extract formatted output
       strstrm >> i >> j >> dx >> dy >> dtheta >> I11 >> I12 >> I13 >> I22 >>
-          I23 >> I33;
+              I23 >> I33;
 
       // Fill in elements of this measurement
 
@@ -126,8 +126,8 @@ std::vector<RelativeSEMeasurement> read_g2o_file(const std::string &filename,
 
       // Extract formatted output
       strstrm >> i >> j >> dx >> dy >> dz >> dqx >> dqy >> dqz >> dqw >> I11 >>
-          I12 >> I13 >> I14 >> I15 >> I16 >> I22 >> I23 >> I24 >> I25 >> I26 >>
-          I33 >> I34 >> I35 >> I36 >> I44 >> I45 >> I46 >> I55 >> I56 >> I66;
+              I12 >> I13 >> I14 >> I15 >> I16 >> I22 >> I23 >> I24 >> I25 >> I26 >>
+              I33 >> I34 >> I35 >> I36 >> I44 >> I45 >> I46 >> I55 >> I56 >> I66;
 
       // Fill in elements of the measurement
 
@@ -257,7 +257,7 @@ SparseMatrix constructConnectionLaplacianSE(
 }
 
 void constructBMatrices(const std::vector<RelativeSEMeasurement> &measurements, SparseMatrix &B1,
-                          SparseMatrix &B2, SparseMatrix &B3) {
+                        SparseMatrix &B2, SparseMatrix &B3) {
   // Clear input matrices
   B1.setZero();
   B2.setZero();
@@ -348,7 +348,7 @@ void constructBMatrices(const std::vector<RelativeSEMeasurement> &measurements, 
 Matrix chordalInitialization(
     size_t dimension, size_t num_poses,
     const std::vector<RelativeSEMeasurement> &measurements) {
-    SparseMatrix B1, B2, B3;
+  SparseMatrix B1, B2, B3;
   constructBMatrices(measurements, B1, B2, B3);
 
   // Recover rotations
@@ -359,7 +359,7 @@ Matrix chordalInitialization(
 
   SparseMatrix B3red = B3.rightCols((num_poses - 1) * d2);
   B3red.makeCompressed();  // Must be in compressed format to use
-                           // Eigen::SparseQR!
+  // Eigen::SparseQR!
 
   // Vectorization of I_d
   Eigen::MatrixXd Id = Eigen::MatrixXd::Identity(d, d);
@@ -400,7 +400,7 @@ Matrix recoverTranslations(const SparseMatrix &B1, const SparseMatrix &B2,
   unsigned int n = R.cols() / d;
 
   // Vectorization of R matrix
-  Eigen::Map<Eigen::VectorXd> rvec((double *)R.data(), d * d * n);
+  Eigen::Map<Eigen::VectorXd> rvec((double *) R.data(), d * d * n);
 
   // Form the matrix comprised of the right (n-1) block columns of B1
   SparseMatrix B1red = B1.rightCols(d * (n - 1));
@@ -439,7 +439,7 @@ Matrix projectToRotationGroup(const Matrix &M) {
   }
 }
 
-Matrix projectToStiefelManifold(const Matrix& M) {
+Matrix projectToStiefelManifold(const Matrix &M) {
   size_t r = M.rows();
   size_t d = M.cols();
   assert(r >= d);
@@ -451,7 +451,17 @@ Matrix fixedStiefelVariable(unsigned d, unsigned r) {
   std::srand(1);
   ROPTLIB::StieVariable var(r, d);
   var.RandInManifold();
-  return Eigen::Map<Matrix>((double *)var.ObtainReadData(), r, d);
+  return Eigen::Map<Matrix>((double *) var.ObtainReadData(), r, d);
+}
+
+double computeWhitenedResidual(const RelativeSEMeasurement &m,
+                               const Matrix &R1, const Matrix &t1,
+                               const Matrix &R2, const Matrix &t2) {
+  double rotationErrorSq = (R1 * m.R - R2).squaredNorm();
+  double translationErrorSq = (t2 - t1 - R1 * m.t).squaredNorm();
+  double expectedErrorSq = (1.0 / m.kappa) + ( (double) m.t.rows() / m.tau);
+  double whitenedErrorSq = (rotationErrorSq + translationErrorSq) / expectedErrorSq;
+  return std::sqrt(whitenedErrorSq);
 }
 
 }  // namespace DPGO

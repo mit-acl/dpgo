@@ -10,6 +10,7 @@
 
 #include <DPGO/DPGO_types.h>
 #include <DPGO/PGOLogger.h>
+#include <DPGO/DPGO_robust.h>
 #include <DPGO/RelativeSEMeasurement.h>
 #include <DPGO/manifold/LiftedSEManifold.h>
 #include <DPGO/manifold/LiftedSEVariable.h>
@@ -22,6 +23,7 @@
 #include <thread>
 #include <utility>
 #include <vector>
+#include <stdexcept>
 #include <optional>
 
 #include "Manifolds/Element.h"
@@ -75,8 +77,11 @@ struct PGOAgentParameters {
   // Use Graduated Non-Convexity
   bool GNC;
 
-  // Interval for GNC weight updates
+  // Settings of GNC
   unsigned GNCWeightUpdateInterval;
+  unsigned GNCMaxNumIters;
+  double GNCBarcSq;
+  double GNCMuStep;
 
   // Maximum number of global iterations
   unsigned maxNumIters;
@@ -98,12 +103,14 @@ struct PGOAgentParameters {
                      ROPTALG algorithmIn = ROPTALG::RTR,
                      bool accel = false, unsigned restartInt = 30,
                      bool gnc = false, unsigned gncInt = 30,
+                     unsigned gncMaxIters = 100, double gncBarcSq = 1.0, double gncMuStep = 1.4,
                      unsigned maxIters = 500, double changeTol = 5e-3,
                      bool v = false, bool log = false, std::string logDir = "")
       : d(dIn), r(rIn), numRobots(numRobotsIn),
         algorithm(algorithmIn),
         acceleration(accel), restartInterval(restartInt),
         GNC(gnc), GNCWeightUpdateInterval(gncInt),
+        GNCMaxNumIters(gncMaxIters), GNCBarcSq(gncBarcSq), GNCMuStep(gncMuStep),
         maxNumIters(maxIters), relChangeTol(changeTol),
         verbose(v), logData(log), logDirectory(std::move(logDir)) {}
 
@@ -339,6 +346,12 @@ class PGOAgent {
   bool shouldRestart();
 
   /**
+   * @brief Restart Nesterov acceleration sequence
+   * @param doOptimization true if perform optimization after restart
+   */
+  void restartNesterovAcceleration(bool doOptimization);
+
+  /**
   Initiate a new thread that runs runOptimizationLoop()
   */
   void startOptimizationLoop(double freq);
@@ -414,8 +427,11 @@ class PGOAgent {
   // Current status of this agent (to be shared with others)
   PGOAgentStatus mStatus;
 
+  // Graduated Non-Convexity object
+  GNC_TLS mGNC;
+
   // Rate in Hz of the optimization loop (only used in asynchronous mode)
-  double rate;
+  double mRate;
 
   // Current PGO instance
   unsigned mInstanceNumber;
@@ -427,7 +443,7 @@ class PGOAgent {
   unsigned mNumPosesReceived;
 
   // Logging
-  PGOLogger logger;
+  PGOLogger mLogger;
 
   // Store status of peer agents
   std::vector<PGOAgentStatus> mTeamStatus;
@@ -489,7 +505,7 @@ class PGOAgent {
   thread *mOptimizationThread = nullptr;
 
   /**
-  Add an odometric measurement of this robot.
+  Add an odometry measurement of this robot.
   This function automatically initialize the new pose, by propagating odometry
   */
   void addOdometry(const RelativeSEMeasurement &factor);
@@ -523,14 +539,25 @@ class PGOAgent {
   void runOptimizationLoop();
 
   /**
-   * @brief Find a shared loop closure based on neighboring robot's ID and pose
+   * @brief Find and return any shared measurement with the specified neighbor pose
    * @param neighborID
    * @param neighborPose
-   * @param mOut
    * @return
    */
-  bool findSharedLoopClosure(unsigned neighborID, unsigned neighborPose,
-                             RelativeSEMeasurement &mOut);
+  RelativeSEMeasurement &findSharedLoopClosureWithNeighbor(unsigned neighborID, unsigned neighborPose);
+
+  /**
+   * @brief Find and return the specified shared measurement
+   * @param srcRobotID
+   * @param srcPoseID
+   * @param dstRobotID
+   * @param dstPoseID
+   * @return
+   */
+  RelativeSEMeasurement &findSharedLoopClosure(unsigned srcRobotID,
+                                               unsigned srcPoseID,
+                                               unsigned dstRobotID,
+                                               unsigned dstPoseID);
 
   /**
   Local chordal initialization
@@ -541,6 +568,17 @@ class PGOAgent {
   Local pose graph optimization
   */
   Matrix localPoseGraphOptimization();
+
+  /**
+   * @brief Return true if should update loop closure weights
+   * @return bool
+   */
+  bool shouldUpdateLoopClosureWeights();
+
+  /**
+   * @brief Update loop closure weights.
+   */
+  void updateLoopClosuresWeights();
 
  private:
   // Stores the auxiliary variables from neighbors (only used in acceleration)
