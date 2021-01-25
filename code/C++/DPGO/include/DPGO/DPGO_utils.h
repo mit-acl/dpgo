@@ -94,6 +94,15 @@ double computeWhitenedResidual(const RelativeSEMeasurement &m,
                                const Matrix &R1, const Matrix &t1,
                                const Matrix &R2, const Matrix &t2);
 
+/**
+ * @brief Quantile of chi-squared distribution with given degrees of freedom at probability alpha.
+ * Equivalent to chi2inv in Matlab.
+ * @param quantile
+ * @param dof
+ * @return
+ */
+double chi2inv(double quantile, size_t dof);
+
 }  // namespace DPGO
 
 #endif

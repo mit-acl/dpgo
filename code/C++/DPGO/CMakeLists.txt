@@ -8,12 +8,15 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -march=native")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -pthread -O3")
 
 find_package(Threads REQUIRED)
+find_package(Boost)
 
 message(STATUS "CMAKE_MODULE_PATH: " ${CMAKE_MODULE_PATH})
+message(STATUS "Boost version: " ${Boost_VERSION_STRING})
 
 set(EXTERNAL_INCLUDES
 	${CHOLMOD_INCLUDES}
 	${EIGEN3_INCLUDE_DIR}
+	${Boost_INCLUDE_DIRS}
 	CACHE INTERNAL "")
 
 add_library(DPGO SHARED
@@ -38,7 +41,7 @@ target_include_directories(DPGO PUBLIC
 	$<INSTALL_INTERFACE:${DPGO_INSTALL_INCLUDEDIR}/DPGO>
 	)
 
-target_link_libraries(DPGO ${CMAKE_THREAD_LIBS_INIT} roptlib ${CHOLMOD_LIBRARIES} ${SPQR_LIBRARIES} )
+target_link_libraries(DPGO ${CMAKE_THREAD_LIBS_INIT} roptlib ${CHOLMOD_LIBRARIES} ${SPQR_LIBRARIES} ${Boost_LIBRARIES})
 
 # Build Distributed PGO example
 add_executable(multi-robot-example

@@ -14,6 +14,7 @@
 #include <iostream>
 #include <random>
 #include <cassert>
+#include <boost/math/distributions/chi_squared.hpp>
 
 namespace DPGO {
 
@@ -462,6 +463,11 @@ double computeWhitenedResidual(const RelativeSEMeasurement &m,
   double expectedErrorSq = (1.0 / m.kappa) + ( (double) m.t.rows() / m.tau);
   double whitenedErrorSq = (rotationErrorSq + translationErrorSq) / expectedErrorSq;
   return std::sqrt(whitenedErrorSq);
+}
+
+double chi2inv(double quantile, size_t dof) {
+  boost::math::chi_squared_distribution<double> chi2(dof);
+  return boost::math::quantile(chi2, quantile);
 }
 
 }  // namespace DPGO
