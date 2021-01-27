@@ -80,7 +80,7 @@ struct PGOAgentParameters {
 
   // Specific settings of GNC
   unsigned GNCMaxNumIters;
-  double GNCBarcSq;
+  double GNCBarc;
   double GNCMuStep;
 
   // Maximum number of global iterations
@@ -103,14 +103,14 @@ struct PGOAgentParameters {
                      ROPTALG algorithmIn = ROPTALG::RTR,
                      bool accel = false, unsigned restartInt = 30,
                      RobustCostType costType = RobustCostType::L2, unsigned weightInt = 30,
-                     unsigned gncMaxIters = 100, double gncBarcSq = 10, double gncMuStep = 1.4,
+                     unsigned gncMaxIters = 100, double gncBarc = 10, double gncMuStep = 1.4,
                      unsigned maxIters = 500, double changeTol = 5e-3,
                      bool v = false, bool log = false, std::string logDir = "")
       : d(dIn), r(rIn), numRobots(numRobotsIn),
         algorithm(algorithmIn),
         acceleration(accel), restartInterval(restartInt),
         robustCostType(costType), weightUpdateInterval(weightInt),
-        GNCMaxNumIters(gncMaxIters), GNCBarcSq(gncBarcSq), GNCMuStep(gncMuStep),
+        GNCMaxNumIters(gncMaxIters), GNCBarc(gncBarc), GNCMuStep(gncMuStep),
         maxNumIters(maxIters), relChangeTol(changeTol),
         verbose(v), logData(log), logDirectory(std::move(logDir)) {}
 
@@ -122,9 +122,9 @@ struct PGOAgentParameters {
     os << "Number of robots: " << params.numRobots << std::endl;
     os << "Use Nesterov acceleration: " << params.acceleration << std::endl;
     os << "Fixed restart interval: " << params.restartInterval << std::endl;
-    os << "Robust cost function: " << params.robustCostType << std::endl;
+    os << "Robust cost function: " << RobustCostNames[params.robustCostType] << std::endl;
     os << "Weight update interval: " << params.weightUpdateInterval << std::endl;
-    os << "GNC threshold: " << params.GNCBarcSq << std::endl;
+    os << "GNC threshold: " << params.GNCBarc << std::endl;
     os << "Local optimization algorithm: " << params.algorithm << std::endl;
     os << "Max iterations: " << params.maxNumIters << std::endl;
     os << "Relative change tol: " << params.relChangeTol << std::endl;

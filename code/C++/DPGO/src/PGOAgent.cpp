@@ -43,7 +43,7 @@ PGOAgent::PGOAgent(unsigned ID, const PGOAgentParameters &params)
   if (params.robustCostType == RobustCostType::GNC_TLS) {
     mRobustCost.setGNCMaxIteration(params.GNCMaxNumIters);
     mRobustCost.setGNCMuStep(params.GNCMuStep);
-    mRobustCost.setGNCThreshold(params.GNCBarcSq);
+    mRobustCost.setGNCThreshold(params.GNCBarc);
   }
 
   // Initialize X
@@ -490,7 +490,7 @@ void PGOAgent::iterate(bool doOptimization) {
   // Update measurement weights (GNC)
   if (shouldUpdateLoopClosureWeights()) {
     updateLoopClosuresWeights();
-    mRobustCost.updateGNCmu();
+    mRobustCost.update();
     // Reset acceleration
     if (mParams.acceleration) restartNesterovAcceleration(false);
   }
@@ -943,12 +943,12 @@ void PGOAgent::updateLoopClosuresWeights() {
     Matrix p1 = X.block(0, m.p1 * (d + 1) + d, r, 1);
     Matrix Y2 = X.block(0, m.p2 * (d + 1), r, d);
     Matrix p2 = X.block(0, m.p2 * (d + 1) + d, r, 1);
-    double rSq = computeMeasurementError(m, Y1, p1, Y2, p2);
-    double weight = mRobustCost.weight(rSq);
+    double residual = std::sqrt(computeMeasurementError(m, Y1, p1, Y2, p2));
+    double weight = mRobustCost.weight(residual);
     m.weight = weight;
     if (mParams.verbose) {
-      printf("Agent %u update edge: (%zu, %zu) -> (%zu, %zu), rSq = %f, weight = %f \n",
-             getID(), m.r1, m.p1, m.r2, m.p2, rSq, weight);
+      printf("Agent %u update edge: (%zu, %zu) -> (%zu, %zu), residual = %f, weight = %f \n",
+             getID(), m.r1, m.p1, m.r2, m.p2, residual, weight);
     }
   }
 
@@ -987,12 +987,12 @@ void PGOAgent::updateLoopClosuresWeights() {
       Y1 = X1.block(0, 0, r, d);
       p1 = X1.block(0, d, r, 1);
     }
-    double rSq = computeMeasurementError(m, Y1, p1, Y2, p2);
-    double weight = mRobustCost.weight(rSq);
+    double residual = std::sqrt(computeMeasurementError(m, Y1, p1, Y2, p2));
+    double weight = mRobustCost.weight(residual);
     m.weight = weight;
     if (mParams.verbose) {
-      printf("Agent %u update edge: (%zu, %zu) -> (%zu, %zu), rSq = %f, weight = %f \n",
-             getID(), m.r1, m.p1, m.r2, m.p2, rSq, weight);
+      printf("Agent %u update edge: (%zu, %zu) -> (%zu, %zu), residual = %f, weight = %f \n",
+             getID(), m.r1, m.p1, m.r2, m.p2, residual, weight);
     }
   }
   mPublishWeightsRequested = true;

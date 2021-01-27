@@ -18,18 +18,15 @@ namespace DPGO {
  * @brief A list of supported robust cost functions
  */
 enum RobustCostType {
-  // L2 cost
-  L2,
-
-  // Truncated Least Squares
-  TLS,
-
-  // Huber
-  Huber,
-
-  // Graduated Non-Convexity (GNC) with truncated least squares (TLS)
-  GNC_TLS,
+  L2, // L2 (least squares)
+  L1, // L1
+  TLS, // truncated least squares
+  Huber, // Huber loss
+  GM, // Geman-McClure
+  GNC_TLS, // Graduated Non-Convexity (GNC) with truncated least squares (TLS)
 };
+
+const std::vector<std::string> RobustCostNames{"L2", "L1", "TLS", "Huber", "GM", "GNC_TLS"};
 
 /**
  * @brief Implementation of robust cost functions.
@@ -47,10 +44,10 @@ class RobustCost {
 
   /**
    * @brief Compute measurement weight given current residual
-   * @param rSq squared residual
+   * @param r residual (unsquared)
    * @return weight
    */
-  double weight(double rSq);
+  double weight(double r);
 
   /**
    * @brief Reset the mu parameter in GNC
@@ -58,15 +55,15 @@ class RobustCost {
   void reset();
 
   /**
-   * @brief Update the mu parameter in GNC
+   * @brief perform some auxiliary operations (e.g., update the mu parameter when GNC is used)
    */
-  void updateGNCmu();
+  void update();
 
   /**
    * @brief Set maximum number of iterations for GNC
    * @param k
    */
-  void setGNCMaxIteration(size_t k) { mGNCMaxIters = k; }
+  void setGNCMaxIteration(size_t k) { mGNCMaxIterations = k; }
 
   /**
    * @brief Set GNC thresholds based on the quantile of chi-squared distribution
@@ -76,14 +73,18 @@ class RobustCost {
   void setGNCThresholdAtQuantile(double quantile, size_t dimension) {
     assert(dimension == 2 || dimension == 3);
     assert(quantile > 0 && quantile < 1);
-    mGNCBarcSq = chi2inv(quantile, dimension + 1);
-    printf("Set GNC threshold at %f\n", mGNCBarcSq);
+    mGNCBarc = std::sqrt(chi2inv(quantile, dimension + 1));
+    printf("Set GNC threshold at %f\n", mGNCBarc);
   }
 
-  void setGNCThreshold(double sq) {
-    assert(sq > 0);
-    mGNCBarcSq = sq;
-    printf("Set GNC threshold at %f\n", mGNCBarcSq);
+  /**
+   * @brief Set GNC threshold (unsquared) at given value
+   * @param threshold
+   */
+  void setGNCThreshold(double threshold) {
+    assert(threshold > 0);
+    mGNCBarc = threshold;
+    printf("Set GNC threshold at %f\n", mGNCBarc);
   }
 
   /**
@@ -95,17 +96,26 @@ class RobustCost {
  private:
   RobustCostType mCostType;
 
+  // #################################################
+  // Parameters for Huber loss
+  // #################################################
+  double mHuberThreshold = 3;
+
+  // #################################################
+  // Parameters for TLS
+  // #################################################
+  double mTLSThreshold = 10;
+
+  // #################################################
   // Parameters for graduated non-convexity (GNC)
-
-  size_t mGNCMaxIters = 100;  // Maximum times to update mu
-
-  double mGNCBarcSq = 1.0; // GNC thresholds
-
+  // #################################################
+  size_t mGNCMaxIterations = 100;
+  double mGNCBarc = 10; // GNC threshold
   double mGNCMuStep = 1.4; // Factor to update mu at each GNC iteration
 
+  size_t mGNCIteration = 0; // Iteration number
   double mu = 0.05; // Mu parameter (only used in GNC)
 
-  size_t mIterationNumber = 0; // Iteration number
 
 };
 
