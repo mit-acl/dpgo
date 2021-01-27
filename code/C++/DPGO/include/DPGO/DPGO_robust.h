@@ -21,6 +21,12 @@ enum RobustCostType {
   // L2 cost
   L2,
 
+  // Truncated Least Squares
+  TLS,
+
+  // Huber
+  Huber,
+
   // Graduated Non-Convexity (GNC) with truncated least squares (TLS)
   GNC_TLS,
 };

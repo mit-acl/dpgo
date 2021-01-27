@@ -874,7 +874,7 @@ bool PGOAgent::updateX(bool doOptimization, bool acceleration) {
   }
 
   if (mParams.verbose)
-    printf("Robot %u optimize...\n", getID());
+    printf("Robot %u optimize at iteration %u... \n", getID(), iteration_number());
 
   if (acceleration)
     assert(mParams.acceleration);
