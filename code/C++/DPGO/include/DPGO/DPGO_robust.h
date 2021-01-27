@@ -9,147 +9,98 @@
 #define DPGOROBUST_H
 
 #include <iostream>
+#include <cassert>
+#include <DPGO/DPGO_utils.h>
 
 namespace DPGO {
 
 /**
- * @brief A base abstract class for M-estimators
- * Usage with different cost functions are implemented as derived classes
- *
- * Reference:
- * Zhang, "Parameter Estimation Techniques: A Tutorial with Application to Conic Fitting"
+ * @brief A list of supported robust cost functions
  */
-class MEstimator {
- public:
-  /**
-  Cost function given the residual x
-  */
-  virtual double cost(double x) const = 0;
+enum RobustCostType {
+  // L2 cost
+  L2,
 
-  /**
-  Influence function (first derivative of cost)
-  */
-  virtual double influence(double x) const = 0;
-
-  /**
-  Weight function (influence over x)
-  */
-  virtual double weight(double x) const = 0;
-};
-
-class MEstimatorCauchy : public MEstimator {
- public:
-  MEstimatorCauchy() : c(1.0) {}
-  MEstimatorCauchy(double cIn) : c(cIn) {}
-
-  double cost(double x) const override;
-  double influence(double x) const override;
-  double weight(double x) const override;
-
- private:
-  double c;
-};
-
-class MEstimatorL2 : public MEstimator {
- public:
-  double cost(double x) const override;
-  double influence(double x) const override;
-  double weight(double x) const override;
-};
-
-class MEstimatorTruncatedL2 : public MEstimator {
- public:
-  MEstimatorTruncatedL2() : c(2.0) {}
-  MEstimatorTruncatedL2(double cIn) : c(cIn) {}
-
-  double cost(double x) const override;
-  double influence(double x) const override;
-  double weight(double x) const override;
-
- private:
-  double c;
-};
-
-struct GNCParameters {
-  // Maximum number of outer iterations
-  size_t maxIters;
-
-  // A factor is considered an inlier if factor.error() < barcSq.
-  double barcSq;
-
-  // Multiplicative factor to decrease/increase mu in GNC
-  double muStep;
-
-  // Default constructor
-  GNCParameters(size_t maxIterations = 100, double barcSqIn = 1.0, double muStepIn = 1.4)
-      : maxIters(maxIterations), barcSq(barcSqIn), muStep(muStepIn) {}
-
-  inline friend std::ostream &operator<<(
-      std::ostream &os, const GNCParameters &params) {
-    os << "GNC parameters: " << std::endl;
-    os << "Max iterations: " << params.maxIters << std::endl;
-    os << "barcSq: " << params.barcSq << std::endl;
-    os << "muStep: " << params.muStep << std::endl;
-    return os;
-  }
+  // Graduated Non-Convexity (GNC) with truncated least squares (TLS)
+  GNC_TLS,
 };
 
 /**
- * @brief A base abstract class for Graduated Non-Convexity (GNC)
- * Usage with different cost functions (e.g., GM and TLS) are implemented as derived classes.
+ * @brief Implementation of robust cost functions.
  *
- * Reference:
+ * Main references:
+ * M-estimation:
+ * Zhang, "Parameter Estimation Techniques: A Tutorial with Application to Conic Fitting"
+ *
+ * Graduated Non-Convexity (GNC):
  * Yang et al. "Graduated Non-Convexity for Robust Spatial Perception: From Non-Minimal Solvers to Global Outlier Rejection"
  */
-class GNC {
+class RobustCost {
  public:
-  /**
-   * @brief Constructor of the abstract class. Note that derived class need to initialize Mu.
-   */
-  GNC(const GNCParameters &params) : mIterationNumber(0), mu(0.0), mParams(params) {}
+  RobustCost(RobustCostType costType);
 
   /**
-   * @brief Compute measurement weight given input residual
-   * Exact implementation depends on robust cost function
-   * See Proposition 3 and 4 for GM and TLS costs, respectively.
-   * @param r residual
+   * @brief Compute measurement weight given current residual
+   * @param rSq squared residual
    * @return weight
    */
-  virtual double weight(double r) const = 0;
+  double weight(double rSq);
 
   /**
-   * @brief Return the parameter settings
-   * @return
+   * @brief Reset the mu parameter in GNC
    */
-  GNCParameters getParams() const {return mParams;}
+  void reset();
 
   /**
-   * @brief Update the Mu parameter in GNC.
-   * Exact implementation depends on robust cost functions (see Remark 5 of GNC paper)
+   * @brief Update the mu parameter in GNC
    */
-  virtual void updateMu() = 0;
+  void updateGNCmu();
 
- protected:
+  /**
+   * @brief Set maximum number of iterations for GNC
+   * @param k
+   */
+  void setGNCMaxIteration(size_t k) { mGNCMaxIters = k; }
 
-  // Current iteration
-  size_t mIterationNumber;
+  /**
+   * @brief Set GNC thresholds based on the quantile of chi-squared distribution
+   * @param quantile
+   * @param dimension
+   */
+  void setGNCThresholdAtQuantile(double quantile, size_t dimension) {
+    assert(dimension == 2 || dimension == 3);
+    assert(quantile > 0 && quantile < 1);
+    mGNCBarcSq = chi2inv(quantile, dimension + 1);
+    printf("Set GNC threshold at %f\n", mGNCBarcSq);
+  }
 
-  // Parameter controlling degree of non-convexity
-  double mu;
+  void setGNCThreshold(double sq) {
+    assert(sq > 0);
+    mGNCBarcSq = sq;
+    printf("Set GNC threshold at %f\n", mGNCBarcSq);
+  }
 
-  // GNC parameters
-  GNCParameters mParams;
-};
+  /**
+   * @brief Set GNC update factor
+   * @param s
+   */
+  void setGNCMuStep(double s) { mGNCMuStep = s; }
 
-/**
- * @brief Graduated Non-Convexity using the truncated least square cost
- */
-class GNC_TLS : public GNC {
- public:
-  GNC_TLS(const GNCParameters &params);
-  double weight(double r) const override;
-  void resetMu();
-  void updateMu() override;
+ private:
+  RobustCostType mCostType;
+
+  // Parameters for graduated non-convexity (GNC)
+
+  size_t mGNCMaxIters = 100;  // Maximum times to update mu
+
+  double mGNCBarcSq = 1.0; // GNC thresholds
+
+  double mGNCMuStep = 1.4; // Factor to update mu at each GNC iteration
+
+  double mu = 0.05; // Mu parameter (only used in GNC)
+
+  size_t mIterationNumber = 0; // Iteration number
+
 };
 
 }  // namespace DPGO

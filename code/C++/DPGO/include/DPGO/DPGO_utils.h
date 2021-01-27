@@ -88,9 +88,15 @@ The returned value is guaranteed to be the same for each d and r
 Matrix fixedStiefelVariable(unsigned d, unsigned r);
 
 /**
-Compute the whitened residual of a relative measurement
-*/
-double computeWhitenedResidual(const RelativeSEMeasurement &m,
+ * @brief Compute the error term (weighted squared residual)
+ * @param m measurement
+ * @param R1 rotation of first pose
+ * @param t1 translation of first pose
+ * @param R2 rotation of second pose
+ * @param t2 translation of second pose
+ * @return
+ */
+double computeMeasurementError(const RelativeSEMeasurement &m,
                                const Matrix &R1, const Matrix &t1,
                                const Matrix &R2, const Matrix &t2);
 

@@ -455,14 +455,12 @@ Matrix fixedStiefelVariable(unsigned d, unsigned r) {
   return Eigen::Map<Matrix>((double *) var.ObtainReadData(), r, d);
 }
 
-double computeWhitenedResidual(const RelativeSEMeasurement &m,
+double computeMeasurementError(const RelativeSEMeasurement &m,
                                const Matrix &R1, const Matrix &t1,
                                const Matrix &R2, const Matrix &t2) {
   double rotationErrorSq = (R1 * m.R - R2).squaredNorm();
   double translationErrorSq = (t2 - t1 - R1 * m.t).squaredNorm();
-  double expectedErrorSq = (1.0 / m.kappa) + ( (double) m.t.rows() / m.tau);
-  double whitenedErrorSq = (rotationErrorSq + translationErrorSq) / expectedErrorSq;
-  return std::sqrt(whitenedErrorSq);
+  return m.kappa * rotationErrorSq + m.tau * translationErrorSq;
 }
 
 double chi2inv(double quantile, size_t dof) {

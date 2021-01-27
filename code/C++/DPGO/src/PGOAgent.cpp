@@ -32,12 +32,18 @@ PGOAgent::PGOAgent(unsigned ID, const PGOAgentParameters &params)
     : mID(ID), mCluster(ID), d(params.d), r(params.r), n(1),
       mParams(params), mState(PGOAgentState::WAIT_FOR_DATA),
       mStatus(ID, mState, 0, 0, false, 0),
-      mGNC(GNCParameters(params.GNCMaxNumIters, params.GNCBarcSq, params.GNCMuStep)),
+      mRobustCost(params.robustCostType),
       mInstanceNumber(0), mIterationNumber(0), mNumPosesReceived(0),
       mLogger(params.logDirectory) {
   if (mParams.verbose) {
     std::cout << mParams << std::endl;
-    std::cout << mGNC.getParams() << std::endl;
+  }
+
+  // Set GNC parameters if used
+  if (params.robustCostType == RobustCostType::GNC_TLS) {
+    mRobustCost.setGNCMaxIteration(params.GNCMaxNumIters);
+    mRobustCost.setGNCMuStep(params.GNCMuStep);
+    mRobustCost.setGNCThreshold(params.GNCBarcSq);
   }
 
   // Initialize X
@@ -457,7 +463,7 @@ void PGOAgent::reset() {
   neighborAgents.clear();
   resetTeamStatus();
 
-  mGNC.resetMu();
+  mRobustCost.reset();
 
   mOptimizationRequested = false;
   mPublishPublicPosesRequested = false;
@@ -484,7 +490,7 @@ void PGOAgent::iterate(bool doOptimization) {
   // Update measurement weights (GNC)
   if (shouldUpdateLoopClosureWeights()) {
     updateLoopClosuresWeights();
-    mGNC.updateMu();
+    mRobustCost.updateGNCmu();
     // Reset acceleration
     if (mParams.acceleration) restartNesterovAcceleration(false);
   }
@@ -922,11 +928,10 @@ void PGOAgent::resetTeamStatus() {
 }
 
 bool PGOAgent::shouldUpdateLoopClosureWeights() {
-  if (!mParams.GNC) {
-    return false;
-  } else {
-    return ((mIterationNumber + 1) % mParams.GNCWeightUpdateInterval == 0);
-  }
+  // No need to update weight if using L2 cost
+  if (mParams.robustCostType == RobustCostType::L2) return false;
+
+  return ((mIterationNumber + 1) % mParams.weightUpdateInterval == 0);
 }
 
 void PGOAgent::updateLoopClosuresWeights() {
@@ -938,12 +943,12 @@ void PGOAgent::updateLoopClosuresWeights() {
     Matrix p1 = X.block(0, m.p1 * (d + 1) + d, r, 1);
     Matrix Y2 = X.block(0, m.p2 * (d + 1), r, d);
     Matrix p2 = X.block(0, m.p2 * (d + 1) + d, r, 1);
-    double residual = computeWhitenedResidual(m, Y1, p1, Y2, p2);
-    double weight = mGNC.weight(residual);
+    double rSq = computeMeasurementError(m, Y1, p1, Y2, p2);
+    double weight = mRobustCost.weight(rSq);
     m.weight = weight;
     if (mParams.verbose) {
-      printf("Agent %u update edge: (%zu, %zu) -> (%zu, %zu), squared residual = %f, weight = %f \n",
-             getID(), m.r1, m.p1, m.r2, m.p2, residual * residual, weight);
+      printf("Agent %u update edge: (%zu, %zu) -> (%zu, %zu), rSq = %f, weight = %f \n",
+             getID(), m.r1, m.p1, m.r2, m.p2, rSq, weight);
     }
   }
 
@@ -982,12 +987,12 @@ void PGOAgent::updateLoopClosuresWeights() {
       Y1 = X1.block(0, 0, r, d);
       p1 = X1.block(0, d, r, 1);
     }
-    double residual = computeWhitenedResidual(m, Y1, p1, Y2, p2);
-    double weight = mGNC.weight(residual);
+    double rSq = computeMeasurementError(m, Y1, p1, Y2, p2);
+    double weight = mRobustCost.weight(rSq);
     m.weight = weight;
     if (mParams.verbose) {
-      printf("Agent %u update edge: (%zu, %zu) -> (%zu, %zu), squared residual = %f, weight = %f \n",
-             getID(), m.r1, m.p1, m.r2, m.p2, residual * residual, weight);
+      printf("Agent %u update edge: (%zu, %zu) -> (%zu, %zu), rSq = %f, weight = %f \n",
+             getID(), m.r1, m.p1, m.r2, m.p2, rSq, weight);
     }
   }
   mPublishWeightsRequested = true;
