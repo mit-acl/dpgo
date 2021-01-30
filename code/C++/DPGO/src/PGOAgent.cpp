@@ -713,7 +713,8 @@ Matrix PGOAgent::localPoseGraphOptimization() {
   // Initialize optimizer object
   QuadraticOptimizer optimizer(&problem);
   optimizer.setVerbose(mParams.verbose);
-  optimizer.setTrustRegionIterations(20);
+  optimizer.setTrustRegionIterations(10);
+  optimizer.setTrustRegionTolerance(1e-2);
 
   // Optimize
   Matrix Topt = optimizer.optimize(Tinit);
