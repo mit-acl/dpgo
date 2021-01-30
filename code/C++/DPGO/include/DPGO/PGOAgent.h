@@ -375,6 +375,11 @@ class PGOAgent {
   void updateAuxNeighborPose(unsigned neighborCluster, unsigned neighborID,
                              unsigned neighborPose, const Matrix &var);
 
+  /**
+  Local pose graph optimization
+  */
+  Matrix localPoseGraphOptimization();
+
  protected:
   // The unique ID associated to this robot
   unsigned mID;
@@ -513,11 +518,6 @@ class PGOAgent {
   Local chordal initialization
   */
   Matrix localChordalInitialization();
-
-  /**
-  Local pose graph optimization
-  */
-  Matrix localPoseGraphOptimization();
 
  private:
   // Stores the auxiliary variables from neighbors (only used in acceleration)

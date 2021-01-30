@@ -91,26 +91,15 @@ int main(int argc, char** argv) {
 
   /**
   ###########################################
-  Optimization loop
+  Local Pose Graph Optimization
   ###########################################
   */
 
-  unsigned numIters = 10;
-  cout << "Running optimization for " << numIters << " iterations..." << endl;
+  cout << "Running local pose graph optimization..." << endl;
+  Matrix X = agent->localPoseGraphOptimization();
 
-  for (unsigned iter = 0; iter < numIters; ++iter) {
-
-    // Performs a single iteration
-    agent->iterate();
-
-    // Get solution
-    Matrix X;
-    agent->getX(X);
-
-    // Evaluate
-    cout << "Iter = " << iter << " | "
-         << "cost = " << 2 * problemCentral.f(X) << endl;
-  }
+  // Evaluate
+  std::cout << "Cost = " << 2 * problemCentral.f(X) << endl;
 
   exit(0);
 }
