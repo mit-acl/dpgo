@@ -429,6 +429,9 @@ class PGOAgent {
   // Solution before rounding
   Matrix X;
 
+  // Quadratic cost term
+  SparseMatrix Q;
+
   // Lifting matrix shared by all agents
   std::optional<Matrix> YLift;
 
@@ -489,14 +492,19 @@ class PGOAgent {
   void addSharedLoopClosure(const RelativeSEMeasurement &factor);
 
   /**
-   * @brief Construct the cost matrices that define the local PGO problem
+  * @brief Construct the quadratic data matrix Q in the local PGO problem
+     f(X) = 0.5<Q, XtX> + <X, G>
+  */
+  void constructQMatrix();
+
+  /**
+   * @brief Construct the cost matrix G in the local PGO problem
       f(X) = 0.5<Q, XtX> + <X, G>
-   * @param Q: the quadratic data matrix that will be modified in place
    * @param G: the linear data matrix that will be modified in place
    * @param poseDict: a Map that contains the public pose values from the neighbors
-   * @return true if the data matrices are computed successfully
+   * @return true if the data matrix is computed successfully
    */
-  bool constructCostMatrices(SparseMatrix &Q, SparseMatrix &G, const PoseDict &poseDict);
+  bool constructGMatrix(SparseMatrix &G, const PoseDict &poseDict);
 
   /**
   Optimize pose graph by calling optimize().

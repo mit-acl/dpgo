@@ -165,6 +165,68 @@ void PGOAgent::setPoseGraph(
       logger.logTrajectory(dimension(), num_poses(), T, "trajectory_initial.csv");
     }
   }
+
+  constructQMatrix();
+}
+
+void PGOAgent::constructQMatrix() {
+  vector<RelativeSEMeasurement> privateMeasurements = odometry;
+  privateMeasurements.insert(privateMeasurements.end(), privateLoopClosures.begin(), privateLoopClosures.end());
+  vector<RelativeSEMeasurement> sharedMeasurements = sharedLoopClosures;
+
+  Q = constructConnectionLaplacianSE(privateMeasurements);
+
+  // Initialize relative SE matrix in homogeneous form
+  Matrix T = Matrix::Zero(d + 1, d + 1);
+
+  // Initialize aggregate weight matrix
+  Matrix Omega = Matrix::Zero(d + 1, d + 1);
+
+  for (auto m : sharedMeasurements) {
+
+    // Set relative SE matrix (homogeneous form)
+    T.block(0, 0, d, d) = m.R;
+    T.block(0, d, d, 1) = m.t;
+    T(d, d) = 1;
+
+    // Set aggregate weight matrix
+    for (unsigned row = 0; row < d; ++row) {
+      Omega(row, row) = m.kappa;
+    }
+    Omega(d, d) = m.tau;
+
+    if (m.r1 == mID) {
+      // First pose belongs to this robot
+      // Hence, this is an outgoing edge in the pose graph
+      assert(m.r2 != mID);
+
+      // Modify quadratic cost
+      size_t idx = m.p1;
+
+      Matrix W = T * Omega * T.transpose();
+
+      for (size_t col = 0; col < d + 1; ++col) {
+        for (size_t row = 0; row < d + 1; ++row) {
+          Q.coeffRef(idx * (d + 1) + row, idx * (d + 1) + col) += W(row, col);
+        }
+      }
+
+    } else {
+      // Second pose belongs to this robot
+      // Hence, this is an incoming edge in the pose graph
+      assert(m.r2 == mID);
+
+      // Modify quadratic cost
+      size_t idx = m.p2;
+
+      for (size_t col = 0; col < d + 1; ++col) {
+        for (size_t row = 0; row < d + 1; ++row) {
+          Q.coeffRef(idx * (d + 1) + row, idx * (d + 1) + col) +=
+              Omega(row, col);
+        }
+      }
+    }
+  }
 }
 
 void PGOAgent::addOdometry(const RelativeSEMeasurement &factor) {
@@ -519,16 +581,9 @@ void PGOAgent::iterate(bool doOptimization) {
   }
 }
 
-bool PGOAgent::constructCostMatrices(SparseMatrix &Q, SparseMatrix &G, const PoseDict &poseDict) {
+bool PGOAgent::constructGMatrix(SparseMatrix &G, const PoseDict &poseDict) {
 
-  vector<RelativeSEMeasurement> privateMeasurements = odometry;
-  privateMeasurements.insert(privateMeasurements.end(), privateLoopClosures.begin(), privateLoopClosures.end());
-  vector<RelativeSEMeasurement> sharedMeasurements = sharedLoopClosures;
-
-  // All private measurements appear in the quadratic term
-  Q = constructConnectionLaplacianSE(privateMeasurements);
-
-  for (auto m : sharedMeasurements) {
+  for (auto m : sharedLoopClosures) {
     // Construct relative SE matrix in homogeneous form
     Matrix T = Matrix::Zero(d + 1, d + 1);
     T.block(0, 0, d, d) = m.R;
@@ -558,13 +613,6 @@ bool PGOAgent::constructCostMatrices(SparseMatrix &Q, SparseMatrix &G, const Pos
       // Modify quadratic cost
       size_t idx = m.p1;
 
-      Matrix W = T * Omega * T.transpose();
-      for (size_t col = 0; col < d + 1; ++col) {
-        for (size_t row = 0; row < d + 1; ++row) {
-          Q.coeffRef(idx * (d + 1) + row, idx * (d + 1) + col) += W(row, col);
-        }
-      }
-
       // Modify linear cost
       Matrix L = -Xj * Omega * T.transpose();
       for (size_t col = 0; col < d + 1; ++col) {
@@ -588,13 +636,6 @@ bool PGOAgent::constructCostMatrices(SparseMatrix &Q, SparseMatrix &G, const Pos
 
       // Modify quadratic cost
       size_t idx = m.p2;
-
-      for (size_t col = 0; col < d + 1; ++col) {
-        for (size_t row = 0; row < d + 1; ++row) {
-          Q.coeffRef(idx * (d + 1) + row, idx * (d + 1) + col) +=
-              Omega(row, col);
-        }
-      }
 
       // Modify linear cost
       Matrix L = -Xi * T * Omega;
@@ -694,17 +735,13 @@ Matrix PGOAgent::localChordalInitialization() {
 }
 
 Matrix PGOAgent::localPoseGraphOptimization() {
-  std::vector<RelativeSEMeasurement> measurements = odometry;
-  measurements.insert(measurements.end(), privateLoopClosures.begin(),
-                      privateLoopClosures.end());
 
   // Compute initialization
   Matrix Tinit = localChordalInitialization();
   assert(Tinit.rows() == d);
   assert(Tinit.cols() == (d + 1) * n);
 
-  // Construct data matrices
-  SparseMatrix Q = constructConnectionLaplacianSE(measurements);
+  // Construct data matrix
   SparseMatrix G(d, (d + 1) * n);  // linear terms should be zero
 
   // Form optimization problem
@@ -822,17 +859,16 @@ bool PGOAgent::updateX(bool doOptimization, bool acceleration) {
   assert(mState == PGOAgentState::INITIALIZED);
 
   // Construct data matrices
-  SparseMatrix Q((d + 1) * n, (d + 1) * n);
   SparseMatrix G(r, (d + 1) * n);
   if (acceleration) {
-    if (!constructCostMatrices(Q, G, neighborAuxPoseDict)) {
+    if (!constructGMatrix(G, neighborAuxPoseDict)) {
       if (mParams.verbose)
         std::cout << "Could not create cost matrices from auxiliary variables! Skip optimization..."
                   << std::endl;
       return false;
     }
   } else {
-    if (!constructCostMatrices(Q, G, neighborPoseDict)) {
+    if (!constructGMatrix(G, neighborPoseDict)) {
       if (mParams.verbose)
         std::cout << "Could not create cost matrices! Skip optimization..."
                   << std::endl;
