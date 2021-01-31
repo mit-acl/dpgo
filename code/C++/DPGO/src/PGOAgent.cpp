@@ -582,6 +582,9 @@ void PGOAgent::iterate(bool doOptimization) {
 }
 
 bool PGOAgent::constructGMatrix(SparseMatrix &G, const PoseDict &poseDict) {
+  G.setZero();
+  assert(G.rows() == relaxation_rank());
+  assert(G.cols() == (dimension()+1) * num_poses());
 
   for (auto m : sharedLoopClosures) {
     // Construct relative SE matrix in homogeneous form
@@ -883,6 +886,8 @@ bool PGOAgent::updateX(bool doOptimization, bool acceleration) {
   QuadraticOptimizer optimizer(&problem);
   optimizer.setVerbose(mParams.verbose);
   optimizer.setAlgorithm(mParams.algorithm);
+  optimizer.setTrustRegionTolerance(1e-6); // Force optimizer to make progress
+  optimizer.setTrustRegionIterations(1);
 
   // Starting solution
   Matrix XInit;

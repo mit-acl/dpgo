@@ -70,7 +70,7 @@ Matrix QuadraticOptimizer::trustRegion(const Matrix& Yinit) {
   ROPTLIB::RTRNewton Solver(problem, VarInit.var());
   double initFunc = problem->f(VarInit.var());
   Solver.Stop_Criterion =
-      ROPTLIB::StopCrit::GRAD_F_0;             // Stopping criterion based on relative gradient norm
+      ROPTLIB::StopCrit::GRAD_F;               // Stopping criterion based on absolute gradient norm
   Solver.Tolerance = trustRegionTolerance;     // Tolerance associated with stopping criterion
   Solver.maximum_Delta = 1e2;                  // Maximum trust-region radius
   Solver.initial_Delta = 1e1;                  // Initial trust-region radius
@@ -82,7 +82,6 @@ Matrix QuadraticOptimizer::trustRegion(const Matrix& Yinit) {
   Solver.Max_Iteration = trustRegionIterations;
   Solver.Min_Inner_Iter = 0;
   Solver.Max_Inner_Iter = 50;
-  Solver.TimeBound = 10;
   Solver.Run();
 
   double funcDecrease = Solver.Getfinalfun() - initFunc;

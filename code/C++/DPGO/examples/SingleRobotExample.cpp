@@ -54,6 +54,7 @@ int main(int argc, char** argv) {
   n = num_poses;
   r = 5;
   PGOAgentParameters options(d, r, 1);
+  options.verbose = true;
 
   vector<RelativeSEMeasurement> odometry;
   vector<RelativeSEMeasurement> private_loop_closures;
