@@ -52,7 +52,7 @@ int main(int argc, char** argv) {
   unsigned int n, d, r;    //vector<float> PoseData;
   d = (!dataset.empty() ? dataset[0].t.size() : 0);
   n = num_poses;
-  r = 5;
+  r = d;
   PGOAgentParameters options(d, r, 1);
   options.verbose = true;
 
