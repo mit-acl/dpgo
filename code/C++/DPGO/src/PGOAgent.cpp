@@ -613,7 +613,6 @@ bool PGOAgent::constructGMatrix(SparseMatrix &G, const PoseDict &poseDict) {
       }
       Matrix Xj = KVpair->second;
 
-      // Modify quadratic cost
       size_t idx = m.p1;
 
       // Modify linear cost
@@ -637,7 +636,6 @@ bool PGOAgent::constructGMatrix(SparseMatrix &G, const PoseDict &poseDict) {
       }
       Matrix Xi = KVpair->second;
 
-      // Modify quadratic cost
       size_t idx = m.p2;
 
       // Modify linear cost
