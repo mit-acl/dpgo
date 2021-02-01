@@ -403,6 +403,16 @@ class PGOAgent {
   void updateAuxNeighborPose(unsigned neighborCluster, unsigned neighborID,
                              unsigned neighborPose, const Matrix &var);
 
+  /**
+  Local chordal initialization
+  */
+  Matrix localChordalInitialization();
+
+  /**
+  Local pose graph optimization
+  */
+  Matrix localPoseGraphOptimization();
+
  protected:
   // The unique ID associated to this robot
   unsigned mID;
@@ -464,6 +474,12 @@ class PGOAgent {
   // Solution before rounding
   Matrix X;
 
+  // Quadratic cost matrix
+  std::optional<SparseMatrix> QMatrix;
+
+  // Linear cost matrix
+  std::optional<SparseMatrix> GMatrix;
+
   // Lifting matrix shared by all agents
   std::optional<Matrix> YLift;
 
@@ -484,13 +500,13 @@ class PGOAgent {
   PoseDict neighborPoseDict;
 
   // Store the set of public poses that need to be sent to other robots
-  set<PoseID> mSharedPoses;
+  set<PoseID> localSharedPoseIDs;
 
   // Store the set of public poses needed from other robots
-  set<PoseID> neighborSharedPoses;
+  set<PoseID> neighborSharedPoseIDs;
 
   // Store the set of neighboring agents
-  set<unsigned> neighborAgents;
+  set<unsigned> neighborRobotIDs;
 
   // Implement locking to synchronize read & write of trajectory estimate
   mutex mPosesMutex;
@@ -524,14 +540,18 @@ class PGOAgent {
   void addSharedLoopClosure(const RelativeSEMeasurement &factor);
 
   /**
-   * @brief Construct the cost matrices that define the local PGO problem
+  * @brief Construct the quadratic data matrix Q in the local PGO problem
+     f(X) = 0.5<Q, XtX> + <X, G>
+  */
+  void constructQMatrix();
+
+  /**
+   * @brief Construct the cost matrix G in the local PGO problem
       f(X) = 0.5<Q, XtX> + <X, G>
-   * @param Q: the quadratic data matrix that will be modified in place
-   * @param G: the linear data matrix that will be modified in place
    * @param poseDict: a Map that contains the public pose values from the neighbors
-   * @return true if the data matrices are computed successfully
+   * @return true if the data matrix is computed successfully
    */
-  bool constructCostMatrices(SparseMatrix &Q, SparseMatrix &G, const PoseDict &poseDict);
+  bool constructGMatrix(const PoseDict &poseDict);
 
   /**
   Optimize pose graph by calling optimize().
@@ -559,16 +579,6 @@ class PGOAgent {
                                                unsigned srcPoseID,
                                                unsigned dstRobotID,
                                                unsigned dstPoseID);
-
-  /**
-  Local chordal initialization
-  */
-  Matrix localChordalInitialization();
-
-  /**
-  Local pose graph optimization
-  */
-  Matrix localPoseGraphOptimization();
 
   /**
    * @brief Return true if should update loop closure weights

@@ -48,7 +48,10 @@ QuadraticProblem::~QuadraticProblem() {
 }
 
 double QuadraticProblem::f(const Matrix &Y) const {
-  return 0.5 * (Y * Q * Y.transpose()).trace() + (Y * G.transpose()).trace();
+  assert(Y.rows() == r);
+  assert(Y.cols() == (d + 1) * n);
+  // returns 0.5 * (Y * Q * Y.transpose()).trace() + (Y * G.transpose()).trace()
+  return 0.5 * ((Y * Q).cwiseProduct(Y)).sum() + (Y.cwiseProduct(G)).sum();
 }
 
 double QuadraticProblem::f(ROPTLIB::Variable *x) const {

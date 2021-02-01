@@ -105,7 +105,7 @@ bool PGOAgent::getSharedPoseDict(PoseDict &map) {
     return false;
   map.clear();
   lock_guard<mutex> lock(mPosesMutex);
-  for (const auto &mSharedPose : mSharedPoses) {
+  for (const auto &mSharedPose : localSharedPoseIDs) {
     unsigned idx = std::get<1>(mSharedPose);
     map[mSharedPose] = X.block(0, idx * (d + 1), r, d + 1);
   }
@@ -118,7 +118,7 @@ bool PGOAgent::getAuxSharedPoseDict(PoseDict &map) {
     return false;
   map.clear();
   lock_guard<mutex> lock(mPosesMutex);
-  for (const auto &mSharedPose : mSharedPoses) {
+  for (const auto &mSharedPose : localSharedPoseIDs) {
     unsigned idx = std::get<1>(mSharedPose);
     map[mSharedPose] = Y.block(0, idx * (d + 1), r, d + 1);
   }
@@ -168,6 +168,9 @@ void PGOAgent::setPoseGraph(
       mLogger.logTrajectory(dimension(), num_poses(), T, "trajectory_initial.csv");
     }
   }
+
+  // Robot can construct the quadratic cost matrix now, as it does not depend on neighbor values
+  constructQMatrix();
 }
 
 void PGOAgent::addOdometry(const RelativeSEMeasurement &factor) {
@@ -208,15 +211,15 @@ void PGOAgent::addSharedLoopClosure(const RelativeSEMeasurement &factor) {
   if (factor.r1 == mID) {
     assert(factor.r2 != mID);
     n = std::max(n, (unsigned) factor.p1 + 1);
-    mSharedPoses.insert(std::make_pair(mID, factor.p1));
-    neighborSharedPoses.insert(std::make_pair(factor.r2, factor.p2));
-    neighborAgents.insert(factor.r2);
+    localSharedPoseIDs.insert(std::make_pair(mID, factor.p1));
+    neighborSharedPoseIDs.insert(std::make_pair(factor.r2, factor.p2));
+    neighborRobotIDs.insert(factor.r2);
   } else {
     assert(factor.r2 == mID);
     n = std::max(n, (unsigned) factor.p2 + 1);
-    mSharedPoses.insert(std::make_pair(mID, factor.p2));
-    neighborSharedPoses.insert(std::make_pair(factor.r1, factor.p1));
-    neighborAgents.insert(factor.r1);
+    localSharedPoseIDs.insert(std::make_pair(mID, factor.p2));
+    neighborSharedPoseIDs.insert(std::make_pair(factor.r1, factor.p1));
+    neighborRobotIDs.insert(factor.r1);
   }
 
   lock_guard<mutex> lock(mMeasurementsMutex);
@@ -234,7 +237,7 @@ void PGOAgent::updateNeighborPose(unsigned neighborCluster, unsigned neighborID,
   mNumPosesReceived++;
 
   // Do not store this pose if not needed
-  if (neighborSharedPoses.find(nID) == neighborSharedPoses.end()) {
+  if (neighborSharedPoseIDs.find(nID) == neighborSharedPoseIDs.end()) {
     return;
   }
 
@@ -351,7 +354,7 @@ void PGOAgent::updateAuxNeighborPose(unsigned neighborCluster, unsigned neighbor
   mNumPosesReceived++;
 
   // Do not store this pose if not needed
-  if (neighborSharedPoses.find(nID) == neighborSharedPoses.end()) return;
+  if (neighborSharedPoseIDs.find(nID) == neighborSharedPoseIDs.end()) return;
 
   // Only save poses from neighbors if this agent is initialized
   // and if the sending agent is also initialized
@@ -404,9 +407,9 @@ bool PGOAgent::getTrajectoryInGlobalFrame(Matrix &Trajectory) {
 std::vector<unsigned> PGOAgent::getNeighborPublicPoses(
     const unsigned &neighborID) const {
   // Check that neighborID is indeed a neighbor of this agent
-  assert(neighborAgents.find(neighborID) != neighborAgents.end());
+  assert(neighborRobotIDs.find(neighborID) != neighborRobotIDs.end());
   std::vector<unsigned> poseIndices;
-  for (PoseID pair : neighborSharedPoses) {
+  for (PoseID pair : neighborSharedPoseIDs) {
     if (pair.first == neighborID) {
       poseIndices.push_back(pair.second);
     }
@@ -415,8 +418,8 @@ std::vector<unsigned> PGOAgent::getNeighborPublicPoses(
 }
 
 std::vector<unsigned> PGOAgent::getNeighbors() const {
-  std::vector<unsigned> v(neighborAgents.size());
-  std::copy(neighborAgents.begin(), neighborAgents.end(), v.begin());
+  std::vector<unsigned> v(neighborRobotIDs.size());
+  std::copy(neighborRobotIDs.begin(), neighborRobotIDs.end(), v.begin());
   return v;
 }
 
@@ -458,12 +461,15 @@ void PGOAgent::reset() {
 
   neighborPoseDict.clear();
   neighborAuxPoseDict.clear();
-  mSharedPoses.clear();
-  neighborSharedPoses.clear();
-  neighborAgents.clear();
+  localSharedPoseIDs.clear();
+  neighborSharedPoseIDs.clear();
+  neighborRobotIDs.clear();
   resetTeamStatus();
 
   mRobustCost.reset();
+  globalAnchor.reset();
+  QMatrix.reset();
+  GMatrix.reset();
 
   mOptimizationRequested = false;
   mPublishPublicPosesRequested = false;
@@ -539,19 +545,74 @@ void PGOAgent::iterate(bool doOptimization) {
   }
 }
 
-bool PGOAgent::constructCostMatrices(SparseMatrix &Q, SparseMatrix &G, const PoseDict &poseDict) {
-
+void PGOAgent::constructQMatrix() {
+  QMatrix.reset();
   vector<RelativeSEMeasurement> privateMeasurements = odometry;
   privateMeasurements.insert(privateMeasurements.end(), privateLoopClosures.begin(), privateLoopClosures.end());
-  vector<RelativeSEMeasurement> sharedMeasurements = sharedLoopClosures;
 
-  // All private measurements appear in the quadratic term
-  Q = constructConnectionLaplacianSE(privateMeasurements);
+  // Initialize Q with private measurements
+  SparseMatrix Q = constructConnectionLaplacianSE(privateMeasurements);
 
-  for (auto m : sharedMeasurements) {
-    double kappa = m.weight * m.kappa;
-    double tau = m.weight * m.tau;
+  // Initialize relative SE matrix in homogeneous form
+  Matrix T = Matrix::Zero(d + 1, d + 1);
 
+  // Initialize aggregate weight matrix
+  Matrix Omega = Matrix::Zero(d + 1, d + 1);
+
+  // Go through shared loop closures
+  for (auto m : sharedLoopClosures) {
+    // Set relative SE matrix (homogeneous form)
+    T.block(0, 0, d, d) = m.R;
+    T.block(0, d, d, 1) = m.t;
+    T(d, d) = 1;
+
+    // Set aggregate weight matrix
+    for (unsigned row = 0; row < d; ++row) {
+      Omega(row, row) = m.weight * m.kappa;
+    }
+    Omega(d, d) = m.weight * m.tau;
+
+    if (m.r1 == mID) {
+      // First pose belongs to this robot
+      // Hence, this is an outgoing edge in the pose graph
+      assert(m.r2 != mID);
+
+      // Modify quadratic cost
+      size_t idx = m.p1;
+
+      Matrix W = T * Omega * T.transpose();
+
+      for (size_t col = 0; col < d + 1; ++col) {
+        for (size_t row = 0; row < d + 1; ++row) {
+          Q.coeffRef(idx * (d + 1) + row, idx * (d + 1) + col) += W(row, col);
+        }
+      }
+
+    } else {
+      // Second pose belongs to this robot
+      // Hence, this is an incoming edge in the pose graph
+      assert(m.r2 == mID);
+
+      // Modify quadratic cost
+      size_t idx = m.p2;
+
+      for (size_t col = 0; col < d + 1; ++col) {
+        for (size_t row = 0; row < d + 1; ++row) {
+          Q.coeffRef(idx * (d + 1) + row, idx * (d + 1) + col) +=
+              Omega(row, col);
+        }
+      }
+    }
+  }
+
+  QMatrix.emplace(Q);
+}
+
+bool PGOAgent::constructGMatrix(const PoseDict &poseDict) {
+  GMatrix.reset();
+  SparseMatrix G(relaxation_rank(), (dimension() + 1) * num_poses());
+
+  for (auto m : sharedLoopClosures) {
     // Construct relative SE matrix in homogeneous form
     Matrix T = Matrix::Zero(d + 1, d + 1);
     T.block(0, 0, d, d) = m.R;
@@ -561,9 +622,9 @@ bool PGOAgent::constructCostMatrices(SparseMatrix &Q, SparseMatrix &G, const Pos
     // Construct aggregate weight matrix
     Matrix Omega = Matrix::Zero(d + 1, d + 1);
     for (unsigned row = 0; row < d; ++row) {
-      Omega(row, row) = kappa;
+      Omega(row, row) = m.weight * m.kappa;
     }
-    Omega(d, d) = tau;
+    Omega(d, d) = m.weight * m.tau;
 
     if (m.r1 == mID) {
       // First pose belongs to this robot
@@ -575,22 +636,14 @@ bool PGOAgent::constructCostMatrices(SparseMatrix &Q, SparseMatrix &G, const Pos
       auto KVpair = poseDict.find(nID);
       if (KVpair == poseDict.end()) {
         if (mParams.verbose) {
-          printf("ConstructCostMatrices: robot %u cannot find neighbor pose (%u, %u)\n",
+          printf("constructGMatrix: robot %u cannot find neighbor pose (%u, %u)\n",
                  getID(), nID.first, nID.second);
         }
         return false;
       }
       Matrix Xj = KVpair->second;
 
-      // Modify quadratic cost
       size_t idx = m.p1;
-
-      Matrix W = T * Omega * T.transpose();
-      for (size_t col = 0; col < d + 1; ++col) {
-        for (size_t row = 0; row < d + 1; ++row) {
-          Q.coeffRef(idx * (d + 1) + row, idx * (d + 1) + col) += W(row, col);
-        }
-      }
 
       // Modify linear cost
       Matrix L = -Xj * Omega * T.transpose();
@@ -610,22 +663,14 @@ bool PGOAgent::constructCostMatrices(SparseMatrix &Q, SparseMatrix &G, const Pos
       auto KVpair = poseDict.find(nID);
       if (KVpair == poseDict.end()) {
         if (mParams.verbose) {
-          printf("ConstructCostMatrices: robot %u cannot find neighbor pose (%u, %u)\n",
+          printf("constructGMatrix: robot %u cannot find neighbor pose (%u, %u)\n",
                  getID(), nID.first, nID.second);
         }
         return false;
       }
       Matrix Xi = KVpair->second;
 
-      // Modify quadratic cost
       size_t idx = m.p2;
-
-      for (size_t col = 0; col < d + 1; ++col) {
-        for (size_t row = 0; row < d + 1; ++row) {
-          Q.coeffRef(idx * (d + 1) + row, idx * (d + 1) + col) +=
-              Omega(row, col);
-        }
-      }
 
       // Modify linear cost
       Matrix L = -Xi * T * Omega;
@@ -637,6 +682,7 @@ bool PGOAgent::constructCostMatrices(SparseMatrix &Q, SparseMatrix &G, const Pos
     }
   }
 
+  GMatrix.emplace(G);
   return true;
 }
 
@@ -736,26 +782,24 @@ Matrix PGOAgent::localChordalInitialization() {
 }
 
 Matrix PGOAgent::localPoseGraphOptimization() {
-  std::vector<RelativeSEMeasurement> measurements = odometry;
-  measurements.insert(measurements.end(), privateLoopClosures.begin(),
-                      privateLoopClosures.end());
 
   // Compute initialization
   Matrix Tinit = localChordalInitialization();
   assert(Tinit.rows() == d);
   assert(Tinit.cols() == (d + 1) * n);
 
-  // Construct data matrices
-  SparseMatrix Q = constructConnectionLaplacianSE(measurements);
-  SparseMatrix G(d, (d + 1) * n);  // linear terms should be zero
+  // Construct data matrix
+  SparseMatrix GZero(d, (d + 1) * n);  // linear terms should be zero
 
   // Form optimization problem
-  QuadraticProblem problem(n, d, d, Q, G);
+  assert(QMatrix.has_value());
+  QuadraticProblem problem(n, d, d, QMatrix.value(), GZero);
 
   // Initialize optimizer object
   QuadraticOptimizer optimizer(&problem);
   optimizer.setVerbose(mParams.verbose);
-  optimizer.setTrustRegionIterations(20);
+  optimizer.setTrustRegionIterations(10);
+  optimizer.setTrustRegionTolerance(1e-2);
 
   // Optimize
   Matrix Topt = optimizer.optimize(Tinit);
@@ -881,26 +925,37 @@ bool PGOAgent::updateX(bool doOptimization, bool acceleration) {
 
   assert(mState == PGOAgentState::INITIALIZED);
 
-  // Construct data matrices
-  SparseMatrix Q((d + 1) * n, (d + 1) * n);
+  // Update quadratic cost matrix (unless using L2 cost function since it does not change measurement weights)
+  if (mParams.robustCostType != RobustCostType::L2) {
+    constructQMatrix();
+  }
+
+  // Construct linear cost matrix (depending on neighbor robots' poses)
   SparseMatrix G(r, (d + 1) * n);
   if (acceleration) {
-    if (!constructCostMatrices(Q, G, neighborAuxPoseDict)) {
-      return false;
-    }
+    constructGMatrix(neighborAuxPoseDict);
   } else {
-    if (!constructCostMatrices(Q, G, neighborPoseDict)) {
-      return false;
+    constructGMatrix(neighborPoseDict);
+  }
+
+  // Skip update if G matrix is not constructed successfully
+  if (!GMatrix) {
+    if (mParams.verbose) {
+      printf("Robot %u could not construct G matrix. Skip update...\n", getID());
     }
+    return false;
   }
 
   // Initialize optimization problem
-  QuadraticProblem problem(n, d, r, Q, G);
+  assert(QMatrix.has_value() && GMatrix.has_value());
+  QuadraticProblem problem(n, d, r, QMatrix.value(), GMatrix.value());
 
   // Initialize optimizer
   QuadraticOptimizer optimizer(&problem);
   optimizer.setVerbose(mParams.verbose);
   optimizer.setAlgorithm(mParams.algorithm);
+  optimizer.setTrustRegionTolerance(1e-6); // Force optimizer to make progress
+  optimizer.setTrustRegionIterations(1);
 
   // Starting solution
   Matrix XInit;

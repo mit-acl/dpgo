@@ -7,6 +7,17 @@ message(STATUS "CXX compiler version: " ${CMAKE_CXX_COMPILER_VERSION})
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -march=native")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -pthread -O3")
 
+# Enable OpenMP (if available)
+ set(ENABLE_OPENMP ON CACHE BOOL "Enable OpenMP (if available)")
+
+# PERFORMANCE IMPROVEMENTS
+if(${ENABLE_OPENMP})
+find_package(OpenMP)
+if(OPENMP_FOUND)
+message(STATUS "Found OpenMP! Turning on support for parallelization\n")
+endif()
+endif()
+
 find_package(Threads REQUIRED)
 find_package(Boost)
 
@@ -42,6 +53,13 @@ target_include_directories(DPGO PUBLIC
 	)
 
 target_link_libraries(DPGO ${CMAKE_THREAD_LIBS_INIT} roptlib ${CHOLMOD_LIBRARIES} ${SPQR_LIBRARIES} ${Boost_LIBRARIES})
+
+if(OPENMP_FOUND)
+# Add additional compilation flags to enable OpenMP support
+	set_target_properties(DPGO PROPERTIES COMPILE_FLAGS ${OpenMP_CXX_FLAGS})
+	set_target_properties(DPGO PROPERTIES LINK_FLAGS "-fopenmp")
+	target_link_libraries(DPGO)
+endif()
 
 # Build Distributed PGO example
 add_executable(multi-robot-example

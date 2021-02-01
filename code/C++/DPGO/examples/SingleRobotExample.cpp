@@ -52,13 +52,14 @@ int main(int argc, char** argv) {
   unsigned int n, d, r;    //vector<float> PoseData;
   d = (!dataset.empty() ? dataset[0].t.size() : 0);
   n = num_poses;
-  r = 5;
+  r = d;
   PGOAgentParameters options(d, r, 1);
+  options.verbose = true;
 
   vector<RelativeSEMeasurement> odometry;
   vector<RelativeSEMeasurement> private_loop_closures;
   vector<RelativeSEMeasurement> shared_loop_closure;
-  for (auto mIn : dataset) {
+  for (const auto& mIn : dataset) {
     unsigned srcIdx = mIn.p1;
     unsigned dstIdx = mIn.p2;
 
@@ -91,25 +92,15 @@ int main(int argc, char** argv) {
 
   /**
   ###########################################
-  Optimization loop
+  Local Pose Graph Optimization
   ###########################################
   */
 
-  unsigned numIters = 10;
-  cout << "Running optimization for " << numIters << " iterations..." << endl;
-  for (unsigned iter = 0; iter < numIters; ++iter) {
+  cout << "Running local pose graph optimization..." << endl;
+  Matrix X = agent->localPoseGraphOptimization();
 
-    // Performs a single iteration
-    agent->iterate();
-
-    // Get solution
-    Matrix X;
-    agent->getX(X);
-
-    // Evaluate
-    cout << "Iter = " << iter << " | "
-         << "cost = " << 2 * problemCentral.f(X) << endl;
-  }
+  // Evaluate
+  std::cout << "Cost = " << 2 * problemCentral.f(X) << endl;
 
   exit(0);
 }
