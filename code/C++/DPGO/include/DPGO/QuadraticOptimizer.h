@@ -54,6 +54,11 @@ class QuadraticOptimizer {
   void setTrustRegionIterations(unsigned iter) { trustRegionIterations = iter; }
 
   /**
+  Set tolerance of trust region
+  */
+  void setTrustRegionTolerance(double tol) { trustRegionTolerance = tol; }
+
+  /**
   Return optimization result
   */
   ROPTResult getOptResult() const {return result; };
@@ -74,6 +79,9 @@ class QuadraticOptimizer {
   // Number of trust-region updates
   unsigned trustRegionIterations;
 
+  // Tolerance for trust-region updates
+  double trustRegionTolerance;
+  
   // Verbose flag
   bool verbose;
 

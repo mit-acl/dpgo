@@ -200,11 +200,7 @@ void constructOrientedConnectionIncidenceMatrixSE(
 
   // We use faster ordered insertion, as suggested in
   // https://eigen.tuxfamily.org/dox/group__TutorialSparse.html#TutorialSparseFilling
-  // TODO: Fix ColMajor (ours) or RowMajor (Rosen's)
-  Eigen::SparseMatrix<double, Eigen::ColMajor> A(
-      rows, cols);  // default is column major
-  // TODO: Actually for SE(d) matrices dimensions are 2x (3,3,3,4)
-  // TODO: For our current formulation the 2nd matrix is Id (1nnz / col)
+  Eigen::SparseMatrix<double, Eigen::ColMajor> A(rows, cols);
   A.reserve(Eigen::VectorXi::Constant(cols, 8));
   DiagonalMatrix Omega(cols);  // One block per measurement: (d+1)*m
   DiagonalMatrix::DiagonalVectorType &diagonal = Omega.diagonal();
