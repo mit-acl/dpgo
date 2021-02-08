@@ -82,6 +82,7 @@ struct PGOAgentParameters {
   unsigned GNCMaxNumIters;
   double GNCBarc;
   double GNCMuStep;
+  double GNCMinTLSConvergenceRatio;
 
   // Maximum number of global iterations
   unsigned maxNumIters;
@@ -103,14 +104,14 @@ struct PGOAgentParameters {
                      ROPTALG algorithmIn = ROPTALG::RTR,
                      bool accel = false, unsigned restartInt = 30,
                      RobustCostType costType = RobustCostType::L2, unsigned weightInt = 30,
-                     unsigned gncMaxIters = 100, double gncBarc = 10, double gncMuStep = 1.4,
+                     unsigned gncMaxIters = 100, double gncBarc = 10, double gncMuStep = 1.4, double gncMinRatio = 0.8,
                      unsigned maxIters = 500, double changeTol = 5e-3,
                      bool v = false, bool log = false, std::string logDir = "")
       : d(dIn), r(rIn), numRobots(numRobotsIn),
         algorithm(algorithmIn),
         acceleration(accel), restartInterval(restartInt),
         robustCostType(costType), weightUpdateInterval(weightInt),
-        GNCMaxNumIters(gncMaxIters), GNCBarc(gncBarc), GNCMuStep(gncMuStep),
+        GNCMaxNumIters(gncMaxIters), GNCBarc(gncBarc), GNCMuStep(gncMuStep), GNCMinTLSConvergenceRatio(gncMinRatio),
         maxNumIters(maxIters), relChangeTol(changeTol),
         verbose(v), logData(log), logDirectory(std::move(logDir)) {}
 
@@ -125,6 +126,7 @@ struct PGOAgentParameters {
     os << "Robust cost function: " << RobustCostNames[params.robustCostType] << std::endl;
     os << "Weight update interval: " << params.weightUpdateInterval << std::endl;
     os << "GNC threshold: " << params.GNCBarc << std::endl;
+    os << "GNC TLS weights minimum convergence ratio: " << params.GNCMinTLSConvergenceRatio << std::endl;
     os << "Local optimization algorithm: " << params.algorithm << std::endl;
     os << "Max iterations: " << params.maxNumIters << std::endl;
     os << "Relative change tol: " << params.relChangeTol << std::endl;
@@ -149,8 +151,8 @@ struct PGOAgentStatus {
   // Current global iteration number
   unsigned iterationNumber;
 
-  // Whether the agent has changed its estimates at this iteration
-  bool optimizationSuccess;
+  // True if the agent passes its local termination condition
+  bool readyToTerminate;
 
   // The relative change of the agent's estimate
   double relativeChange;
@@ -160,14 +162,14 @@ struct PGOAgentStatus {
                  PGOAgentState s = PGOAgentState::WAIT_FOR_DATA,
                  unsigned instance = 0,
                  unsigned iteration = 0,
-                 bool suc = false,
-                 double rc = 0)
+                 bool ready_to_terminate = false,
+                 double relative_change = 0)
       : agentID(id),
         state(s),
         instanceNumber(instance),
         iterationNumber(iteration),
-        optimizationSuccess(suc),
-        relativeChange(rc) {}
+        readyToTerminate(ready_to_terminate),
+        relativeChange(relative_change) {}
 
   inline friend std::ostream &operator<<(
       std::ostream &os, const PGOAgentStatus &status) {
@@ -176,7 +178,7 @@ struct PGOAgentStatus {
     os << "State: " << status.state << std::endl;
     os << "Instance number: " << status.instanceNumber << std::endl;
     os << "Iteration number: " << status.iterationNumber << std::endl;
-    os << "Optimization success: " << status.optimizationSuccess << std::endl;
+    os << "Ready to terminate: " << status.readyToTerminate << std::endl;
     os << "Relative change: " << status.relativeChange << std::endl;
     return os;
   }
@@ -590,6 +592,12 @@ class PGOAgent {
    * @brief Update loop closure weights.
    */
   void updateLoopClosuresWeights();
+
+  /**
+   * @brief Compute the ratio of loop closure weights that have converged (assuming GNC_TLS)
+   * @return ratio
+   */
+  double computeConvergedLoopClosureRatio();
 
  private:
   // Stores the auxiliary variables from neighbors (only used in acceleration)

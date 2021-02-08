@@ -539,8 +539,19 @@ void PGOAgent::iterate(bool doOptimization) {
       mStatus.state = getState();
       mStatus.instanceNumber = instance_number();
       mStatus.iterationNumber = iteration_number();
-      mStatus.optimizationSuccess = success;
       mStatus.relativeChange = sqrt((X - XPrev).squaredNorm() / num_poses());
+      // Check local termination condition
+      bool readyToTerminate = true;
+      if (!success) readyToTerminate = false;
+      if (mStatus.relativeChange > mParams.relChangeTol) readyToTerminate = false;
+      if (mParams.robustCostType == RobustCostType::GNC_TLS) {
+        double ratio = computeConvergedLoopClosureRatio();
+        printf("Robot %u ratio of converged loop closure weights: %f\n", getID(), ratio);
+        if (ratio < mParams.GNCMinTLSConvergenceRatio) {
+          readyToTerminate = false;
+        }
+      }
+      mStatus.readyToTerminate = readyToTerminate;
     }
   }
 }
@@ -839,13 +850,11 @@ bool PGOAgent::shouldTerminate() {
   // Check if all agents reached relative change tolerance
   for (size_t robot = 0; robot < mParams.numRobots; ++robot) {
     PGOAgentStatus robotStatus = mTeamStatus[robot];
-    if (!robotStatus.optimizationSuccess ||
-        robotStatus.relativeChange > mParams.relChangeTol) {
+    if (!robotStatus.readyToTerminate) {
       return false;
     }
   }
 
-  printf("Reached relative change stopping condition.\n");
   return true;
 }
 
@@ -1051,6 +1060,20 @@ void PGOAgent::updateLoopClosuresWeights() {
     }
   }
   mPublishWeightsRequested = true;
+}
+
+double PGOAgent::computeConvergedLoopClosureRatio() {
+  assert(mParams.robustCostType == RobustCostType::GNC_TLS);
+  double totalCount = privateLoopClosures.size() + sharedLoopClosures.size();
+  double convergedCount = 0;
+  for (const auto &m: privateLoopClosures) {
+    if (m.weight == 0 || m.weight == 1) convergedCount += 1;
+  }
+  for (const auto &m: sharedLoopClosures) {
+    if (m.weight == 0 || m.weight == 1) convergedCount += 1;
+  }
+
+  return convergedCount / totalCount;
 }
 
 }  // namespace DPGO
