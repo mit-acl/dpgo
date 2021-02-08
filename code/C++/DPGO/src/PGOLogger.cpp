@@ -16,6 +16,8 @@ PGOLogger::PGOLogger(std::string logDir) : logDirectory(std::move(logDir)) {}
 PGOLogger::~PGOLogger() = default;
 
 void PGOLogger::logMeasurements(std::vector<RelativeSEMeasurement> &measurements, const std::string &filename) {
+  if (measurements.empty()) return;
+
   std::ofstream file;
   file.open(logDirectory + filename);
   if (!file.is_open()) return;
