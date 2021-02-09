@@ -29,6 +29,39 @@ enum RobustCostType {
 const std::vector<std::string> RobustCostNames{"L2", "L1", "TLS", "Huber", "GM", "GNC_TLS"};
 
 /**
+ * @brief Parameters for robust cost functions
+ */
+struct RobustCostParameters {
+  // GNC parameters
+  unsigned GNCMaxNumIters;
+  double GNCBarc;
+  double GNCMuStep;
+
+  // Huber parameters
+  double HuberThreshold;
+
+  // Truncated least squares parameters
+  double TLSThreshold;
+
+  // Default constructor
+  RobustCostParameters(unsigned gncMaxIters = 100, double gncBarc = 10, double gncMuStep = 1.4,
+                       double huberThresh = 3, double TLSThresh = 10)
+      : GNCMaxNumIters(gncMaxIters), GNCBarc(gncBarc), GNCMuStep(gncMuStep),
+        HuberThreshold(huberThresh), TLSThreshold(TLSThresh) {}
+
+  inline friend std::ostream &operator<<(
+      std::ostream &os, const RobustCostParameters &params) {
+    os << "Robust cost parameters: " << std::endl;
+    os << "GNC threshold (barc): " << params.GNCBarc << std::endl;
+    os << "GNC maximum iterations: " << params.GNCMaxNumIters << std::endl;
+    os << "GNC mu step: " << params.GNCMuStep << std::endl;
+    os << "Huber threshold: " << params.HuberThreshold << std::endl;
+    os << "TLS threshold: " << params.TLSThreshold << std::endl;
+    return os;
+  }
+};
+
+/**
  * @brief Implementation of robust cost functions.
  *
  * Main references:
@@ -40,7 +73,7 @@ const std::vector<std::string> RobustCostNames{"L2", "L1", "TLS", "Huber", "GM",
  */
 class RobustCost {
  public:
-  RobustCost(RobustCostType costType);
+  RobustCost(RobustCostType costType, const RobustCostParameters &params);
 
   /**
    * @brief Compute measurement weight given current residual
@@ -60,62 +93,25 @@ class RobustCost {
   void update();
 
   /**
-   * @brief Set maximum number of iterations for GNC
-   * @param k
-   */
-  void setGNCMaxIteration(size_t k) { mGNCMaxIterations = k; }
-
-  /**
-   * @brief Set GNC thresholds based on the quantile of chi-squared distribution
+   * @brief Set error threshold based on the quantile of chi-squared distribution
    * @param quantile
    * @param dimension
+   * @return threshold
    */
-  void setGNCThresholdAtQuantile(double quantile, size_t dimension) {
+  static double computeErrorThresholdAtQuantile(double quantile, size_t dimension) {
     assert(dimension == 2 || dimension == 3);
     assert(quantile > 0 && quantile < 1);
-    mGNCBarc = std::sqrt(chi2inv(quantile, dimension + 1));
-    printf("Set GNC threshold at %f\n", mGNCBarc);
+    return std::sqrt(chi2inv(quantile, dimension + 1));
   }
-
-  /**
-   * @brief Set GNC threshold (unsquared) at given value
-   * @param threshold
-   */
-  void setGNCThreshold(double threshold) {
-    assert(threshold > 0);
-    mGNCBarc = threshold;
-    printf("Set GNC threshold at %f\n", mGNCBarc);
-  }
-
-  /**
-   * @brief Set GNC update factor
-   * @param s
-   */
-  void setGNCMuStep(double s) { mGNCMuStep = s; }
 
  private:
-  RobustCostType mCostType;
+  const RobustCostType mCostType;
 
-  // #################################################
-  // Parameters for Huber loss
-  // #################################################
-  double mHuberThreshold = 3;
+  const RobustCostParameters mParams;
 
-  // #################################################
-  // Parameters for TLS
-  // #################################################
-  double mTLSThreshold = 10;
-
-  // #################################################
-  // Parameters for graduated non-convexity (GNC)
-  // #################################################
-  size_t mGNCMaxIterations = 100;
-  double mGNCBarc = 10; // GNC threshold
-  double mGNCMuStep = 1.4; // Factor to update mu at each GNC iteration
-
+  // GNC internal states
   size_t mGNCIteration = 0; // Iteration number
-  double mu = 0.05; // Mu parameter (only used in GNC)
-
+  double mu = 0.05;         // Mu parameter
 
 };
 

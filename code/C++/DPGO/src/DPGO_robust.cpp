@@ -15,7 +15,8 @@ using namespace std;
 
 namespace DPGO {
 
-RobustCost::RobustCost(RobustCostType costType) : mCostType(costType) {
+RobustCost::RobustCost(RobustCostType costType, const RobustCostParameters &params) :
+    mCostType(costType), mParams(params) {
   reset();
 }
 
@@ -28,27 +29,27 @@ double RobustCost::weight(double r) {
       return 1 / r;
     }
     case RobustCostType::Huber: {
-      if (r < mHuberThreshold) {
+      if (r < mParams.HuberThreshold) {
         return 1;
       } else {
-        return mHuberThreshold / r;
+        return mParams.HuberThreshold / r;
       }
     }
     case RobustCostType::TLS: {
-      if (r < mTLSThreshold) {
+      if (r < mParams.TLSThreshold) {
         return 1;
       } else {
         return 0;
       }
     }
     case RobustCostType::GM: {
-      double a = 1 + r*r;
-      return 1 / (a*a);
+      double a = 1 + r * r;
+      return 1 / (a * a);
     }
     case RobustCostType::GNC_TLS: {
       // Implements eq. (14) of GNC paper
       double rSq = r * r;
-      double mGNCBarcSq = mGNCBarc * mGNCBarc;
+      double mGNCBarcSq = mParams.GNCBarc * mParams.GNCBarc;
       double upperBound = (mu + 1) / mu * mGNCBarcSq;
       double lowerBound = mu / (mu + 1) * mGNCBarcSq;
       if (rSq >= upperBound) {
@@ -85,14 +86,14 @@ void RobustCost::update() {
   if (mCostType != RobustCostType::GNC_TLS) return;
 
   mGNCIteration++;
-  if (mGNCIteration > mGNCMaxIterations) {
+  if (mGNCIteration > mParams.GNCMaxNumIters) {
     printf("GNC: reached maximum iterations.");
     return;
   }
 
   switch (mCostType) {
     case RobustCostType::GNC_TLS: {
-      mu = mGNCMuStep * mu;
+      mu = mParams.GNCMuStep * mu;
       break;
     }
     default: {

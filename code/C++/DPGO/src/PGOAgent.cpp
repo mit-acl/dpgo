@@ -32,18 +32,11 @@ PGOAgent::PGOAgent(unsigned ID, const PGOAgentParameters &params)
     : mID(ID), mCluster(ID), d(params.d), r(params.r), n(1),
       mParams(params), mState(PGOAgentState::WAIT_FOR_DATA),
       mStatus(ID, mState, 0, 0, false, 0),
-      mRobustCost(params.robustCostType),
+      mRobustCost(params.robustCostType, params.robustCostParams),
       mInstanceNumber(0), mIterationNumber(0), mNumPosesReceived(0),
       mLogger(params.logDirectory) {
   if (mParams.verbose) {
-    std::cout << mParams << std::endl;
-  }
-
-  // Set GNC parameters if used
-  if (params.robustCostType == RobustCostType::GNC_TLS) {
-    mRobustCost.setGNCMaxIteration(params.GNCMaxNumIters);
-    mRobustCost.setGNCMuStep(params.GNCMuStep);
-    mRobustCost.setGNCThreshold(params.GNCBarc);
+    std::cout << params << std::endl;
   }
 
   // Initialize X
@@ -544,14 +537,10 @@ void PGOAgent::iterate(bool doOptimization) {
       bool readyToTerminate = true;
       if (!success) readyToTerminate = false;
       if (mStatus.relativeChange > mParams.relChangeTol) readyToTerminate = false;
-      if (mParams.robustCostType == RobustCostType::GNC_TLS) {
-        double ratio = computeConvergedLoopClosureRatio();
-        printf("Robot %u ratio of converged loop closure weights: %f\n", getID(), ratio);
-        if (ratio < mParams.GNCMinTLSConvergenceRatio) {
-          readyToTerminate = false;
-        }
-      }
+      double ratio = computeConvergedLoopClosureRatio();
+      if (ratio < mParams.minConvergedLoopClosureRatio) readyToTerminate = false;
       mStatus.readyToTerminate = readyToTerminate;
+      if (mParams.verbose) printf("Robot %u ratio of converged loop closure weights: %f\n", getID(), ratio);
     }
   }
 }
@@ -1063,7 +1052,11 @@ void PGOAgent::updateLoopClosuresWeights() {
 }
 
 double PGOAgent::computeConvergedLoopClosureRatio() {
-  assert(mParams.robustCostType == RobustCostType::GNC_TLS);
+  // Currently, this function is only meaningful for GNC_TLS
+  if (mParams.robustCostType != RobustCostType::GNC_TLS) {
+    return 1.0;
+  }
+
   double totalCount = privateLoopClosures.size() + sharedLoopClosures.size();
   double convergedCount = 0;
   for (const auto &m: privateLoopClosures) {

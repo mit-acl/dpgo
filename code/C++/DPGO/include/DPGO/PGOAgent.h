@@ -76,13 +76,15 @@ struct PGOAgentParameters {
 
   // Robust cost function
   RobustCostType robustCostType;
+
+  // Parameter settings over robust cost functions
+  RobustCostParameters robustCostParams;
+
+  // Interval to update loop closure weights
   unsigned weightUpdateInterval;
 
-  // Specific settings of GNC
-  unsigned GNCMaxNumIters;
-  double GNCBarc;
-  double GNCMuStep;
-  double GNCMinTLSConvergenceRatio;
+  // Mininum ratio of converged loop closures to terminate
+  double minConvergedLoopClosureRatio;
 
   // Maximum number of global iterations
   unsigned maxNumIters;
@@ -100,19 +102,26 @@ struct PGOAgentParameters {
   std::string logDirectory;
 
   // Default constructor
-  PGOAgentParameters(unsigned dIn, unsigned rIn, unsigned numRobotsIn = 1,
+  PGOAgentParameters(unsigned dIn,
+                     unsigned rIn,
+                     unsigned numRobotsIn = 1,
                      ROPTALG algorithmIn = ROPTALG::RTR,
-                     bool accel = false, unsigned restartInt = 30,
-                     RobustCostType costType = RobustCostType::L2, unsigned weightInt = 30,
-                     unsigned gncMaxIters = 100, double gncBarc = 10, double gncMuStep = 1.4, double gncMinRatio = 0.8,
-                     unsigned maxIters = 500, double changeTol = 5e-3,
-                     bool v = false, bool log = false, std::string logDir = "")
+                     bool accel = false,
+                     unsigned restartInt = 30,
+                     RobustCostType costType = RobustCostType::L2,
+                     RobustCostParameters costParams = RobustCostParameters(),
+                     unsigned weightInt = 30,
+                     double gncMinRatio = 0.8,
+                     unsigned maxIters = 500,
+                     double changeTol = 5e-3,
+                     bool v = false,
+                     bool log = false,
+                     std::string logDir = "")
       : d(dIn), r(rIn), numRobots(numRobotsIn),
         algorithm(algorithmIn),
         acceleration(accel), restartInterval(restartInt),
-        robustCostType(costType), weightUpdateInterval(weightInt),
-        GNCMaxNumIters(gncMaxIters), GNCBarc(gncBarc), GNCMuStep(gncMuStep), GNCMinTLSConvergenceRatio(gncMinRatio),
-        maxNumIters(maxIters), relChangeTol(changeTol),
+        robustCostType(costType), robustCostParams(costParams), weightUpdateInterval(weightInt),
+        minConvergedLoopClosureRatio(gncMinRatio), maxNumIters(maxIters), relChangeTol(changeTol),
         verbose(v), logData(log), logDirectory(std::move(logDir)) {}
 
   inline friend std::ostream &operator<<(
@@ -125,14 +134,14 @@ struct PGOAgentParameters {
     os << "Fixed restart interval: " << params.restartInterval << std::endl;
     os << "Robust cost function: " << RobustCostNames[params.robustCostType] << std::endl;
     os << "Weight update interval: " << params.weightUpdateInterval << std::endl;
-    os << "GNC threshold: " << params.GNCBarc << std::endl;
-    os << "GNC TLS weights minimum convergence ratio: " << params.GNCMinTLSConvergenceRatio << std::endl;
+    os << "Minimum ratio of converged loop closures: " << params.minConvergedLoopClosureRatio << std::endl;
     os << "Local optimization algorithm: " << params.algorithm << std::endl;
     os << "Max iterations: " << params.maxNumIters << std::endl;
     os << "Relative change tol: " << params.relChangeTol << std::endl;
     os << "Verbose: " << params.verbose << std::endl;
     os << "Log data: " << params.logData << std::endl;
     os << "Log directory: " << params.logDirectory << std::endl;
+    os << params.robustCostParams << std::endl;
     return os;
   }
 };
