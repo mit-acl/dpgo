@@ -8,55 +8,98 @@
 #include <DPGO/DPGO_robust.h>
 
 #include <cmath>
+#include <cassert>
+#include <DPGO/DPGO_utils.h>
 
 using namespace std;
 
 namespace DPGO {
 
-/**
-L2
-*/
-double MEstimatorL2::cost(double x) const { return x * x / 2; }
-
-double MEstimatorL2::influence(double x) const { return x; }
-
-double MEstimatorL2::weight(double x) const { return 1.0; }
-
-/**
-Cauchy
-*/
-double MEstimatorCauchy::cost(double x) const {
-  return (c * c / 2) * log(1 + (x / c) * (x / c));
+RobustCost::RobustCost(RobustCostType costType, const RobustCostParameters &params) :
+    mCostType(costType), mParams(params) {
+  reset();
 }
 
-double MEstimatorCauchy::influence(double x) const {
-  return x / (1 + abs(x) / c);
-}
-
-double MEstimatorCauchy::weight(double x) const { return 1 / (1 + abs(x) / c); }
-
-/**
-Truncated L2
-*/
-double MEstimatorTruncatedL2::cost(double x) const {
-  if (x > c) {
-    return 0;
+double RobustCost::weight(double r) {
+  switch (mCostType) {
+    case RobustCostType::L2: {
+      return 1;
+    }
+    case RobustCostType::L1: {
+      return 1 / r;
+    }
+    case RobustCostType::Huber: {
+      if (r < mParams.HuberThreshold) {
+        return 1;
+      } else {
+        return mParams.HuberThreshold / r;
+      }
+    }
+    case RobustCostType::TLS: {
+      if (r < mParams.TLSThreshold) {
+        return 1;
+      } else {
+        return 0;
+      }
+    }
+    case RobustCostType::GM: {
+      double a = 1 + r * r;
+      return 1 / (a * a);
+    }
+    case RobustCostType::GNC_TLS: {
+      // Implements eq. (14) of GNC paper
+      double rSq = r * r;
+      double mGNCBarcSq = mParams.GNCBarc * mParams.GNCBarc;
+      double upperBound = (mu + 1) / mu * mGNCBarcSq;
+      double lowerBound = mu / (mu + 1) * mGNCBarcSq;
+      if (rSq >= upperBound) {
+        return 0;
+      } else if (rSq <= lowerBound) {
+        return 1;
+      } else {
+        return std::sqrt(mGNCBarcSq * mu * (mu + 1) / rSq) - mu;
+      }
+    }
+    default: {
+      throw std::runtime_error("weight function for selected cost function is not implemented !");
+    }
   }
-  return x * x / 2;
 }
 
-double MEstimatorTruncatedL2::influence(double x) const {
-  if (x > c) {
-    return 0;
+void RobustCost::reset() {
+  // Initialize the mu parameter in GNC, if used
+  switch (mCostType) {
+    case RobustCostType::GNC_TLS: {
+      mu = 0.01;
+      mGNCIteration = 0;
+      break;
+    }
+    default: {
+      // do nothing
+      break;
+    }
   }
-  return x;
+
 }
 
-double MEstimatorTruncatedL2::weight(double x) const {
-  if (x > c) {
-    return 0;
+void RobustCost::update() {
+  if (mCostType != RobustCostType::GNC_TLS) return;
+
+  mGNCIteration++;
+  if (mGNCIteration > mParams.GNCMaxNumIters) {
+    printf("GNC: reached maximum iterations.");
+    return;
   }
-  return 1;
+
+  switch (mCostType) {
+    case RobustCostType::GNC_TLS: {
+      mu = mParams.GNCMuStep * mu;
+      break;
+    }
+    default: {
+      throw std::runtime_error("Calling update for non-GNC cost function!");
+    }
+  }
 }
 
 }  // namespace DPGO

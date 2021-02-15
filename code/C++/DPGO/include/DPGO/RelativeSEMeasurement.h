@@ -43,8 +43,11 @@ struct RelativeSEMeasurement {
   /** Translational measurement precision */
   double tau;
 
+  /** Weight between (0,1) used in Graduated Non-Convexity */
+  double weight;
+
   /** Simple default constructor; does nothing */
-  RelativeSEMeasurement() {}
+  RelativeSEMeasurement() = default;
 
   /** Basic constructor */
   RelativeSEMeasurement(size_t first_robot, size_t second_robot,
@@ -60,7 +63,8 @@ struct RelativeSEMeasurement {
         R(relative_rotation),
         t(relative_translation),
         kappa(rotational_precision),
-        tau(translational_precision) {}
+        tau(translational_precision),
+        weight(1.0) {}
 
   /** A utility function for streaming Nodes to cout */
   inline friend std::ostream &operator<<(
@@ -73,6 +77,7 @@ struct RelativeSEMeasurement {
     os << "t: " << std::endl << measurement.t << std::endl;
     os << "Kappa: " << measurement.kappa << std::endl;
     os << "Tau: " << measurement.tau << std::endl;
+    os << "Weight: " << measurement.weight << std::endl;
 
     return os;
   }

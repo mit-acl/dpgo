@@ -8,68 +8,111 @@
 #ifndef DPGOROBUST_H
 #define DPGOROBUST_H
 
-/**
-Robust M-estimators used by DPGO.
-Notation (see Table 1 below):
-Parameter Estimation Techniques: A Tutorial with Application to Conic Fitting
-https://www.microsoft.com/en-us/research/wp-content/uploads/2016/11/RR-2676.pdf
-*/
+#include <iostream>
+#include <cassert>
+#include <DPGO/DPGO_utils.h>
 
 namespace DPGO {
 
-class MEstimator {
- public:
-  MEstimator() {}
-
-  virtual ~MEstimator() {}
-
-  /**
-  Cost function given the residual x
-  */
-  virtual double cost(double x) const = 0;
-
-  /**
-  Influence function (first derivative of cost)
-  */
-  virtual double influence(double x) const = 0;
-
-  /**
-  Weight function (influence over x)
-  */
-  virtual double weight(double x) const = 0;
+/**
+ * @brief A list of supported robust cost functions
+ */
+enum RobustCostType {
+  L2, // L2 (least squares)
+  L1, // L1
+  TLS, // truncated least squares
+  Huber, // Huber loss
+  GM, // Geman-McClure
+  GNC_TLS, // Graduated Non-Convexity (GNC) with truncated least squares (TLS)
 };
 
-class MEstimatorCauchy : public MEstimator {
- public:
-  MEstimatorCauchy() : c(1.0) {}
-  MEstimatorCauchy(double cIn) : c(cIn) {}
+const std::vector<std::string> RobustCostNames{"L2", "L1", "TLS", "Huber", "GM", "GNC_TLS"};
 
-  virtual double cost(double x) const;
-  virtual double influence(double x) const;
-  virtual double weight(double x) const;
+/**
+ * @brief Parameters for robust cost functions
+ */
+struct RobustCostParameters {
+  // GNC parameters
+  unsigned GNCMaxNumIters;
+  double GNCBarc;
+  double GNCMuStep;
+
+  // Huber parameters
+  double HuberThreshold;
+
+  // Truncated least squares parameters
+  double TLSThreshold;
+
+  // Default constructor
+  RobustCostParameters(unsigned gncMaxIters = 100, double gncBarc = 10, double gncMuStep = 1.4,
+                       double huberThresh = 3, double TLSThresh = 10)
+      : GNCMaxNumIters(gncMaxIters), GNCBarc(gncBarc), GNCMuStep(gncMuStep),
+        HuberThreshold(huberThresh), TLSThreshold(TLSThresh) {}
+
+  inline friend std::ostream &operator<<(
+      std::ostream &os, const RobustCostParameters &params) {
+    os << "Robust cost parameters: " << std::endl;
+    os << "GNC threshold (barc): " << params.GNCBarc << std::endl;
+    os << "GNC maximum iterations: " << params.GNCMaxNumIters << std::endl;
+    os << "GNC mu step: " << params.GNCMuStep << std::endl;
+    os << "Huber threshold: " << params.HuberThreshold << std::endl;
+    os << "TLS threshold: " << params.TLSThreshold << std::endl;
+    return os;
+  }
+};
+
+/**
+ * @brief Implementation of robust cost functions.
+ *
+ * Main references:
+ * M-estimation:
+ * Zhang, "Parameter Estimation Techniques: A Tutorial with Application to Conic Fitting"
+ *
+ * Graduated Non-Convexity (GNC):
+ * Yang et al. "Graduated Non-Convexity for Robust Spatial Perception: From Non-Minimal Solvers to Global Outlier Rejection"
+ */
+class RobustCost {
+ public:
+  RobustCost(RobustCostType costType, const RobustCostParameters &params);
+
+  /**
+   * @brief Compute measurement weight given current residual
+   * @param r residual (unsquared)
+   * @return weight
+   */
+  double weight(double r);
+
+  /**
+   * @brief Reset the mu parameter in GNC
+   */
+  void reset();
+
+  /**
+   * @brief perform some auxiliary operations (e.g., update the mu parameter when GNC is used)
+   */
+  void update();
+
+  /**
+   * @brief Set error threshold based on the quantile of chi-squared distribution
+   * @param quantile
+   * @param dimension
+   * @return threshold
+   */
+  static double computeErrorThresholdAtQuantile(double quantile, size_t dimension) {
+    assert(dimension == 2 || dimension == 3);
+    assert(quantile > 0 && quantile < 1);
+    return std::sqrt(chi2inv(quantile, dimension + 1));
+  }
 
  private:
-  double c;
-};
+  const RobustCostType mCostType;
 
-class MEstimatorL2 : public MEstimator {
- public:
-  virtual double cost(double x) const;
-  virtual double influence(double x) const;
-  virtual double weight(double x) const;
-};
+  const RobustCostParameters mParams;
 
-class MEstimatorTruncatedL2 : public MEstimator {
- public:
-  MEstimatorTruncatedL2() : c(2.0) {}
-  MEstimatorTruncatedL2(double cIn) : c(cIn) {}
+  // GNC internal states
+  size_t mGNCIteration = 0; // Iteration number
+  double mu = 0.05;         // Mu parameter
 
-  virtual double cost(double x) const;
-  virtual double influence(double x) const;
-  virtual double weight(double x) const;
-
- private:
-  double c;
 };
 
 }  // namespace DPGO

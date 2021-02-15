@@ -16,6 +16,8 @@ PGOLogger::PGOLogger(std::string logDir) : logDirectory(std::move(logDir)) {}
 PGOLogger::~PGOLogger() = default;
 
 void PGOLogger::logMeasurements(std::vector<RelativeSEMeasurement> &measurements, const std::string &filename) {
+  if (measurements.empty()) return;
+
   std::ofstream file;
   file.open(logDirectory + filename);
   if (!file.is_open()) return;
@@ -24,7 +26,7 @@ void PGOLogger::logMeasurements(std::vector<RelativeSEMeasurement> &measurements
   if (d == 2) return;
 
   // Insert header row
-  file << "robot_src,pose_src,robot_dst,pose_dst,qx,qy,qz,qw,tx,ty,tz,kappa,tau\n";
+  file << "robot_src,pose_src,robot_dst,pose_dst,qx,qy,qz,qw,tx,ty,tz,kappa,tau,weight\n";
 
   for (RelativeSEMeasurement m: measurements) {
     // Convert rotation matrix to quaternion
@@ -42,7 +44,8 @@ void PGOLogger::logMeasurements(std::vector<RelativeSEMeasurement> &measurements
     file << m.t(1) << ",";
     file << m.t(2) << ",";
     file << m.kappa << ",";
-    file << m.tau << "\n";
+    file << m.tau << ",";
+    file << m.weight << "\n";
   }
 
   file.close();

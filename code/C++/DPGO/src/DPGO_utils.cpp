@@ -14,6 +14,7 @@
 #include <iostream>
 #include <random>
 #include <cassert>
+#include <boost/math/distributions/chi_squared.hpp>
 
 namespace DPGO {
 
@@ -50,6 +51,7 @@ std::vector<RelativeSEMeasurement> read_g2o_file(const std::string &filename,
 
   // A single measurement, whose values we will fill in
   DPGO::RelativeSEMeasurement measurement;
+  measurement.weight = 1.0;
 
   // A string used to contain the contents of a single line
   std::string line;
@@ -87,7 +89,7 @@ std::vector<RelativeSEMeasurement> read_g2o_file(const std::string &filename,
 
       // Extract formatted output
       strstrm >> i >> j >> dx >> dy >> dtheta >> I11 >> I12 >> I13 >> I22 >>
-          I23 >> I33;
+              I23 >> I33;
 
       // Fill in elements of this measurement
 
@@ -125,8 +127,8 @@ std::vector<RelativeSEMeasurement> read_g2o_file(const std::string &filename,
 
       // Extract formatted output
       strstrm >> i >> j >> dx >> dy >> dz >> dqx >> dqy >> dqz >> dqw >> I11 >>
-          I12 >> I13 >> I14 >> I15 >> I16 >> I22 >> I23 >> I24 >> I25 >> I26 >>
-          I33 >> I34 >> I35 >> I36 >> I44 >> I45 >> I46 >> I55 >> I56 >> I66;
+              I12 >> I13 >> I14 >> I15 >> I16 >> I22 >> I23 >> I24 >> I25 >> I26 >>
+              I33 >> I34 >> I35 >> I36 >> I44 >> I45 >> I46 >> I55 >> I56 >> I66;
 
       // Fill in elements of the measurement
 
@@ -232,9 +234,9 @@ void constructOrientedConnectionIncidenceMatrixSE(
     for (size_t r = 0; r < d + 1; r++) A.insert(j * dh + r, k * dh + r) = +1;
 
     /// Assign isotropic weights in diagonal matrix
-    for (size_t r = 0; r < d; r++) diagonal[k * dh + r] = meas.kappa;
+    for (size_t r = 0; r < d; r++) diagonal[k * dh + r] = meas.weight * meas.kappa;
 
-    diagonal[k * dh + d] = meas.tau;
+    diagonal[k * dh + d] = meas.weight * meas.tau;
   }
 
   A.makeCompressed();
@@ -252,7 +254,7 @@ SparseMatrix constructConnectionLaplacianSE(
 }
 
 void constructBMatrices(const std::vector<RelativeSEMeasurement> &measurements, SparseMatrix &B1,
-                          SparseMatrix &B2, SparseMatrix &B3) {
+                        SparseMatrix &B2, SparseMatrix &B3) {
   // Clear input matrices
   B1.setZero();
   B2.setZero();
@@ -343,7 +345,7 @@ void constructBMatrices(const std::vector<RelativeSEMeasurement> &measurements, 
 Matrix chordalInitialization(
     size_t dimension, size_t num_poses,
     const std::vector<RelativeSEMeasurement> &measurements) {
-    SparseMatrix B1, B2, B3;
+  SparseMatrix B1, B2, B3;
   constructBMatrices(measurements, B1, B2, B3);
 
   // Recover rotations
@@ -354,7 +356,7 @@ Matrix chordalInitialization(
 
   SparseMatrix B3red = B3.rightCols((num_poses - 1) * d2);
   B3red.makeCompressed();  // Must be in compressed format to use
-                           // Eigen::SparseQR!
+  // Eigen::SparseQR!
 
   // Vectorization of I_d
   Eigen::MatrixXd Id = Eigen::MatrixXd::Identity(d, d);
@@ -395,7 +397,7 @@ Matrix recoverTranslations(const SparseMatrix &B1, const SparseMatrix &B2,
   unsigned int n = R.cols() / d;
 
   // Vectorization of R matrix
-  Eigen::Map<Eigen::VectorXd> rvec((double *)R.data(), d * d * n);
+  Eigen::Map<Eigen::VectorXd> rvec((double *) R.data(), d * d * n);
 
   // Form the matrix comprised of the right (n-1) block columns of B1
   SparseMatrix B1red = B1.rightCols(d * (n - 1));
@@ -434,7 +436,7 @@ Matrix projectToRotationGroup(const Matrix &M) {
   }
 }
 
-Matrix projectToStiefelManifold(const Matrix& M) {
+Matrix projectToStiefelManifold(const Matrix &M) {
   size_t r = M.rows();
   size_t d = M.cols();
   assert(r >= d);
@@ -446,7 +448,20 @@ Matrix fixedStiefelVariable(unsigned d, unsigned r) {
   std::srand(1);
   ROPTLIB::StieVariable var(r, d);
   var.RandInManifold();
-  return Eigen::Map<Matrix>((double *)var.ObtainReadData(), r, d);
+  return Eigen::Map<Matrix>((double *) var.ObtainReadData(), r, d);
+}
+
+double computeMeasurementError(const RelativeSEMeasurement &m,
+                               const Matrix &R1, const Matrix &t1,
+                               const Matrix &R2, const Matrix &t2) {
+  double rotationErrorSq = (R1 * m.R - R2).squaredNorm();
+  double translationErrorSq = (t2 - t1 - R1 * m.t).squaredNorm();
+  return m.kappa * rotationErrorSq + m.tau * translationErrorSq;
+}
+
+double chi2inv(double quantile, size_t dof) {
+  boost::math::chi_squared_distribution<double> chi2(dof);
+  return boost::math::quantile(chi2, quantile);
 }
 
 }  // namespace DPGO

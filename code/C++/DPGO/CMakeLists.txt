@@ -19,12 +19,15 @@ endif()
 endif()
 
 find_package(Threads REQUIRED)
+find_package(Boost)
 
 message(STATUS "CMAKE_MODULE_PATH: " ${CMAKE_MODULE_PATH})
+message(STATUS "Boost version: " ${Boost_VERSION_STRING})
 
 set(EXTERNAL_INCLUDES
 	${CHOLMOD_INCLUDES}
 	${EIGEN3_INCLUDE_DIR}
+	${Boost_INCLUDE_DIRS}
 	CACHE INTERNAL "")
 
 add_library(DPGO SHARED
@@ -37,6 +40,7 @@ add_library(DPGO SHARED
 	src/QuadraticProblem.cpp
 	src/QuadraticOptimizer.cpp
 	src/DPGO_utils.cpp
+    src/DPGO_robust.cpp
 	src/PGOLogger.cpp)
 
 target_include_directories(DPGO PUBLIC
@@ -48,7 +52,7 @@ target_include_directories(DPGO PUBLIC
 	$<INSTALL_INTERFACE:${DPGO_INSTALL_INCLUDEDIR}/DPGO>
 	)
 
-target_link_libraries(DPGO ${CMAKE_THREAD_LIBS_INIT} roptlib ${CHOLMOD_LIBRARIES} ${SPQR_LIBRARIES} )
+target_link_libraries(DPGO ${CMAKE_THREAD_LIBS_INIT} roptlib ${CHOLMOD_LIBRARIES} ${SPQR_LIBRARIES} ${Boost_LIBRARIES})
 
 if(OPENMP_FOUND)
 # Add additional compilation flags to enable OpenMP support

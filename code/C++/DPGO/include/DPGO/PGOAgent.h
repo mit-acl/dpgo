@@ -10,6 +10,7 @@
 
 #include <DPGO/DPGO_types.h>
 #include <DPGO/PGOLogger.h>
+#include <DPGO/DPGO_robust.h>
 #include <DPGO/RelativeSEMeasurement.h>
 #include <DPGO/manifold/LiftedSEManifold.h>
 #include <DPGO/manifold/LiftedSEVariable.h>
@@ -22,6 +23,7 @@
 #include <thread>
 #include <utility>
 #include <vector>
+#include <stdexcept>
 #include <optional>
 
 #include "Manifolds/Element.h"
@@ -63,14 +65,26 @@ struct PGOAgentParameters {
   // Total number of robots
   unsigned numRobots;
 
+  // Riemannian optimization algorithm used when solving local subproblem
+  ROPTALG algorithm;
+
   // Use Nesterov acceleration
   bool acceleration;
 
   // Interval for fixed (periodic) restart
   unsigned restartInterval;
 
-  // Riemannian optimization algorithm used when solving local subproblem
-  ROPTALG algorithm;
+  // Robust cost function
+  RobustCostType robustCostType;
+
+  // Parameter settings over robust cost functions
+  RobustCostParameters robustCostParams;
+
+  // Interval to update loop closure weights
+  unsigned weightUpdateInterval;
+
+  // Mininum ratio of converged loop closures to terminate
+  double minConvergedLoopClosureRatio;
 
   // Maximum number of global iterations
   unsigned maxNumIters;
@@ -88,13 +102,26 @@ struct PGOAgentParameters {
   std::string logDirectory;
 
   // Default constructor
-  PGOAgentParameters(unsigned dIn, unsigned rIn, unsigned numRobotsIn = 1,
-                     bool accel = false, unsigned restartInt = 100, ROPTALG algorithmIn = ROPTALG::RTR,
-                     unsigned maxIters = 500, double changeTol = 5e-3,
-                     bool v = false, bool log = false, std::string logDir = "")
+  PGOAgentParameters(unsigned dIn,
+                     unsigned rIn,
+                     unsigned numRobotsIn = 1,
+                     ROPTALG algorithmIn = ROPTALG::RTR,
+                     bool accel = false,
+                     unsigned restartInt = 30,
+                     RobustCostType costType = RobustCostType::L2,
+                     RobustCostParameters costParams = RobustCostParameters(),
+                     unsigned weightInt = 30,
+                     double gncMinRatio = 0.8,
+                     unsigned maxIters = 500,
+                     double changeTol = 5e-3,
+                     bool v = false,
+                     bool log = false,
+                     std::string logDir = "")
       : d(dIn), r(rIn), numRobots(numRobotsIn),
-        acceleration(accel), restartInterval(restartInt), algorithm(algorithmIn),
-        maxNumIters(maxIters), relChangeTol(changeTol),
+        algorithm(algorithmIn),
+        acceleration(accel), restartInterval(restartInt),
+        robustCostType(costType), robustCostParams(costParams), weightUpdateInterval(weightInt),
+        minConvergedLoopClosureRatio(gncMinRatio), maxNumIters(maxIters), relChangeTol(changeTol),
         verbose(v), logData(log), logDirectory(std::move(logDir)) {}
 
   inline friend std::ostream &operator<<(
@@ -105,12 +132,16 @@ struct PGOAgentParameters {
     os << "Number of robots: " << params.numRobots << std::endl;
     os << "Use Nesterov acceleration: " << params.acceleration << std::endl;
     os << "Fixed restart interval: " << params.restartInterval << std::endl;
+    os << "Robust cost function: " << RobustCostNames[params.robustCostType] << std::endl;
+    os << "Weight update interval: " << params.weightUpdateInterval << std::endl;
+    os << "Minimum ratio of converged loop closures: " << params.minConvergedLoopClosureRatio << std::endl;
     os << "Local optimization algorithm: " << params.algorithm << std::endl;
     os << "Max iterations: " << params.maxNumIters << std::endl;
     os << "Relative change tol: " << params.relChangeTol << std::endl;
     os << "Verbose: " << params.verbose << std::endl;
     os << "Log data: " << params.logData << std::endl;
     os << "Log directory: " << params.logDirectory << std::endl;
+    os << params.robustCostParams << std::endl;
     return os;
   }
 };
@@ -129,8 +160,8 @@ struct PGOAgentStatus {
   // Current global iteration number
   unsigned iterationNumber;
 
-  // Whether the agent has changed its estimates at this iteration
-  bool optimizationSuccess;
+  // True if the agent passes its local termination condition
+  bool readyToTerminate;
 
   // The relative change of the agent's estimate
   double relativeChange;
@@ -140,14 +171,14 @@ struct PGOAgentStatus {
                  PGOAgentState s = PGOAgentState::WAIT_FOR_DATA,
                  unsigned instance = 0,
                  unsigned iteration = 0,
-                 bool suc = false,
-                 double rc = 0)
+                 bool ready_to_terminate = false,
+                 double relative_change = 0)
       : agentID(id),
         state(s),
         instanceNumber(instance),
         iterationNumber(iteration),
-        optimizationSuccess(suc),
-        relativeChange(rc) {}
+        readyToTerminate(ready_to_terminate),
+        relativeChange(relative_change) {}
 
   inline friend std::ostream &operator<<(
       std::ostream &os, const PGOAgentStatus &status) {
@@ -156,7 +187,7 @@ struct PGOAgentStatus {
     os << "State: " << status.state << std::endl;
     os << "Instance number: " << status.instanceNumber << std::endl;
     os << "Iteration number: " << status.iterationNumber << std::endl;
-    os << "Optimization success: " << status.optimizationSuccess << std::endl;
+    os << "Ready to terminate: " << status.readyToTerminate << std::endl;
     os << "Relative change: " << status.relativeChange << std::endl;
     return os;
   }
@@ -187,7 +218,7 @@ class PGOAgent {
   /**
   Reset this agent to have empty pose graph
   */
-  void reset();
+  virtual void reset();
 
   /**
    * @brief Reset variables used in Nesterov acceleration
@@ -242,6 +273,8 @@ class PGOAgent {
   inline PGOAgentStatus getStatus() {
     mStatus.agentID = getID();
     mStatus.state = getState();
+    mStatus.instanceNumber = instance_number();
+    mStatus.iterationNumber = iteration_number();
     return mStatus;
   }
 
@@ -325,6 +358,12 @@ class PGOAgent {
   bool shouldRestart();
 
   /**
+   * @brief Restart Nesterov acceleration sequence
+   * @param doOptimization true if perform optimization after restart
+   */
+  void restartNesterovAcceleration(bool doOptimization);
+
+  /**
   Initiate a new thread that runs runOptimizationLoop()
   */
   void startOptimizationLoop(double freq);
@@ -376,6 +415,11 @@ class PGOAgent {
                              unsigned neighborPose, const Matrix &var);
 
   /**
+  Local chordal initialization
+  */
+  Matrix localChordalInitialization();
+
+  /**
   Local pose graph optimization
   */
   Matrix localPoseGraphOptimization();
@@ -405,8 +449,11 @@ class PGOAgent {
   // Current status of this agent (to be shared with others)
   PGOAgentStatus mStatus;
 
+  // Robust cost function
+  RobustCost mRobustCost;
+
   // Rate in Hz of the optimization loop (only used in asynchronous mode)
-  double rate;
+  double mRate;
 
   // Current PGO instance
   unsigned mInstanceNumber;
@@ -418,19 +465,31 @@ class PGOAgent {
   unsigned mNumPosesReceived;
 
   // Logging
-  PGOLogger logger;
+  PGOLogger mLogger;
 
   // Store status of peer agents
   std::vector<PGOAgentStatus> mTeamStatus;
 
-  // whether there is request to terminate optimization thread
-  bool mFinishRequested = false;
+  // Request to perform single local optimization step
+  bool mOptimizationRequested = false;
+
+  // Request to publish public poses
+  bool mPublishPublicPosesRequested = false;
+
+  // Request to publish measurement weights
+  bool mPublishWeightsRequested = false;
+
+  // Request to terminate optimization thread
+  bool mEndLoopRequested = false;
 
   // Solution before rounding
   Matrix X;
 
-  // Quadratic cost term
-  SparseMatrix Q;
+  // Quadratic cost matrix
+  std::optional<SparseMatrix> QMatrix;
+
+  // Linear cost matrix
+  std::optional<SparseMatrix> GMatrix;
 
   // Lifting matrix shared by all agents
   std::optional<Matrix> YLift;
@@ -452,13 +511,13 @@ class PGOAgent {
   PoseDict neighborPoseDict;
 
   // Store the set of public poses that need to be sent to other robots
-  set<PoseID> mSharedPoses;
+  set<PoseID> localSharedPoseIDs;
 
   // Store the set of public poses needed from other robots
-  set<PoseID> neighborSharedPoses;
+  set<PoseID> neighborSharedPoseIDs;
 
   // Store the set of neighboring agents
-  set<unsigned> neighborAgents;
+  set<unsigned> neighborRobotIDs;
 
   // Implement locking to synchronize read & write of trajectory estimate
   mutex mPosesMutex;
@@ -474,7 +533,7 @@ class PGOAgent {
   thread *mOptimizationThread = nullptr;
 
   /**
-  Add an odometric measurement of this robot.
+  Add an odometry measurement of this robot.
   This function automatically initialize the new pose, by propagating odometry
   */
   void addOdometry(const RelativeSEMeasurement &factor);
@@ -500,11 +559,10 @@ class PGOAgent {
   /**
    * @brief Construct the cost matrix G in the local PGO problem
       f(X) = 0.5<Q, XtX> + <X, G>
-   * @param G: the linear data matrix that will be modified in place
    * @param poseDict: a Map that contains the public pose values from the neighbors
    * @return true if the data matrix is computed successfully
    */
-  bool constructGMatrix(SparseMatrix &G, const PoseDict &poseDict);
+  bool constructGMatrix(const PoseDict &poseDict);
 
   /**
   Optimize pose graph by calling optimize().
@@ -513,19 +571,42 @@ class PGOAgent {
   void runOptimizationLoop();
 
   /**
-   * @brief Find a shared loop closure based on neighboring robot's ID and pose
+   * @brief Find and return any shared measurement with the specified neighbor pose
    * @param neighborID
    * @param neighborPose
-   * @param mOut
    * @return
    */
-  bool findSharedLoopClosure(unsigned neighborID, unsigned neighborPose,
-                             RelativeSEMeasurement &mOut);
+  RelativeSEMeasurement &findSharedLoopClosureWithNeighbor(unsigned neighborID, unsigned neighborPose);
 
   /**
-  Local chordal initialization
-  */
-  Matrix localChordalInitialization();
+   * @brief Find and return the specified shared measurement
+   * @param srcRobotID
+   * @param srcPoseID
+   * @param dstRobotID
+   * @param dstPoseID
+   * @return
+   */
+  RelativeSEMeasurement &findSharedLoopClosure(unsigned srcRobotID,
+                                               unsigned srcPoseID,
+                                               unsigned dstRobotID,
+                                               unsigned dstPoseID);
+
+  /**
+   * @brief Return true if should update loop closure weights
+   * @return bool
+   */
+  bool shouldUpdateLoopClosureWeights();
+
+  /**
+   * @brief Update loop closure weights.
+   */
+  void updateLoopClosuresWeights();
+
+  /**
+   * @brief Compute the ratio of loop closure weights that have converged (assuming GNC_TLS)
+   * @return ratio
+   */
+  double computeConvergedLoopClosureRatio();
 
  private:
   // Stores the auxiliary variables from neighbors (only used in acceleration)

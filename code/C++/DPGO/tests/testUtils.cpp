@@ -2,6 +2,7 @@
 #include <DPGO/DPGO_utils.h>
 #include <DPGO/manifold/LiftedSEManifold.h>
 #include <iostream>
+#include <random>
 
 #include "gtest/gtest.h"
 
@@ -48,4 +49,21 @@ TEST(testDPGO, testLiftedSEManifoldProjection) {
     Matrix D = Y.transpose() * Y - Matrix::Identity(d, d);
     ASSERT_LE(D.norm(), 1e-5);
   }
+}
+
+TEST(testDPGO, testChi2Inv) {
+  unsigned dof = 4;
+  double quantile = 0.95;
+  double threshold = chi2inv(quantile, dof);
+  std::random_device rd;  // Will be used to obtain a seed for the random number engine
+  std::mt19937 rng(rd());  // Standard mersenne_twister_engine seeded with rd()
+  std::chi_squared_distribution<double> distribution(dof);
+  int numTrials = 100000;
+  int count = 0;
+  for (int i =0; i < numTrials; ++i) {
+    double number = distribution(rng);
+    if (number < threshold) count ++;
+  }
+  double q = (double) count / numTrials;
+  ASSERT_LE(abs(q - quantile), 0.01);
 }

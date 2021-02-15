@@ -59,7 +59,7 @@ int main(int argc, char** argv) {
   vector<RelativeSEMeasurement> odometry;
   vector<RelativeSEMeasurement> private_loop_closures;
   vector<RelativeSEMeasurement> shared_loop_closure;
-  for (auto mIn : dataset) {
+  for (const auto& mIn : dataset) {
     unsigned srcIdx = mIn.p1;
     unsigned dstIdx = mIn.p2;
 
