@@ -540,7 +540,6 @@ void PGOAgent::iterate(bool doOptimization) {
       double ratio = computeConvergedLoopClosureRatio();
       if (ratio < mParams.minConvergedLoopClosureRatio) readyToTerminate = false;
       mStatus.readyToTerminate = readyToTerminate;
-      if (mParams.verbose) printf("Robot %u ratio of converged loop closure weights: %f\n", getID(), ratio);
     }
   }
 }
@@ -1058,12 +1057,34 @@ double PGOAgent::computeConvergedLoopClosureRatio() {
   }
 
   double totalCount = privateLoopClosures.size() + sharedLoopClosures.size();
-  double convergedCount = 0;
+  double acceptCount = 0;
+  double rejectCount = 0;
   for (const auto &m: privateLoopClosures) {
-    if (m.weight == 0 || m.weight == 1) convergedCount += 1;
+    if (m.weight == 1) {
+      acceptCount += 1;
+    } else if (m.weight == 0) {
+      rejectCount += 1;
+    }
   }
   for (const auto &m: sharedLoopClosures) {
-    if (m.weight == 0 || m.weight == 1) convergedCount += 1;
+    if (m.weight == 1) {
+      acceptCount += 1;
+    } else if (m.weight == 0) {
+      rejectCount += 1;
+    }
+  }
+  double convergedCount = acceptCount + rejectCount;
+
+  if (mParams.verbose) {
+    printf(
+        "Robot %u :\n "
+        "accepted loop closures: %i\n "
+        "rejected loop closures: %i\n "
+        "undecided loop closures: %i\n",
+        getID(),
+        (int) acceptCount ,
+        (int) rejectCount ,
+        (int) (totalCount - convergedCount));
   }
 
   return convergedCount / totalCount;
