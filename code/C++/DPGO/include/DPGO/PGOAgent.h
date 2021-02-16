@@ -644,6 +644,14 @@ class PGOAgent {
   void updateV();
 
   void resetTeamStatus();
+
+  /**
+   * @brief Return True is the given measurement is already present
+   * @param m
+   * @param measurements
+   * @return
+   */
+  bool isDuplicateMeasurement(const RelativeSEMeasurement &m, const vector<RelativeSEMeasurement> &measurements);
 };
 
 }  // namespace DPGO
