@@ -6,7 +6,7 @@ This repository contains implementation of synchronous and asynchronous Distribu
 
  - Y. Tian, K. Khosoussi, D. M. Rosen, J. P. How. [**Distributed Certifiably Correct Pose-Graph Optimization**](https://arxiv.org/abs/1911.03721). arXiv preprint [arXiv:1911.03721](https://arxiv.org/abs/1911.03721).
  
- - Y.Tian, A. Koppel, A. S. Bedi, J. P. How.  [**Asynchronous and Parallel Distributed Pose Graph Optimization**](https://arxiv.org/abs/2003.03281). arXiv preprint [arXiv:2003.03281](https://arxiv.org/abs/2003.03281).
+ - Y.Tian, A. Koppel, A. S. Bedi, J. P. How.  [**Asynchronous and Parallel Distributed Pose Graph Optimization**](https://arxiv.org/abs/2003.03281). IEEE Robotics and Automation Letters (RA-L) 2020. Full paper: [arXiv:2003.03281](https://arxiv.org/abs/2003.03281).
 
 ## Building the C++ Library 
 
