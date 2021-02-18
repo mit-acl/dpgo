@@ -36,6 +36,7 @@ struct RobustCostParameters {
   unsigned GNCMaxNumIters;
   double GNCBarc;
   double GNCMuStep;
+  double GNCInitMu;
 
   // Huber parameters
   double HuberThreshold;
@@ -44,17 +45,18 @@ struct RobustCostParameters {
   double TLSThreshold;
 
   // Default constructor
-  RobustCostParameters(unsigned gncMaxIters = 100, double gncBarc = 10, double gncMuStep = 1.4,
+  RobustCostParameters(unsigned gncMaxIters = 100, double gncBarc = 10, double gncMuStep = 1.4, double gncInitMu = 1e-4,
                        double huberThresh = 3, double TLSThresh = 10)
-      : GNCMaxNumIters(gncMaxIters), GNCBarc(gncBarc), GNCMuStep(gncMuStep),
+      : GNCMaxNumIters(gncMaxIters), GNCBarc(gncBarc), GNCMuStep(gncMuStep), GNCInitMu(gncInitMu),
         HuberThreshold(huberThresh), TLSThreshold(TLSThresh) {}
 
   inline friend std::ostream &operator<<(
       std::ostream &os, const RobustCostParameters &params) {
     os << "Robust cost parameters: " << std::endl;
-    os << "GNC threshold (barc): " << params.GNCBarc << std::endl;
     os << "GNC maximum iterations: " << params.GNCMaxNumIters << std::endl;
     os << "GNC mu step: " << params.GNCMuStep << std::endl;
+    os << "GNC initial mu: " << params.GNCInitMu << std::endl;
+    os << "GNC threshold (barc): " << params.GNCBarc << std::endl;
     os << "Huber threshold: " << params.HuberThreshold << std::endl;
     os << "TLS threshold: " << params.TLSThreshold << std::endl;
     return os;
@@ -101,7 +103,7 @@ class RobustCost {
   static double computeErrorThresholdAtQuantile(double quantile, size_t dimension) {
     assert(dimension == 2 || dimension == 3);
     assert(quantile > 0 && quantile < 1);
-    return std::sqrt(chi2inv(quantile, dimension + 1));
+    return std::sqrt(chi2inv(quantile, 2 * dimension));
   }
 
  private:
@@ -111,7 +113,7 @@ class RobustCost {
 
   // GNC internal states
   size_t mGNCIteration = 0; // Iteration number
-  double mu = 0.05;         // Mu parameter
+  double mu;                // Mu parameter
 
 };
 

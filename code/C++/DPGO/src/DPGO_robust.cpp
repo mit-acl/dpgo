@@ -70,7 +70,7 @@ void RobustCost::reset() {
   // Initialize the mu parameter in GNC, if used
   switch (mCostType) {
     case RobustCostType::GNC_TLS: {
-      mu = 0.01;
+      mu = mParams.GNCInitMu;
       mGNCIteration = 0;
       break;
     }

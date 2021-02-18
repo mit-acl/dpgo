@@ -190,7 +190,7 @@ void PGOAgent::addPrivateLoopClosure(const RelativeSEMeasurement &factor) {
   assert(factor.t.rows() == d && factor.t.cols() == 1);
 
   if (isDuplicateMeasurement(factor, privateLoopClosures)) {
-    if (mParams.verbose) printf("Detected duplicate measurement!");
+    if (mParams.verbose) printf("Detected duplicate measurement!\n");
     return;
   }
 
@@ -207,7 +207,7 @@ void PGOAgent::addSharedLoopClosure(const RelativeSEMeasurement &factor) {
   assert(factor.t.rows() == d && factor.t.cols() == 1);
 
   if (isDuplicateMeasurement(factor, sharedLoopClosures)) {
-    if (mParams.verbose) printf("Detected duplicate measurement!");
+    if (mParams.verbose) printf("Detected duplicate measurement!\n");
     return;
   }
 
