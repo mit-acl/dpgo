@@ -189,11 +189,6 @@ void PGOAgent::addPrivateLoopClosure(const RelativeSEMeasurement &factor) {
   assert(factor.R.rows() == d && factor.R.cols() == d);
   assert(factor.t.rows() == d && factor.t.cols() == 1);
 
-  if (isDuplicateMeasurement(factor, privateLoopClosures)) {
-    if (mParams.verbose) printf("Detected duplicate measurement!\n");
-    return;
-  }
-
   // update number of poses
   n = std::max(n, (unsigned) std::max(factor.p1 + 1, factor.p2 + 1));
 
@@ -205,11 +200,6 @@ void PGOAgent::addSharedLoopClosure(const RelativeSEMeasurement &factor) {
   assert(mState != PGOAgentState::INITIALIZED);
   assert(factor.R.rows() == d && factor.R.cols() == d);
   assert(factor.t.rows() == d && factor.t.cols() == 1);
-
-  if (isDuplicateMeasurement(factor, sharedLoopClosures)) {
-    if (mParams.verbose) printf("Detected duplicate measurement!\n");
-    return;
-  }
 
   if (factor.r1 == mID) {
     assert(factor.r2 != mID);
