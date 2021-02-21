@@ -35,9 +35,9 @@ PGOAgent::PGOAgent(unsigned ID, const PGOAgentParameters &params)
       mRobustCost(params.robustCostType, params.robustCostParams),
       mInstanceNumber(0), mIterationNumber(0), mNumPosesReceived(0),
       mLogger(params.logDirectory) {
-  if (mParams.verbose) {
-    std::cout << params << std::endl;
-  }
+  std::cout << "Initializing PGO agent..." << std::endl;
+  std::cout << params << std::endl;
+
 
   // Initialize X
   X = Matrix::Zero(r, d + 1);
