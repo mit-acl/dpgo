@@ -62,12 +62,18 @@ class QuadraticOptimizer {
    * @brief Set the initial trust region radius (default 1e1)
    * @param radius
    */
-  void setTrustRegionInitialRadius(double radius) {trustRegionInitialRadius = radius; }
+  void setTrustRegionInitialRadius(double radius) { trustRegionInitialRadius = radius; }
+
+  /**
+   * @brief Set the maximum number of inner tCG iterations
+   * @param iter
+   */
+  void setTrustRegionMaxInnerIterations(int iter) { trustRegionMaxInnerIterations = iter; }
 
   /**
   Return optimization result
   */
-  ROPTResult getOptResult() const {return result; };
+  ROPTResult getOptResult() const { return result; };
 
  private:
   // Underlying Riemannian Optimization Problem
@@ -90,7 +96,10 @@ class QuadraticOptimizer {
 
   // Initial trust region radius
   double trustRegionInitialRadius;
-  
+
+  // Maximum number of tCG iterations
+  int trustRegionMaxInnerIterations;
+
   // Verbose flag
   bool verbose;
 

@@ -24,6 +24,7 @@ QuadraticOptimizer::QuadraticOptimizer(QuadraticProblem* p)
       trustRegionIterations(1),
       trustRegionTolerance(1e-2),
       trustRegionInitialRadius(1e1),
+      trustRegionMaxInnerIterations(50),
       verbose(false) {
   result.success = false;
 }
@@ -79,7 +80,7 @@ Matrix QuadraticOptimizer::trustRegion(const Matrix& Yinit) {
   }
   Solver.Max_Iteration = trustRegionIterations;
   Solver.Min_Inner_Iter = 0;
-  Solver.Max_Inner_Iter = 50;
+  Solver.Max_Inner_Iter = trustRegionMaxInnerIterations;
   Solver.Run();
 
   double funcDecrease = Solver.Getfinalfun() - initFunc;

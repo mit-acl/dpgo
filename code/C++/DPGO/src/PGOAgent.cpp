@@ -800,6 +800,7 @@ Matrix PGOAgent::localPoseGraphOptimization() {
   optimizer.setVerbose(mParams.verbose);
   optimizer.setTrustRegionIterations(10);
   optimizer.setTrustRegionTolerance(1e-2);
+  optimizer.setTrustRegionMaxInnerIterations(500);
 
   // Optimize
   Matrix Topt = optimizer.optimize(Tinit);
@@ -954,7 +955,6 @@ bool PGOAgent::updateX(bool doOptimization, bool acceleration) {
   optimizer.setAlgorithm(mParams.algorithm);
   optimizer.setTrustRegionTolerance(1e-6); // Force optimizer to make progress
   optimizer.setTrustRegionIterations(1);
-  optimizer.setTrustRegionInitialRadius(1e1);
 
   // Starting solution
   Matrix XInit;
