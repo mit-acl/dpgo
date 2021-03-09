@@ -102,8 +102,11 @@ class RobustCost {
    */
   static double computeErrorThresholdAtQuantile(double quantile, size_t dimension) {
     assert(dimension == 2 || dimension == 3);
-    assert(quantile > 0 && quantile < 1);
-    return std::sqrt(chi2inv(quantile, 2 * dimension));
+    assert(quantile > 0);
+    if (quantile < 1)
+      return std::sqrt(chi2inv(quantile, 2 * dimension));
+    else
+      return 1e5;
   }
 
  private:

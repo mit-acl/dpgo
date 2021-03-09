@@ -35,6 +35,12 @@ namespace ROPTLIB{
 
 		/*Setting parameters (member variables) to be default values */
 		virtual void SetDefaultParams();
+
+		/*Return the trust region radius */
+		double getDelta() {return Delta; }
+
+		/*Return tCG status*/
+		tCGstatusSet gettCGStatus() {return tCGstatus; }
 	protected:
 		/*Compute result = H[Eta], where H is the Hessian*/
 		virtual void HessianEta(Vector *Eta, Vector *result);

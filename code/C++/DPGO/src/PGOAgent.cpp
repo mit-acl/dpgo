@@ -35,9 +35,10 @@ PGOAgent::PGOAgent(unsigned ID, const PGOAgentParameters &params)
       mRobustCost(params.robustCostType, params.robustCostParams),
       mInstanceNumber(0), mIterationNumber(0), mNumPosesReceived(0),
       mLogger(params.logDirectory) {
-  std::cout << "Initializing PGO agent..." << std::endl;
-  std::cout << params << std::endl;
-
+  if (mParams.verbose) {
+    std::cout << "Initializing PGO agent..." << std::endl;
+    std::cout << params << std::endl;
+  }
 
   // Initialize X
   X = Matrix::Zero(r, d + 1);
@@ -953,6 +954,7 @@ bool PGOAgent::updateX(bool doOptimization, bool acceleration) {
   optimizer.setAlgorithm(mParams.algorithm);
   optimizer.setTrustRegionTolerance(1e-6); // Force optimizer to make progress
   optimizer.setTrustRegionIterations(1);
+  optimizer.setTrustRegionInitialRadius(1e1);
 
   // Starting solution
   Matrix XInit;

@@ -59,6 +59,12 @@ class QuadraticOptimizer {
   void setTrustRegionTolerance(double tol) { trustRegionTolerance = tol; }
 
   /**
+   * @brief Set the initial trust region radius (default 1e1)
+   * @param radius
+   */
+  void setTrustRegionInitialRadius(double radius) {trustRegionInitialRadius = radius; }
+
+  /**
   Return optimization result
   */
   ROPTResult getOptResult() const {return result; };
@@ -81,6 +87,9 @@ class QuadraticOptimizer {
 
   // Tolerance for trust-region updates
   double trustRegionTolerance;
+
+  // Initial trust region radius
+  double trustRegionInitialRadius;
   
   // Verbose flag
   bool verbose;

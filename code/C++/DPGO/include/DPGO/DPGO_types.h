@@ -12,6 +12,8 @@
 #include <Eigen/SparseCore>
 #include <map>
 #include <tuple>
+#include <SolversTR.h>
+#include <RTRNewton.h>
 
 namespace DPGO {
 
@@ -53,6 +55,7 @@ struct ROPTResult {
   double gradNormOpt;     // Gradient norm after optimization
   double relativeChange;  // Relative change in solution
   double elapsedMs;       // elapsed time in milliseconds
+  ROPTLIB::tCGstatusSet tCGStatus;  // status of truncated conjugate gradient (only used by trust region solver)
 };
 
 // In distributed PGO, each pose is uniquely determined by the robot ID and pose
