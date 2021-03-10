@@ -149,7 +149,7 @@ void PGOAgent::setPoseGraph(
 
   if (mID == 0) {
     // The first agent can further initialize its trajectory estimate
-    Matrix T = localChordalInitialization();
+    Matrix T = localPoseGraphInitialization();
     X = YLift.value() * T;  // Lift to correct relaxation rank
     mState = PGOAgentState::INITIALIZED;
     if (mParams.acceleration) {
@@ -279,7 +279,7 @@ void PGOAgent::updateNeighborPose(unsigned neighborCluster, unsigned neighborID,
       T_world2_frame2.block(0, 0, d, d + 1) =
           YLift.value().transpose() *
               var;  // Round the received neighbor pose value back to SE(d)
-      Matrix T = localChordalInitialization();
+      Matrix T = localPoseGraphInitialization();
       Matrix T_frame1_frame2 = Matrix::Identity(d + 1, d + 1);
       Matrix T_world1_frame1 = Matrix::Identity(d + 1, d + 1);
       if (m.r1 == neighborID) {
@@ -773,18 +773,25 @@ RelativeSEMeasurement &PGOAgent::findSharedLoopClosure(unsigned srcRobotID,
   throw std::runtime_error("Cannot find specified shared loop closure.");
 }
 
-Matrix PGOAgent::localChordalInitialization() {
+Matrix PGOAgent::localPoseGraphInitialization() {
   std::vector<RelativeSEMeasurement> measurements = odometry;
-  measurements.insert(measurements.end(), privateLoopClosures.begin(),
-                      privateLoopClosures.end());
+  measurements.insert(measurements.end(), privateLoopClosures.begin(), privateLoopClosures.end());
+  Matrix TInit;
 
-  return chordalInitialization(dimension(), num_poses(), measurements);
+  if (mParams.robustCostType == RobustCostType::L2) {
+    TInit = chordalInitialization(dimension(), num_poses(), measurements);
+  } else {
+    // In robust mode, we do not trust the loop closures and hence initialize from odometry
+    TInit = odometryInitialization(dimension(), num_poses(), odometry);
+  }
+
+  return TInit;
 }
 
 Matrix PGOAgent::localPoseGraphOptimization() {
 
   // Compute initialization
-  Matrix Tinit = localChordalInitialization();
+  Matrix Tinit = localPoseGraphInitialization();
   assert(Tinit.rows() == d);
   assert(Tinit.cols() == (d + 1) * n);
 
@@ -1084,8 +1091,8 @@ double PGOAgent::computeConvergedLoopClosureRatio() {
         "rejected loop closures: %i\n "
         "undecided loop closures: %i\n",
         getID(),
-        (int) acceptCount ,
-        (int) rejectCount ,
+        (int) acceptCount,
+        (int) rejectCount,
         (int) (totalCount - convergedCount));
   }
 
@@ -1094,7 +1101,7 @@ double PGOAgent::computeConvergedLoopClosureRatio() {
 
 bool PGOAgent::isDuplicateMeasurement(const RelativeSEMeasurement &m,
                                       const vector<RelativeSEMeasurement> &measurements) {
-  for(const RelativeSEMeasurement &m2: measurements) {
+  for (const RelativeSEMeasurement &m2: measurements) {
     if (m.r1 == m2.r1 && m.r2 == m2.r2 && m.p1 == m2.p1 && m.p2 == m2.p2) {
       return true;
     }

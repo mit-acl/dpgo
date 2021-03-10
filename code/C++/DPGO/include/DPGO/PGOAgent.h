@@ -415,13 +415,15 @@ class PGOAgent {
                              unsigned neighborPose, const Matrix &var);
 
   /**
-  Local chordal initialization
-  */
-  Matrix localChordalInitialization();
+   * @brief initialize local trajectory estimate
+   * @return trajectory estimate in matrix form T = [R1 t1 ... Rn tn] in an arbitrary frame
+   */
+  Matrix localPoseGraphInitialization();
 
   /**
-  Local pose graph optimization
-  */
+   * @brief Perform local PGO using the standard L2 (least-squares) cost function
+   * @return trajectory estimate in matrix form T = [R1 t1 ... Rn tn] in an arbitrary frame
+   */
   Matrix localPoseGraphOptimization();
 
  protected:

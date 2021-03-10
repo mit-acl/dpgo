@@ -391,6 +391,29 @@ Matrix chordalInitialization(
   return Tchordal;
 }
 
+Matrix odometryInitialization(size_t dimension, size_t num_poses, const std::vector<RelativeSEMeasurement> &odometry) {
+  size_t d = dimension;
+  size_t n = num_poses;
+
+  Matrix T(d, n * (d + 1));
+  // Initialize first pose to be identity
+  T.block(0, 0, d, d) = Matrix::Identity(d, d);
+  T.block(0, d, d, 1) = Matrix::Zero(d, 1);
+  for (size_t src = 0; src < odometry.size(); ++src) {
+    size_t dst = src + 1;
+    const RelativeSEMeasurement &m = odometry[src];
+    assert(m.p1 == src);
+    assert(m.p2 == dst);
+    Matrix Rsrc = T.block(0, src * (d + 1), d, d);
+    Matrix tsrc = T.block(0, src * (d + 1) + d, d, 1);
+    Matrix Rdst = Rsrc * m.R;
+    Matrix tdst = tsrc + Rsrc * m.t;
+    T.block(0, dst * (d + 1), d, d) = Rdst;
+    T.block(0, dst * (d + 1) + d, d, 1) = tdst;
+  }
+  return T;
+}
+
 Matrix recoverTranslations(const SparseMatrix &B1, const SparseMatrix &B2,
                            const Matrix &R) {
   unsigned int d = R.rows();

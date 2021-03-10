@@ -54,12 +54,24 @@ void constructBMatrices(const std::vector<RelativeSEMeasurement> &measurements,
                         SparseMatrix &B1, SparseMatrix &B2, SparseMatrix &B3);
 
 /**
-Given a vector of relative pose measurements, compute the chordal relaxation of
-pose graph optimization
-*/
-Matrix chordalInitialization(
-    size_t dimension, size_t num_poses,
-    const std::vector<RelativeSEMeasurement> &measurements);
+ * @brief Initialize local trajectory estimate from chordal relaxation
+ * @param dimension
+ * @param num_poses
+ * @param measurements
+ * @return trajectory estimate in matrix form T = [R1 t1 ... Rn tn] in an arbitrary frame
+ */
+Matrix chordalInitialization(size_t dimension,
+                             size_t num_poses,
+                             const std::vector<RelativeSEMeasurement> &measurements);
+
+/**
+ * @brief Initialize local trajectory estimate from odometry
+ * @param dimension
+ * @param num_poses
+ * @param odometry A vector of odometry measurement
+ * @return trajectory estimate in matrix form T = [R1 t1 ... Rn tn] in an arbitrary frame
+ */
+Matrix odometryInitialization(size_t dimension, size_t num_poses, const std::vector<RelativeSEMeasurement> &odometry);
 
 /**
 Given the measurement matrices B1 and B2 and a matrix R of rotational state
