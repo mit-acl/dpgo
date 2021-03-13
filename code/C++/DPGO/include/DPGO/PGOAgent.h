@@ -202,12 +202,19 @@ class PGOAgent {
   ~PGOAgent();
 
   /**
-  Initialize the local pose graph from the input factors
-  */
+   * @brief Set the local pose graph of this robot, optionally with an initial trajectory estimate
+   * @param inputOdometry : odometry edges of this robot
+   * @param inputPrivateLoopClosures : internal loop closures of this robot
+   * @param inputSharedLoopClosures share : loop closures with other robots
+   * @param TInit : optional trajectory estimate [R1 t1 ... Rn tn] in an arbitrary frame. If the  matrix is empty or
+   * if its dimension does not match the expected dimension, the value will be discarded and internal initialization
+   * will be used instead.
+   */
   void setPoseGraph(
       const std::vector<RelativeSEMeasurement> &inputOdometry,
       const std::vector<RelativeSEMeasurement> &inputPrivateLoopClosures,
-      const std::vector<RelativeSEMeasurement> &inputSharedLoopClosures);
+      const std::vector<RelativeSEMeasurement> &inputSharedLoopClosures,
+      const Matrix &TInit = Matrix());
 
   /**
    * @brief perform a single iteration
@@ -415,12 +422,6 @@ class PGOAgent {
                              unsigned neighborPose, const Matrix &var);
 
   /**
-   * @brief initialize local trajectory estimate
-   * @return trajectory estimate in matrix form T = [R1 t1 ... Rn tn] in an arbitrary frame
-   */
-  Matrix localPoseGraphInitialization();
-
-  /**
    * @brief Perform local PGO using the standard L2 (least-squares) cost function
    * @return trajectory estimate in matrix form T = [R1 t1 ... Rn tn] in an arbitrary frame
    */
@@ -486,6 +487,9 @@ class PGOAgent {
 
   // Solution before rounding
   Matrix X;
+
+  // Initial solution TInit = [R1 t1 ... Rn tn] in an arbitrary coordinate frame
+  std::optional<Matrix> TLocalInit;
 
   // Quadratic cost matrix
   std::optional<SparseMatrix> QMatrix;
@@ -565,6 +569,11 @@ class PGOAgent {
    * @return true if the data matrix is computed successfully
    */
   bool constructGMatrix(const PoseDict &poseDict);
+
+  /**
+   * @brief initialize local trajectory estimate
+   */
+  void localInitialization();
 
   /**
   Optimize pose graph by calling optimize().

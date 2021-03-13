@@ -128,7 +128,8 @@ void PGOAgent::setLiftingMatrix(const Matrix &M) {
 void PGOAgent::setPoseGraph(
     const std::vector<RelativeSEMeasurement> &inputOdometry,
     const std::vector<RelativeSEMeasurement> &inputPrivateLoopClosures,
-    const std::vector<RelativeSEMeasurement> &inputSharedLoopClosures) {
+    const std::vector<RelativeSEMeasurement> &inputSharedLoopClosures,
+    const Matrix &TInit) {
   assert(!isOptimizationRunning());
   assert(mState == PGOAgentState::WAIT_FOR_DATA);
   assert(n == 1);
@@ -145,12 +146,23 @@ void PGOAgent::setPoseGraph(
     addSharedLoopClosure(edge);
   }
 
+  // Robot can construct the quadratic cost matrix now, as it does not depend on neighbor values
+  constructQMatrix();
+
+  // Initialize trajectory estimate in an arbitrary frame
+  if (TInit.rows() == d && TInit.cols() == (d + 1) * n) {
+    if (mParams.verbose) printf("Using provided initial trajectory.\n");
+    TLocalInit.emplace(TInit);
+  } else {
+    localInitialization();
+  }
+
+  // Waiting for initialization in the GLOBAL frame
   mState = PGOAgentState::WAIT_FOR_INITIALIZATION;
 
   if (mID == 0) {
-    // The first agent can further initialize its trajectory estimate
-    Matrix T = localPoseGraphInitialization();
-    X = YLift.value() * T;  // Lift to correct relaxation rank
+    // The first robot can further initialize in the GLOBAL frame
+    X = YLift.value() * TLocalInit.value();  // Lift to correct relaxation rank
     mState = PGOAgentState::INITIALIZED;
     if (mParams.acceleration) {
       XPrev = X;
@@ -159,12 +171,9 @@ void PGOAgent::setPoseGraph(
 
     // Save initial trajectory
     if (mParams.logData) {
-      mLogger.logTrajectory(dimension(), num_poses(), T, "trajectory_initial.csv");
+      mLogger.logTrajectory(dimension(), num_poses(), TLocalInit.value(), "trajectory_initial.csv");
     }
   }
-
-  // Robot can construct the quadratic cost matrix now, as it does not depend on neighbor values
-  constructQMatrix();
 }
 
 void PGOAgent::addOdometry(const RelativeSEMeasurement &factor) {
@@ -279,7 +288,7 @@ void PGOAgent::updateNeighborPose(unsigned neighborCluster, unsigned neighborID,
       T_world2_frame2.block(0, 0, d, d + 1) =
           YLift.value().transpose() *
               var;  // Round the received neighbor pose value back to SE(d)
-      Matrix T = localPoseGraphInitialization();
+      Matrix T = TLocalInit.value();
       Matrix T_frame1_frame2 = Matrix::Identity(d + 1, d + 1);
       Matrix T_world1_frame1 = Matrix::Identity(d + 1, d + 1);
       if (m.r1 == neighborID) {
@@ -464,6 +473,7 @@ void PGOAgent::reset() {
   globalAnchor.reset();
   QMatrix.reset();
   GMatrix.reset();
+  TLocalInit.reset();
 
   mOptimizationRequested = false;
   mPublishPublicPosesRequested = false;
@@ -773,27 +783,27 @@ RelativeSEMeasurement &PGOAgent::findSharedLoopClosure(unsigned srcRobotID,
   throw std::runtime_error("Cannot find specified shared loop closure.");
 }
 
-Matrix PGOAgent::localPoseGraphInitialization() {
+void PGOAgent::localInitialization() {
   std::vector<RelativeSEMeasurement> measurements = odometry;
   measurements.insert(measurements.end(), privateLoopClosures.begin(), privateLoopClosures.end());
-  Matrix TInit;
 
+  Matrix T0;
   if (mParams.robustCostType == RobustCostType::L2) {
-    TInit = chordalInitialization(dimension(), num_poses(), measurements);
+    T0 = chordalInitialization(dimension(), num_poses(), measurements);
   } else {
     // In robust mode, we do not trust the loop closures and hence initialize from odometry
-    TInit = odometryInitialization(dimension(), num_poses(), odometry);
+    T0 = odometryInitialization(dimension(), num_poses(), odometry);
   }
 
-  return TInit;
+  assert(T0.rows() == d);
+  assert(T0.cols() == (d + 1) * n);
+  TLocalInit.emplace(T0);
 }
 
 Matrix PGOAgent::localPoseGraphOptimization() {
 
   // Compute initialization
-  Matrix Tinit = localPoseGraphInitialization();
-  assert(Tinit.rows() == d);
-  assert(Tinit.cols() == (d + 1) * n);
+  localInitialization();
 
   // Construct data matrix
   SparseMatrix GZero(d, (d + 1) * n);  // linear terms should be zero
@@ -810,7 +820,7 @@ Matrix PGOAgent::localPoseGraphOptimization() {
   optimizer.setTrustRegionMaxInnerIterations(500);
 
   // Optimize
-  Matrix Topt = optimizer.optimize(Tinit);
+  Matrix Topt = optimizer.optimize(TLocalInit.value());
   return Topt;
 }
 
