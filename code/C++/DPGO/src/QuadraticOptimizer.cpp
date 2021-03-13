@@ -17,7 +17,7 @@
 
 namespace DPGO {
 
-QuadraticOptimizer::QuadraticOptimizer(QuadraticProblem* p)
+QuadraticOptimizer::QuadraticOptimizer(QuadraticProblem *p)
     : problem(p),
       algorithm(ROPTALG::RTR),
       gradientDescentStepsize(1e-3),
@@ -31,7 +31,7 @@ QuadraticOptimizer::QuadraticOptimizer(QuadraticProblem* p)
 
 QuadraticOptimizer::~QuadraticOptimizer() = default;
 
-Matrix QuadraticOptimizer::optimize(const Matrix& Y) {
+Matrix QuadraticOptimizer::optimize(const Matrix &Y) {
   // Compute statistics before optimization
   result.fInit = problem->f(Y);
   result.gradNormInit = problem->RieGradNorm(Y);
@@ -57,7 +57,7 @@ Matrix QuadraticOptimizer::optimize(const Matrix& Y) {
   return YOpt;
 }
 
-Matrix QuadraticOptimizer::trustRegion(const Matrix& Yinit) {
+Matrix QuadraticOptimizer::trustRegion(const Matrix &Yinit) {
   unsigned r = problem->relaxation_rank();
   unsigned d = problem->dimension();
   unsigned n = problem->num_poses();
@@ -81,6 +81,8 @@ Matrix QuadraticOptimizer::trustRegion(const Matrix& Yinit) {
   Solver.Max_Iteration = trustRegionIterations;
   Solver.Min_Inner_Iter = 0;
   Solver.Max_Inner_Iter = trustRegionMaxInnerIterations;
+  Solver.theta = 1.0;  // Stopping condition of tCG (see 7.10 in Absil textbook)
+  Solver.kappa = 0.1;  // Stopping condition of tCG (see 7.10 in Absil textbook)
   Solver.Run();
 
   double funcDecrease = Solver.Getfinalfun() - initFunc;
@@ -98,14 +100,14 @@ Matrix QuadraticOptimizer::trustRegion(const Matrix& Yinit) {
   // record tCG status
   result.tCGStatus = Solver.gettCGStatus();
 
-  const auto* Yopt = dynamic_cast<const ROPTLIB::ProductElement*>(Solver.GetXopt());
+  const auto *Yopt = dynamic_cast<const ROPTLIB::ProductElement *>(Solver.GetXopt());
   LiftedSEVariable VarOpt(r, d, n);
   Yopt->CopyTo(VarOpt.var());
 
   return VarOpt.getData();
 }
 
-Matrix QuadraticOptimizer::gradientDescent(const Matrix& Yinit) {
+Matrix QuadraticOptimizer::gradientDescent(const Matrix &Yinit) {
   unsigned r = problem->relaxation_rank();
   unsigned d = problem->dimension();
   unsigned n = problem->num_poses();
@@ -132,7 +134,7 @@ Matrix QuadraticOptimizer::gradientDescent(const Matrix& Yinit) {
   return VarNext.getData();
 }
 
-Matrix QuadraticOptimizer::gradientDescentLS(const Matrix& Yinit) {
+Matrix QuadraticOptimizer::gradientDescentLS(const Matrix &Yinit) {
   unsigned r = problem->relaxation_rank();
   unsigned d = problem->dimension();
   unsigned n = problem->num_poses();
@@ -148,7 +150,7 @@ Matrix QuadraticOptimizer::gradientDescentLS(const Matrix& Yinit) {
       (verbose ? ROPTLIB::DEBUGINFO::DETAILED : ROPTLIB::DEBUGINFO::NOOUTPUT);
   Solver.Run();
 
-  const auto* Yopt = dynamic_cast<const ROPTLIB::ProductElement*>(Solver.GetXopt());
+  const auto *Yopt = dynamic_cast<const ROPTLIB::ProductElement *>(Solver.GetXopt());
   LiftedSEVariable VarOpt(r, d, n);
   Yopt->CopyTo(VarOpt.var());
 
