@@ -815,6 +815,7 @@ Matrix PGOAgent::localPoseGraphOptimization() {
   // Initialize optimizer object
   QuadraticOptimizer optimizer(&problem);
   optimizer.setVerbose(mParams.verbose);
+  optimizer.setTrustRegionInitialRadius(100);
   optimizer.setTrustRegionIterations(10);
   optimizer.setTrustRegionTolerance(1e-2);
   optimizer.setTrustRegionMaxInnerIterations(500);
@@ -1011,6 +1012,7 @@ void PGOAgent::updateLoopClosuresWeights() {
 
   // Update private loop closures
   for (auto &m: privateLoopClosures) {
+    if (m.isKnownInlier) continue;
     Matrix Y1 = X.block(0, m.p1 * (d + 1), r, d);
     Matrix p1 = X.block(0, m.p1 * (d + 1) + d, r, 1);
     Matrix Y2 = X.block(0, m.p2 * (d + 1), r, d);
@@ -1027,6 +1029,7 @@ void PGOAgent::updateLoopClosuresWeights() {
   // Update shared loop closures
   // Agent i is only responsible for updating edge weights with agent j, where j > i
   for (auto &m: sharedLoopClosures) {
+    if (m.isKnownInlier) continue;
     Matrix Y1, Y2, p1, p2;
     if (m.r1 == getID()) {
       if (m.r2 < getID()) continue;
