@@ -1079,22 +1079,26 @@ double PGOAgent::computeConvergedLoopClosureRatio() {
     return 1.0;
   }
 
-  double totalCount = privateLoopClosures.size() + sharedLoopClosures.size();
+  double totalCount = 0;
   double acceptCount = 0;
   double rejectCount = 0;
   for (const auto &m: privateLoopClosures) {
+    if (m.isKnownInlier) continue;
     if (m.weight == 1) {
       acceptCount += 1;
     } else if (m.weight == 0) {
       rejectCount += 1;
     }
+    totalCount += 1;
   }
   for (const auto &m: sharedLoopClosures) {
+    if (m.isKnownInlier) continue;
     if (m.weight == 1) {
       acceptCount += 1;
     } else if (m.weight == 0) {
       rejectCount += 1;
     }
+    totalCount += 1;
   }
   double convergedCount = acceptCount + rejectCount;
 
