@@ -123,6 +123,10 @@ class QuadraticProblem : public ROPTLIB::Problem {
 
   // Preconditioning solver
   Eigen::CholmodDecomposition<SparseMatrix> solver;
+
+  // Helper functions to convert between ROPTLIB::Element and Eigen Matrix
+  Matrix readElement(const ROPTLIB::Element *element) const;
+  void setElement(ROPTLIB::Element *element, const Matrix *matrix) const;
 };
 
 }  // namespace DPGO

@@ -31,9 +31,7 @@ QuadraticProblem::QuadraticProblem(unsigned int nIn,
   ROPTLIB::Problem::SetDomain(M->getManifold());
 
   SparseMatrix P = Q;
-  for (unsigned row = 0; row < P.rows(); ++row) {
-    P.coeffRef(row, row) += 1.0;
-  }
+  P.diagonal().array() += 1.0;
   solver.compute(P);
   if (solver.info() != Eigen::Success) {
     cout << "WARNING: preconditioner failed." << endl;
@@ -55,41 +53,29 @@ double QuadraticProblem::f(const Matrix &Y) const {
 }
 
 double QuadraticProblem::f(ROPTLIB::Variable *x) const {
-  x->CopyTo(Variable->var());
-  Matrix Y = Variable->getData();
-  return f(Y);
+  return f(readElement(x));
 }
 
 void QuadraticProblem::EucGrad(ROPTLIB::Variable *x, ROPTLIB::Vector *g) const {
-  x->CopyTo(Variable->var());
-  Matrix Y = Variable->getData();
-  Matrix EGrad = Y * Q + G;
-  Vector->setData(EGrad);
-  Vector->vec()->CopyTo(g);
+  Matrix EG = readElement(x) * Q + G;
+  setElement(g, &EG);
 }
 
 void QuadraticProblem::EucHessianEta(ROPTLIB::Variable *x, ROPTLIB::Vector *v,
                                      ROPTLIB::Vector *Hv) const {
-  v->CopyTo(Vector->vec());
-  Matrix inVec = Vector->getData();
-  Matrix outVec = inVec * Q;
-  HessianVectorProduct->setData(outVec);
-  HessianVectorProduct->vec()->CopyTo(Hv);
+  Matrix HVMat = readElement(v) * Q;
+  setElement(Hv, &HVMat);
 }
 
 void QuadraticProblem::PreConditioner(ROPTLIB::Variable *x,
                                       ROPTLIB::Vector *inVec,
                                       ROPTLIB::Vector *outVec) const {
-  inVec->CopyTo(Vector->vec());
-  Matrix HV = solver.solve(Vector->getData().transpose()).transpose();
+  Matrix HV = solver.solve(readElement(inVec).transpose()).transpose();
   if (solver.info() != Eigen::Success) {
     cout << "WARNING: Precon.solve() failed." << endl;
   }
-  // Project to tangent space
-  x->CopyTo(Variable->var());
-  Vector->setData(HV);
-  M->getManifold()->Projection(Variable->var(), Vector->vec(), Vector->vec());
-  Vector->vec()->CopyTo(outVec);
+  setElement(outVec, &HV);
+  M->getManifold()->Projection(x, outVec, outVec);  // Project output to the tangent space at x
 }
 
 Matrix QuadraticProblem::RieGrad(const Matrix &Y) const {
@@ -103,6 +89,14 @@ Matrix QuadraticProblem::RieGrad(const Matrix &Y) const {
 
 double QuadraticProblem::RieGradNorm(const Matrix &Y) const {
   return RieGrad(Y).norm();
+}
+
+Matrix QuadraticProblem::readElement(const ROPTLIB::Element *element) const {
+  return Eigen::Map<Matrix>((double *) element->ObtainReadData(), r, n * (d + 1));
+}
+
+void QuadraticProblem::setElement(ROPTLIB::Element *element, const Matrix *matrix) const {
+  memcpy(element->ObtainWriteEntireData(), matrix->data(), sizeof(double) * r * (d + 1) * n);
 }
 
 }  // namespace DPGO
