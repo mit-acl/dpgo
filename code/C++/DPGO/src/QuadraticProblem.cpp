@@ -14,40 +14,47 @@ using namespace std;
 /*Define the namespace*/
 namespace DPGO {
 
-QuadraticProblem::QuadraticProblem(unsigned int nIn,
-                                   unsigned int dIn,
-                                   unsigned int rIn,
-                                   const SparseMatrix &QIn,
-                                   const SparseMatrix &GIn)
-    : Q(QIn), G(GIn), n(nIn), d(dIn), r(rIn) {
-
-  M = new LiftedSEManifold(r, d, n);
-  Variable = new LiftedSEVariable(r, d, n);
-  Vector = new LiftedSEVector(r, d, n);
-  HessianVectorProduct = new LiftedSEVector(r, d, n);
-
+QuadraticProblem::QuadraticProblem(size_t nIn, size_t dIn, size_t rIn):
+    n(nIn), d(dIn), r(rIn),
+    M(new LiftedSEManifold(r, d, n))
+{
+  assert(r >= d);
   ROPTLIB::Problem::SetUseGrad(true);
   ROPTLIB::Problem::SetUseHess(true);
   ROPTLIB::Problem::SetDomain(M->getManifold());
+  setQ(SparseMatrix((d + 1) * n, (d + 1) * n));
+  setG(SparseMatrix(r, (d + 1) * n));
+}
 
+QuadraticProblem::~QuadraticProblem() {
+  delete M;
+}
+
+void QuadraticProblem::setQ(const SparseMatrix &QIn) {
+  assert((unsigned) QIn.rows() == (d + 1) * n);
+  assert((unsigned) QIn.cols() == (d + 1) * n);
+  Q = QIn;
+
+  // Update preconditioner
   SparseMatrix P = Q;
-  P.diagonal().array() += 1.0;
+  for (int i = 0; i < P.rows(); ++i) {
+    P.coeffRef(i, i) += 1.0;
+  }
   solver.compute(P);
   if (solver.info() != Eigen::Success) {
     cout << "WARNING: preconditioner failed." << endl;
   }
 }
 
-QuadraticProblem::~QuadraticProblem() {
-  delete Variable;
-  delete Vector;
-  delete HessianVectorProduct;
-  delete M;
+void QuadraticProblem::setG(const SparseMatrix &GIn) {
+  assert((unsigned) GIn.rows() == r);
+  assert((unsigned) GIn.cols() == (d + 1) * n);
+  G = GIn;
 }
 
 double QuadraticProblem::f(const Matrix &Y) const {
-  assert(Y.rows() == r);
-  assert(Y.cols() == (d + 1) * n);
+  assert((unsigned) Y.rows() == r);
+  assert((unsigned) Y.cols() == (d + 1) * n);
   // returns 0.5 * (Y * Q * Y.transpose()).trace() + (Y * G.transpose()).trace()
   return 0.5 * ((Y * Q).cwiseProduct(Y)).sum() + (Y.cwiseProduct(G)).sum();
 }
@@ -79,11 +86,12 @@ void QuadraticProblem::PreConditioner(ROPTLIB::Variable *x,
 }
 
 Matrix QuadraticProblem::RieGrad(const Matrix &Y) const {
-  Variable->setData(Y);
+  LiftedSEVariable Var(r, d, n);
+  Var.setData(Y);
   LiftedSEVector EGrad(r, d, n);
   LiftedSEVector RGrad(r, d, n);
-  EucGrad(Variable->var(), EGrad.vec());
-  M->getManifold()->Projection(Variable->var(), EGrad.vec(), RGrad.vec());
+  EucGrad(Var.var(), EGrad.vec());
+  M->getManifold()->Projection(Var.var(), EGrad.vec(), RGrad.vec());
   return RGrad.getData();
 }
 

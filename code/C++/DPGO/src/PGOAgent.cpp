@@ -8,7 +8,6 @@
 #include <DPGO/DPGO_utils.h>
 #include <DPGO/PGOAgent.h>
 #include <DPGO/QuadraticOptimizer.h>
-#include <DPGO/QuadraticProblem.h>
 
 #include <Eigen/CholmodSupport>
 #include <algorithm>
@@ -33,6 +32,7 @@ PGOAgent::PGOAgent(unsigned ID, const PGOAgentParameters &params)
       mParams(params), mState(PGOAgentState::WAIT_FOR_DATA),
       mStatus(ID, mState, 0, 0, false, 0),
       mRobustCost(params.robustCostType, params.robustCostParams),
+      mProblemPtr(nullptr),
       mInstanceNumber(0), mIterationNumber(0), mNumPosesReceived(0),
       mLogger(params.logDirectory) {
   if (mParams.verbose) {
@@ -145,6 +145,9 @@ void PGOAgent::setPoseGraph(
   for (const auto &edge : inputSharedLoopClosures) {
     addSharedLoopClosure(edge);
   }
+
+  // Create new optimization problem
+  mProblemPtr = new QuadraticProblem(num_poses(), dimension(), relaxation_rank());
 
   // Robot can construct the quadratic cost matrix now, as it does not depend on neighbor values
   constructQMatrix();
@@ -469,10 +472,12 @@ void PGOAgent::reset() {
   neighborRobotIDs.clear();
   resetTeamStatus();
 
+  if (mProblemPtr) {
+    delete mProblemPtr;
+    mProblemPtr = nullptr;
+  }
   mRobustCost.reset();
   globalAnchor.reset();
-  QMatrix.reset();
-  GMatrix.reset();
   TLocalInit.reset();
 
   mOptimizationRequested = false;
@@ -556,7 +561,6 @@ void PGOAgent::iterate(bool doOptimization) {
 }
 
 void PGOAgent::constructQMatrix() {
-  QMatrix.reset();
   vector<RelativeSEMeasurement> privateMeasurements = odometry;
   privateMeasurements.insert(privateMeasurements.end(), privateLoopClosures.begin(), privateLoopClosures.end());
 
@@ -615,11 +619,11 @@ void PGOAgent::constructQMatrix() {
     }
   }
 
-  QMatrix.emplace(Q);
+  assert(mProblemPtr);
+  mProblemPtr->setQ(Q);
 }
 
 bool PGOAgent::constructGMatrix(const PoseDict &poseDict) {
-  GMatrix.reset();
   SparseMatrix G(relaxation_rank(), (dimension() + 1) * num_poses());
 
   for (auto m : sharedLoopClosures) {
@@ -692,7 +696,8 @@ bool PGOAgent::constructGMatrix(const PoseDict &poseDict) {
     }
   }
 
-  GMatrix.emplace(G);
+  assert(mProblemPtr);
+  mProblemPtr->setG(G);
   return true;
 }
 
@@ -801,23 +806,24 @@ void PGOAgent::localInitialization() {
 }
 
 Matrix PGOAgent::localPoseGraphOptimization() {
-
   // Compute initialization
   localInitialization();
 
-  // Construct data matrix
-  SparseMatrix GZero(d, (d + 1) * n);  // linear terms should be zero
+  // Compute connection laplacian
+  std::vector<RelativeSEMeasurement> measurements = odometry;
+  measurements.insert(measurements.end(), privateLoopClosures.begin(), privateLoopClosures.end());
+  SparseMatrix Q = constructConnectionLaplacianSE(measurements);
 
   // Form optimization problem
-  assert(QMatrix.has_value());
-  QuadraticProblem problem(n, d, d, QMatrix.value(), GZero);
+  QuadraticProblem problem(n, d, d);
+  problem.setQ(Q);
 
   // Initialize optimizer object
   QuadraticOptimizer optimizer(&problem);
   optimizer.setVerbose(mParams.verbose);
-  optimizer.setTrustRegionInitialRadius(100);
+  optimizer.setTrustRegionInitialRadius(10);
   optimizer.setTrustRegionIterations(10);
-  optimizer.setTrustRegionTolerance(1e-2);
+  optimizer.setTrustRegionTolerance(1e-1);
   optimizer.setTrustRegionMaxInnerIterations(500);
 
   // Optimize
@@ -948,27 +954,23 @@ bool PGOAgent::updateX(bool doOptimization, bool acceleration) {
   }
 
   // Construct linear cost matrix (depending on neighbor robots' poses)
-  SparseMatrix G(r, (d + 1) * n);
+  bool hasG;
   if (acceleration) {
-    constructGMatrix(neighborAuxPoseDict);
+    hasG = constructGMatrix(neighborAuxPoseDict);
   } else {
-    constructGMatrix(neighborPoseDict);
+    hasG = constructGMatrix(neighborPoseDict);
   }
 
   // Skip update if G matrix is not constructed successfully
-  if (!GMatrix) {
+  if (!hasG) {
     if (mParams.verbose) {
       printf("Robot %u could not construct G matrix. Skip update...\n", getID());
     }
     return false;
   }
 
-  // Initialize optimization problem
-  assert(QMatrix.has_value() && GMatrix.has_value());
-  QuadraticProblem problem(n, d, r, QMatrix.value(), GMatrix.value());
-
   // Initialize optimizer
-  QuadraticOptimizer optimizer(&problem);
+  QuadraticOptimizer optimizer(mProblemPtr);
   optimizer.setVerbose(mParams.verbose);
   optimizer.setAlgorithm(mParams.algorithm);
   optimizer.setTrustRegionTolerance(1e-6); // Force optimizer to make progress

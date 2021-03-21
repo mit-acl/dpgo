@@ -11,6 +11,7 @@
 #include <DPGO/DPGO_types.h>
 #include <DPGO/PGOLogger.h>
 #include <DPGO/DPGO_robust.h>
+#include <DPGO/QuadraticProblem.h>
 #include <DPGO/RelativeSEMeasurement.h>
 #include <DPGO/manifold/LiftedSEManifold.h>
 #include <DPGO/manifold/LiftedSEVariable.h>
@@ -455,6 +456,9 @@ class PGOAgent {
   // Robust cost function
   RobustCost mRobustCost;
 
+  // Pointer to optimization problem
+  QuadraticProblem *mProblemPtr;
+
   // Rate in Hz of the optimization loop (only used in asynchronous mode)
   double mRate;
 
@@ -490,12 +494,6 @@ class PGOAgent {
 
   // Initial solution TInit = [R1 t1 ... Rn tn] in an arbitrary coordinate frame
   std::optional<Matrix> TLocalInit;
-
-  // Quadratic cost matrix
-  std::optional<SparseMatrix> QMatrix;
-
-  // Linear cost matrix
-  std::optional<SparseMatrix> GMatrix;
 
   // Lifting matrix shared by all agents
   std::optional<Matrix> YLift;
