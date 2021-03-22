@@ -146,6 +146,18 @@ void PGOAgent::setPoseGraph(
     addSharedLoopClosure(edge);
   }
 
+  // Check validity of initial trajectory estimate, if provided
+  int expected_rows = dimension();
+  int expected_cols = (dimension() + 1) * num_poses();
+  if (TInit.rows() > 0 && TInit.cols() > 0) {
+    if (TInit.rows() != expected_rows || TInit.cols() != expected_cols) {
+      printf("Error: initial trajectory estimate has wrong dimension. "
+             "Expected dimension (%i,%i), actual dimension (%zu,%zu)\n",
+             expected_rows, expected_cols, TInit.rows(), TInit.cols());
+      return;
+    }
+  }
+
   // Create new optimization problem
   mProblemPtr = new QuadraticProblem(num_poses(), dimension(), relaxation_rank());
 
@@ -153,10 +165,11 @@ void PGOAgent::setPoseGraph(
   constructQMatrix();
 
   // Initialize trajectory estimate in an arbitrary frame
-  if (TInit.rows() == d && TInit.cols() == (d + 1) * n) {
-    if (mParams.verbose) printf("Using provided initial trajectory.\n");
+  if (TInit.rows() > 0 && TInit.cols() > 0) {
+    if (mParams.verbose) printf("Using provided trajectory initialization.\n");
     TLocalInit.emplace(TInit);
   } else {
+    if (mParams.verbose) printf("Using internal trajectory initialization.\n");
     localInitialization();
   }
 
