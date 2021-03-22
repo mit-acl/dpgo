@@ -30,10 +30,7 @@ namespace DPGO {
 */
 class QuadraticProblem : public ROPTLIB::Problem {
  public:
-
-  QuadraticProblem(unsigned int nIn, unsigned int dIn,
-                   unsigned int rIn, const SparseMatrix &QIn,
-                   const SparseMatrix &GIn);
+  QuadraticProblem(size_t nIn, size_t dIn, size_t rIn);
 
   ~QuadraticProblem() override;
 
@@ -45,6 +42,18 @@ class QuadraticProblem : public ROPTLIB::Problem {
 
   /** Relaxation rank in Riemannian optimization problem */
   unsigned int relaxation_rank() const { return r; }
+
+  /** get quadratic cost matrix */
+  SparseMatrix getQ() const { return Q; }
+
+  /** get linear cost matrix */
+  SparseMatrix getG() const { return G; }
+
+  /** set quadratic cost matrix */
+  void setQ(const SparseMatrix &QIn);
+
+  /** set linear cost matrix */
+  void setG(const SparseMatrix &GIn);
 
   /**
    * @brief Evaluate objective function
@@ -99,30 +108,31 @@ class QuadraticProblem : public ROPTLIB::Problem {
    */
   double RieGradNorm(const Matrix &Y) const;
 
-  /** The quadratic component of the cost function */
-  const SparseMatrix Q;
-
-  /** The linear component of the cost function */
-  const SparseMatrix G;
-
  private:
   // Number of poses
-  const unsigned int n = 0;
+  const size_t n = 0;
 
   // Dimensionality of the Euclidean space
-  const unsigned int d = 0;
+  const size_t d = 0;
 
   // The rank of the rank-restricted relaxation
-  const unsigned int r = 0;
+  const size_t r = 0;
+
+  /** The quadratic component of the cost function */
+  SparseMatrix Q;
+
+  /** The linear component of the cost function */
+  SparseMatrix G;
 
   // ROPTLIB objects
   LiftedSEManifold *M;
-  LiftedSEVariable *Variable;
-  LiftedSEVector *Vector;
-  LiftedSEVector *HessianVectorProduct;
 
   // Preconditioning solver
   Eigen::CholmodDecomposition<SparseMatrix> solver;
+
+  // Helper functions to convert between ROPTLIB::Element and Eigen Matrix
+  Matrix readElement(const ROPTLIB::Element *element) const;
+  void setElement(ROPTLIB::Element *element, const Matrix *matrix) const;
 };
 
 }  // namespace DPGO

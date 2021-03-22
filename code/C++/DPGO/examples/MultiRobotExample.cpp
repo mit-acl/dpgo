@@ -58,8 +58,8 @@ int main(int argc, char **argv) {
 
   // Construct the centralized problem (used for evaluation)
   SparseMatrix QCentral = constructConnectionLaplacianSE(dataset);
-  SparseMatrix GCentral(r, (d + 1) * n);
-  QuadraticProblem problemCentral(n, d, r, QCentral, GCentral);
+  QuadraticProblem problemCentral(n, d, r);
+  problemCentral.setQ(QCentral);
 
 
   /**

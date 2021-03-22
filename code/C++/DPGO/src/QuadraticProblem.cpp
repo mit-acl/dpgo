@@ -14,25 +14,31 @@ using namespace std;
 /*Define the namespace*/
 namespace DPGO {
 
-QuadraticProblem::QuadraticProblem(unsigned int nIn,
-                                   unsigned int dIn,
-                                   unsigned int rIn,
-                                   const SparseMatrix &QIn,
-                                   const SparseMatrix &GIn)
-    : Q(QIn), G(GIn), n(nIn), d(dIn), r(rIn) {
-
-  M = new LiftedSEManifold(r, d, n);
-  Variable = new LiftedSEVariable(r, d, n);
-  Vector = new LiftedSEVector(r, d, n);
-  HessianVectorProduct = new LiftedSEVector(r, d, n);
-
+QuadraticProblem::QuadraticProblem(size_t nIn, size_t dIn, size_t rIn):
+    n(nIn), d(dIn), r(rIn),
+    M(new LiftedSEManifold(r, d, n))
+{
+  assert(r >= d);
   ROPTLIB::Problem::SetUseGrad(true);
   ROPTLIB::Problem::SetUseHess(true);
   ROPTLIB::Problem::SetDomain(M->getManifold());
+  setQ(SparseMatrix((d + 1) * n, (d + 1) * n));
+  setG(SparseMatrix(r, (d + 1) * n));
+}
 
+QuadraticProblem::~QuadraticProblem() {
+  delete M;
+}
+
+void QuadraticProblem::setQ(const SparseMatrix &QIn) {
+  assert((unsigned) QIn.rows() == (d + 1) * n);
+  assert((unsigned) QIn.cols() == (d + 1) * n);
+  Q = QIn;
+
+  // Update preconditioner
   SparseMatrix P = Q;
-  for (unsigned row = 0; row < P.rows(); ++row) {
-    P.coeffRef(row, row) += 1.0;
+  for (int i = 0; i < P.rows(); ++i) {
+    P.coeffRef(i, i) += 1.0;
   }
   solver.compute(P);
   if (solver.info() != Eigen::Success) {
@@ -40,69 +46,65 @@ QuadraticProblem::QuadraticProblem(unsigned int nIn,
   }
 }
 
-QuadraticProblem::~QuadraticProblem() {
-  delete Variable;
-  delete Vector;
-  delete HessianVectorProduct;
-  delete M;
+void QuadraticProblem::setG(const SparseMatrix &GIn) {
+  assert((unsigned) GIn.rows() == r);
+  assert((unsigned) GIn.cols() == (d + 1) * n);
+  G = GIn;
 }
 
 double QuadraticProblem::f(const Matrix &Y) const {
-  assert(Y.rows() == r);
-  assert(Y.cols() == (d + 1) * n);
+  assert((unsigned) Y.rows() == r);
+  assert((unsigned) Y.cols() == (d + 1) * n);
   // returns 0.5 * (Y * Q * Y.transpose()).trace() + (Y * G.transpose()).trace()
   return 0.5 * ((Y * Q).cwiseProduct(Y)).sum() + (Y.cwiseProduct(G)).sum();
 }
 
 double QuadraticProblem::f(ROPTLIB::Variable *x) const {
-  x->CopyTo(Variable->var());
-  Matrix Y = Variable->getData();
-  return f(Y);
+  return f(readElement(x));
 }
 
 void QuadraticProblem::EucGrad(ROPTLIB::Variable *x, ROPTLIB::Vector *g) const {
-  x->CopyTo(Variable->var());
-  Matrix Y = Variable->getData();
-  Matrix EGrad = Y * Q + G;
-  Vector->setData(EGrad);
-  Vector->vec()->CopyTo(g);
+  Matrix EG = readElement(x) * Q + G;
+  setElement(g, &EG);
 }
 
 void QuadraticProblem::EucHessianEta(ROPTLIB::Variable *x, ROPTLIB::Vector *v,
                                      ROPTLIB::Vector *Hv) const {
-  v->CopyTo(Vector->vec());
-  Matrix inVec = Vector->getData();
-  Matrix outVec = inVec * Q;
-  HessianVectorProduct->setData(outVec);
-  HessianVectorProduct->vec()->CopyTo(Hv);
+  Matrix HVMat = readElement(v) * Q;
+  setElement(Hv, &HVMat);
 }
 
 void QuadraticProblem::PreConditioner(ROPTLIB::Variable *x,
                                       ROPTLIB::Vector *inVec,
                                       ROPTLIB::Vector *outVec) const {
-  inVec->CopyTo(Vector->vec());
-  Matrix HV = solver.solve(Vector->getData().transpose()).transpose();
+  Matrix HV = solver.solve(readElement(inVec).transpose()).transpose();
   if (solver.info() != Eigen::Success) {
     cout << "WARNING: Precon.solve() failed." << endl;
   }
-  // Project to tangent space
-  x->CopyTo(Variable->var());
-  Vector->setData(HV);
-  M->getManifold()->Projection(Variable->var(), Vector->vec(), Vector->vec());
-  Vector->vec()->CopyTo(outVec);
+  setElement(outVec, &HV);
+  M->getManifold()->Projection(x, outVec, outVec);  // Project output to the tangent space at x
 }
 
 Matrix QuadraticProblem::RieGrad(const Matrix &Y) const {
-  Variable->setData(Y);
+  LiftedSEVariable Var(r, d, n);
+  Var.setData(Y);
   LiftedSEVector EGrad(r, d, n);
   LiftedSEVector RGrad(r, d, n);
-  EucGrad(Variable->var(), EGrad.vec());
-  M->getManifold()->Projection(Variable->var(), EGrad.vec(), RGrad.vec());
+  EucGrad(Var.var(), EGrad.vec());
+  M->getManifold()->Projection(Var.var(), EGrad.vec(), RGrad.vec());
   return RGrad.getData();
 }
 
 double QuadraticProblem::RieGradNorm(const Matrix &Y) const {
   return RieGrad(Y).norm();
+}
+
+Matrix QuadraticProblem::readElement(const ROPTLIB::Element *element) const {
+  return Eigen::Map<Matrix>((double *) element->ObtainReadData(), r, n * (d + 1));
+}
+
+void QuadraticProblem::setElement(ROPTLIB::Element *element, const Matrix *matrix) const {
+  memcpy(element->ObtainWriteEntireData(), matrix->data(), sizeof(double) * r * (d + 1) * n);
 }
 
 }  // namespace DPGO

@@ -40,8 +40,8 @@ int main(int argc, char **argv) {
 
   // Construct optimization problem
   SparseMatrix QCentral = constructConnectionLaplacianSE(dataset);
-  SparseMatrix GCentral(d, (d + 1) * n);
-  QuadraticProblem problemCentral(n, d, d, QCentral, GCentral);
+  QuadraticProblem problemCentral(n, d, d);
+  problemCentral.setQ(QCentral);
 
   // Compute chordal relaxation
   Matrix TChordal = chordalInitialization(d, n, dataset);
