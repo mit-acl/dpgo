@@ -44,10 +44,10 @@ class QuadraticProblem : public ROPTLIB::Problem {
   unsigned int relaxation_rank() const { return r; }
 
   /** get quadratic cost matrix */
-  SparseMatrix getQ() const { return Q; }
+  SparseMatrix getQ() const { return mQ; }
 
   /** get linear cost matrix */
-  SparseMatrix getG() const { return G; }
+  SparseMatrix getG() const { return mG; }
 
   /** set quadratic cost matrix */
   void setQ(const SparseMatrix &QIn);
@@ -119,10 +119,10 @@ class QuadraticProblem : public ROPTLIB::Problem {
   const size_t r = 0;
 
   /** The quadratic component of the cost function */
-  SparseMatrix Q;
+  SparseMatrix mQ;
 
   /** The linear component of the cost function */
-  SparseMatrix G;
+  SparseMatrix mG;
 
   // ROPTLIB objects
   LiftedSEManifold *M;

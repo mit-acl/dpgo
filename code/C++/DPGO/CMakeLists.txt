@@ -111,6 +111,7 @@ if(BUILD_DPGO_TESTS)
 	add_executable(
 		testDPGO
 		tests/testUtils.cpp
+		tests/testEigenMap.cpp
 		tests/testConstruction.cpp
 		tests/testLineGraph.cpp
 		tests/testTriangleGraph.cpp

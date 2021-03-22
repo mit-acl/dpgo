@@ -33,55 +33,59 @@ QuadraticProblem::~QuadraticProblem() {
 void QuadraticProblem::setQ(const SparseMatrix &QIn) {
   assert((unsigned) QIn.rows() == (d + 1) * n);
   assert((unsigned) QIn.cols() == (d + 1) * n);
-  Q = QIn;
+  mQ = QIn;
 
   // Update preconditioner
-  SparseMatrix P = Q;
+  SparseMatrix P = mQ;
   for (int i = 0; i < P.rows(); ++i) {
     P.coeffRef(i, i) += 1.0;
   }
   solver.compute(P);
-  if (solver.info() != Eigen::Success) {
-    cout << "WARNING: preconditioner failed." << endl;
-  }
 }
 
 void QuadraticProblem::setG(const SparseMatrix &GIn) {
   assert((unsigned) GIn.rows() == r);
   assert((unsigned) GIn.cols() == (d + 1) * n);
-  G = GIn;
+  mG = GIn;
 }
 
 double QuadraticProblem::f(const Matrix &Y) const {
   assert((unsigned) Y.rows() == r);
   assert((unsigned) Y.cols() == (d + 1) * n);
   // returns 0.5 * (Y * Q * Y.transpose()).trace() + (Y * G.transpose()).trace()
-  return 0.5 * ((Y * Q).cwiseProduct(Y)).sum() + (Y.cwiseProduct(G)).sum();
+  return 0.5 * ((Y * mQ).cwiseProduct(Y)).sum() + (Y.cwiseProduct(mG)).sum();
 }
 
 double QuadraticProblem::f(ROPTLIB::Variable *x) const {
-  return f(readElement(x));
+  Eigen::Map<const Matrix> X((double *) x->ObtainReadData(), r, (d + 1) * n);
+  return 0.5 * ((X * mQ).cwiseProduct(X)).sum() + (X.cwiseProduct(mG)).sum();
 }
 
 void QuadraticProblem::EucGrad(ROPTLIB::Variable *x, ROPTLIB::Vector *g) const {
-  Matrix EG = readElement(x) * Q + G;
-  setElement(g, &EG);
+  Eigen::Map<const Matrix> X((double *) x->ObtainReadData(), r, (d + 1) * n);
+  Eigen::Map<Matrix> EG((double *) g->ObtainWriteEntireData(), r, (d + 1) * n);
+  EG = X * mQ + mG;
 }
 
 void QuadraticProblem::EucHessianEta(ROPTLIB::Variable *x, ROPTLIB::Vector *v,
                                      ROPTLIB::Vector *Hv) const {
-  Matrix HVMat = readElement(v) * Q;
-  setElement(Hv, &HVMat);
+  Eigen::Map<const Matrix> V((double *) v->ObtainReadData(), r, (d + 1) * n);
+  Eigen::Map<Matrix> HV((double *) Hv->ObtainWriteEntireData(), r, (d + 1) * n);
+  if (solver.info() == Eigen::Success) {
+    HV = V * mQ;
+  }
+  else {
+    cout << "WARNING: preconditioner failed." << endl;
+    HV = V;
+  }
 }
 
 void QuadraticProblem::PreConditioner(ROPTLIB::Variable *x,
                                       ROPTLIB::Vector *inVec,
                                       ROPTLIB::Vector *outVec) const {
-  Matrix HV = solver.solve(readElement(inVec).transpose()).transpose();
-  if (solver.info() != Eigen::Success) {
-    cout << "WARNING: Precon.solve() failed." << endl;
-  }
-  setElement(outVec, &HV);
+  Eigen::Map<const Matrix> INVEC((double *) inVec->ObtainReadData(), r, (d + 1) * n);
+  Eigen::Map<Matrix> OUTVEC((double *) outVec->ObtainWriteEntireData(), r, (d + 1) * n);
+  OUTVEC = solver.solve(INVEC.transpose()).transpose();
   M->getManifold()->Projection(x, outVec, outVec);  // Project output to the tangent space at x
 }
 

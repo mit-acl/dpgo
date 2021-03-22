@@ -841,6 +841,7 @@ Matrix PGOAgent::localPoseGraphOptimization() {
 
   // Optimize
   Matrix Topt = optimizer.optimize(TLocalInit.value());
+  if (mParams.verbose) printf("Optimization time: %f sec.\n", optimizer.getOptResult().elapsedMs / 1e3);
   return Topt;
 }
 
