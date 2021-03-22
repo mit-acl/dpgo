@@ -38,7 +38,7 @@ void QuadraticProblem::setQ(const SparseMatrix &QIn) {
   // Update preconditioner
   SparseMatrix P = mQ;
   for (int i = 0; i < P.rows(); ++i) {
-    P.coeffRef(i, i) += 1.0;
+    P.coeffRef(i, i) += 1e-1;
   }
   solver.compute(P);
 }
