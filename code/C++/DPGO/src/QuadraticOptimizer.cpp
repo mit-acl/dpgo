@@ -83,6 +83,7 @@ Matrix QuadraticOptimizer::trustRegion(const Matrix &Yinit) {
   Solver.Max_Inner_Iter = trustRegionMaxInnerIterations;
   Solver.theta = 1.0;  // Stopping condition of tCG (see 7.10 in Absil textbook)
   Solver.kappa = 0.1;  // Stopping condition of tCG (see 7.10 in Absil textbook)
+  Solver.TimeBound = 5.0;
   Solver.Run();
 
   double funcDecrease = Solver.Getfinalfun() - initFunc;

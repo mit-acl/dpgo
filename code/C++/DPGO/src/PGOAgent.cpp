@@ -834,10 +834,10 @@ Matrix PGOAgent::localPoseGraphOptimization() {
   // Initialize optimizer object
   QuadraticOptimizer optimizer(&problem);
   optimizer.setVerbose(mParams.verbose);
-  optimizer.setTrustRegionInitialRadius(10);
+  optimizer.setTrustRegionInitialRadius(20);
   optimizer.setTrustRegionIterations(10);
   optimizer.setTrustRegionTolerance(1e-1);
-  optimizer.setTrustRegionMaxInnerIterations(500);
+  optimizer.setTrustRegionMaxInnerIterations(50);
 
   // Optimize
   Matrix Topt = optimizer.optimize(TLocalInit.value());
