@@ -9,6 +9,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -pthread -O3")
 
 include(GNUInstallDirs)
 set(DPGO_INSTALL_INCLUDEDIR ${CMAKE_INSTALL_INCLUDEDIR}/DPGO)
+SET(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
 
 # Directory for built libraries
 set(LIBRARY_OUTPUT_PATH ${CMAKE_CURRENT_BINARY_DIR}/lib CACHE PATH "The directory in which to place libraries built by this project")
@@ -66,7 +67,6 @@ target_include_directories(DPGO PUBLIC
 	$<INSTALL_INTERFACE:${DPGO_INSTALL_INCLUDEDIR}>
 	)
 target_link_libraries(DPGO ${CMAKE_THREAD_LIBS_INIT} roptlib ${CHOLMOD_LIBRARIES} ${SPQR_LIBRARIES} ${Boost_LIBRARIES})
-set_target_properties(DPGO PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 if(OPENMP_FOUND)
 # Add additional compilation flags to enable OpenMP support
