@@ -14,7 +14,7 @@ DPGO uses Eigen3 and the following packages:
 sudo apt-get install build-essential cmake-gui libsuitesparse-dev
 ```
 
-In addition, DPGO also use a public fork of the ROPTLIB library, which can be installed from source:
+In addition, we also use a public fork of the ROPTLIB library, which can be installed from source:
 ```
 git clone git@github.com:yuluntian/ROPTLIB.git
 git checkout feature/0.7_cmake
