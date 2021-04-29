@@ -990,6 +990,7 @@ bool PGOAgent::updateX(bool doOptimization, bool acceleration) {
   optimizer.setTrustRegionTolerance(1e-6); // Force optimizer to make progress
   optimizer.setTrustRegionIterations(1);
   optimizer.setTrustRegionMaxInnerIterations(5);
+  optimizer.setTrustRegionInitialRadius(10);
 
   // Starting solution
   Matrix XInit;
