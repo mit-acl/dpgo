@@ -142,18 +142,6 @@ endif()
 include(CMakePackageConfigHelpers)
 set(INSTALL_CONFIGDIR ${CMAKE_INSTALL_LIBDIR}/cmake/roptlib)
 
-install(
-  TARGETS roptlib
-  EXPORT roptlibTargets
-  LIBRARY  DESTINATION ${CMAKE_INSTALL_LIBDIR}
-)
-
-install(
-  EXPORT roptlibTargets
-  FILE roptlibTargets.cmake
-  DESTINATION ${INSTALL_CONFIGDIR}
-)
-
 
 write_basic_package_version_file(${CMAKE_CURRENT_BINARY_DIR}/roptlibConfigVersion.cmake
   VERSION 1.0
@@ -175,6 +163,18 @@ install(FILES
 install(DIRECTORY ${CMAKE_SOURCE_DIR}/ROPTLIB/
   DESTINATION ${DPGO_INSTALL_INCLUDEDIR}/roptlib
   FILES_MATCHING PATTERN "*.h"
+)
+
+install(
+  TARGETS roptlib
+  EXPORT roptlibTargets
+  LIBRARY  DESTINATION ${CMAKE_INSTALL_LIBDIR}
+)
+
+install(
+  EXPORT roptlibTargets
+  FILE roptlibTargets.cmake
+  DESTINATION ${INSTALL_CONFIGDIR}
 )
 
 export(TARGETS roptlib FILE roptlibTargets.cmake)

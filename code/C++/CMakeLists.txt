@@ -20,7 +20,7 @@ option(CMAKE_VERBOSE_MAKEFILE "Generate verbose makefiles?" OFF)
 
 # Add the .cmake files that ship with Eigen3 to the CMake module path (useful for finding other stuff)
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/eigen/cmake" CACHE STRING "The CMake module path used for this project")
-
+SET(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
 
 # FIND ADDITIONAL LIBRARIES
 # These next operations make use of the .cmake files shipped with Eigen3 

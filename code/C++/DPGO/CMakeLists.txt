@@ -137,16 +137,6 @@ endif(BUILD_DPGO_TESTS)
 include(CMakePackageConfigHelpers)
 set(INSTALL_CONFIGDIR ${CMAKE_INSTALL_LIBDIR}/cmake/DPGO)
 
-install(TARGETS DPGO
-  EXPORT 	DPGOTargets
-  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-)
-
-install(EXPORT DPGOTargets
-  FILE DPGOTargets.cmake
-  DESTINATION ${INSTALL_CONFIGDIR}
-)
-
 
 write_basic_package_version_file(${CMAKE_CURRENT_BINARY_DIR}/DPGOConfigVersion.cmake
   VERSION 1.0
@@ -173,6 +163,15 @@ install(DIRECTORY ${CMAKE_SOURCE_DIR}/eigen/
   DESTINATION ${DPGO_INSTALL_INCLUDEDIR}/eigen
 )
 
+install(TARGETS DPGO
+  EXPORT 	DPGOTargets
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+)
+
+install(EXPORT DPGOTargets
+  FILE DPGOTargets.cmake
+  DESTINATION ${INSTALL_CONFIGDIR}
+)
 
 export(TARGETS DPGO FILE DPGOTargets.cmake)
 
