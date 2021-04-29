@@ -54,6 +54,7 @@ int main(int argc, char **argv) {
   n = num_poses;
   r = 5;
   bool acceleration = true;
+  bool verbose = true;
   unsigned numIters = 1000;
 
   // Construct the centralized problem (used for evaluation)
@@ -126,6 +127,7 @@ int main(int argc, char **argv) {
   for (unsigned robot = 0; robot < (unsigned) num_robots; ++robot) {
     PGOAgentParameters options(d, r, num_robots);
     options.acceleration = acceleration;
+    options.verbose = verbose;
 
     auto *agent = new PGOAgent(robot, options);
 
