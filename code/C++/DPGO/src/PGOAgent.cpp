@@ -172,6 +172,9 @@ void PGOAgent::setPoseGraph(
     if (mParams.verbose) printf("Using internal trajectory initialization.\n");
     localInitialization();
   }
+  // Optionally perform local PGO
+  // if (mParams.verbose) printf("Optimizing local initial trajectory.\n");
+  // TLocalInit.emplace(localPoseGraphOptimization());
 
   // Waiting for initialization in the GLOBAL frame
   mState = PGOAgentState::WAIT_FOR_INITIALIZATION;
@@ -819,8 +822,9 @@ void PGOAgent::localInitialization() {
 }
 
 Matrix PGOAgent::localPoseGraphOptimization() {
-  // Compute initialization
-  localInitialization();
+  // Compute initialization if necessary
+  if (!TLocalInit)
+    localInitialization();
 
   // Compute connection laplacian
   std::vector<RelativeSEMeasurement> measurements = odometry;
@@ -1013,11 +1017,11 @@ bool PGOAgent::updateX(bool doOptimization, bool acceleration) {
 void PGOAgent::resetTeamStatus() {
   mTeamStatus.clear();
   for (unsigned robot = 0; robot < mParams.numRobots; ++robot) {
-    mTeamStatus.push_back(PGOAgentStatus(robot));
+    mTeamStatus.emplace_back(robot);
   }
 }
 
-bool PGOAgent::shouldUpdateLoopClosureWeights() {
+bool PGOAgent::shouldUpdateLoopClosureWeights() const {
   // No need to update weight if using L2 cost
   if (mParams.robustCostType == RobustCostType::L2) return false;
 

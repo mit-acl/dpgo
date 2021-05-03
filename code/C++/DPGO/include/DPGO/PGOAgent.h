@@ -604,7 +604,7 @@ class PGOAgent {
    * @brief Return true if should update loop closure weights
    * @return bool
    */
-  bool shouldUpdateLoopClosureWeights();
+  bool shouldUpdateLoopClosureWeights() const;
 
   /**
    * @brief Update loop closure weights.
@@ -660,7 +660,7 @@ class PGOAgent {
    * @param measurements
    * @return
    */
-  bool isDuplicateMeasurement(const RelativeSEMeasurement &m, const vector<RelativeSEMeasurement> &measurements);
+  static bool isDuplicateMeasurement(const RelativeSEMeasurement &m, const vector<RelativeSEMeasurement> &measurements);
 };
 
 }  // namespace DPGO
