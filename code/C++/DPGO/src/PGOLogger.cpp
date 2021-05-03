@@ -26,7 +26,7 @@ void PGOLogger::logMeasurements(std::vector<RelativeSEMeasurement> &measurements
   if (d == 2) return;
 
   // Insert header row
-  file << "robot_src,pose_src,robot_dst,pose_dst,qx,qy,qz,qw,tx,ty,tz,kappa,tau,weight\n";
+  file << "robot_src,pose_src,robot_dst,pose_dst,qx,qy,qz,qw,tx,ty,tz,kappa,tau,is_known_inlier,weight\n";
 
   for (RelativeSEMeasurement m: measurements) {
     // Convert rotation matrix to quaternion
@@ -45,6 +45,7 @@ void PGOLogger::logMeasurements(std::vector<RelativeSEMeasurement> &measurements
     file << m.t(2) << ",";
     file << m.kappa << ",";
     file << m.tau << ",";
+    file << m.isKnownInlier << ",";
     file << m.weight << "\n";
   }
 
@@ -77,6 +78,86 @@ void PGOLogger::logTrajectory(unsigned int d, unsigned int n, const Matrix &T, c
   }
 
   file.close();
+}
+
+std::vector<RelativeSEMeasurement> PGOLogger::loadMeasurements(const std::string &filename, bool load_weight) {
+  std::vector<RelativeSEMeasurement> measurements;
+  std::cout << "Loading measurements from " << logDirectory + filename << "..." << std::endl;
+  std::ifstream infile(logDirectory + filename);
+
+  if (!infile.is_open()) {
+    std::cout << "Could not open specified file!" << std::endl;
+    return measurements;
+  }
+
+  size_t num_measurements_read = 0;
+  // Scalars that will be filled upon reading each measurement
+  uint32_t robot_src, robot_dst, pose_src, pose_dst;
+  double qx, qy, qz, qw;
+  double tx, ty, tz;
+  double kappa, tau, weight;
+  bool is_known_inlier;
+
+  std::string line;
+  std::string token;
+
+  // Skip first line (headers)
+  std::getline(infile, line);
+
+  // Iterate over remaining lines
+  while (std::getline(infile, line)) {
+    std::istringstream ss(line);
+
+    std::getline(ss, token, ',');
+    robot_src = std::stoi(token);
+    std::getline(ss, token, ',');
+    pose_src = std::stoi(token);
+    std::getline(ss, token, ',');
+    robot_dst = std::stoi(token);
+    std::getline(ss, token, ',');
+    pose_dst = std::stoi(token);
+
+    std::getline(ss, token, ',');
+    qx = std::stod(token);
+    std::getline(ss, token, ',');
+    qy = std::stod(token);
+    std::getline(ss, token, ',');
+    qz = std::stod(token);
+    std::getline(ss, token, ',');
+    qw = std::stod(token);
+    Eigen::Quaternion<double> quat(qw, qx, qy, qz);
+    quat.normalize();
+
+    std::getline(ss, token, ',');
+    tx = std::stod(token);
+    std::getline(ss, token, ',');
+    ty = std::stod(token);
+    std::getline(ss, token, ',');
+    tz = std::stod(token);
+    Eigen::Vector3d tVec;
+    tVec << tx, ty, tz;
+
+    std::getline(ss, token, ',');
+    kappa = std::stod(token);
+    std::getline(ss, token, ',');
+    tau = std::stod(token);
+    std::getline(ss, token, ',');
+    is_known_inlier = std::stoi(token);
+    std::getline(ss, token, ',');
+    weight = std::stod(token);
+
+    RelativeSEMeasurement m(robot_src, robot_dst, pose_src, pose_dst,
+                            quat.toRotationMatrix(), tVec,
+                            kappa, tau);
+    m.isKnownInlier = is_known_inlier;
+    if (load_weight)
+      m.weight = weight;
+
+    measurements.push_back(m);
+  }
+
+  printf("Loaded %zu measurements.\n", measurements.size());
+  return measurements;
 }
 
 }
