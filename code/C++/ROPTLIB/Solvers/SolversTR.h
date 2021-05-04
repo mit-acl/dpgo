@@ -127,6 +127,8 @@ namespace ROPTLIB{
 		integer innerIter;	/*The number of inner iterations for solving the local model.*/
 		tCGstatusSet tCGstatus; /*The status of solving the local model*/
 		std::string *tCGstatusSetnames;	/*This string array is to store the trust region status names*/
+
+		bool latestStepAccepted_ = false;
 	};
 }; /*end of ROPTLIB namespace*/
 #endif

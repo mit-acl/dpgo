@@ -6,7 +6,6 @@
  * -------------------------------------------------------------------------- */
 
 #include <DPGO/QuadraticProblem.h>
-
 #include <iostream>
 
 using namespace std;
@@ -14,10 +13,9 @@ using namespace std;
 /*Define the namespace*/
 namespace DPGO {
 
-QuadraticProblem::QuadraticProblem(size_t nIn, size_t dIn, size_t rIn):
+QuadraticProblem::QuadraticProblem(size_t nIn, size_t dIn, size_t rIn) :
     n(nIn), d(dIn), r(rIn),
-    M(new LiftedSEManifold(r, d, n))
-{
+    M(new LiftedSEManifold(r, d, n)) {
   assert(r >= d);
   ROPTLIB::Problem::SetUseGrad(true);
   ROPTLIB::Problem::SetUseHess(true);

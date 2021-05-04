@@ -52,6 +52,7 @@ Matrix QuadraticOptimizer::optimize(const Matrix &Y) {
   result.fOpt = problem->f(YOpt);
   result.gradNormOpt = problem->RieGradNorm(YOpt);
   result.relativeChange = sqrt((YOpt - Y).squaredNorm() / problem->num_poses());
+  result.success = true;
   assert(result.fOpt <= result.fInit);
 
   return YOpt;
@@ -62,12 +63,16 @@ Matrix QuadraticOptimizer::trustRegion(const Matrix &Yinit) {
   unsigned d = problem->dimension();
   unsigned n = problem->num_poses();
 
+  // No optimization if gradient norm already below threshold
+  if (problem->RieGradNorm(Yinit) < trustRegionTolerance) {
+    return Yinit;
+  }
+
   LiftedSEVariable VarInit(r, d, n);
   VarInit.setData(Yinit);
   VarInit.var()->NewMemoryOnWrite();
 
   ROPTLIB::RTRNewton Solver(problem, VarInit.var());
-  double initFunc = problem->f(VarInit.var());
   Solver.Stop_Criterion =
       ROPTLIB::StopCrit::GRAD_F;                                     // Stopping criterion based on absolute gradient norm
   Solver.Tolerance = trustRegionTolerance;                           // Tolerance associated with stopping criterion
@@ -78,26 +83,28 @@ Matrix QuadraticOptimizer::trustRegion(const Matrix &Yinit) {
   } else {
     Solver.Debug = ROPTLIB::DEBUGINFO::NOOUTPUT;
   }
-  Solver.Max_Iteration = trustRegionIterations;
+  Solver.Max_Iteration = (int) trustRegionIterations;
   Solver.Min_Inner_Iter = 0;
   Solver.Max_Inner_Iter = trustRegionMaxInnerIterations;
-  Solver.theta = 1.0;  // Stopping condition of tCG (see 7.10 in Absil textbook)
-  Solver.kappa = 0.1;  // Stopping condition of tCG (see 7.10 in Absil textbook)
   Solver.TimeBound = 5.0;
-  Solver.Run();
 
-  double funcDecrease = Solver.Getfinalfun() - initFunc;
-  if (funcDecrease > -1e-8 && Solver.Getnormgf() > 1e-2) {
-    // Optimization makes little progress while gradient norm is still large.
-    // This means that the trust-region update is likely to be rejected. In this
-    // case we need to increase number of max iterations and re-optimize.
-    std::cout << "Trust-region update makes little progress. Running "
-                 "more updates..."
-              << std::endl;
-    Solver.Max_Iteration = 10 * trustRegionIterations;
+  if (Solver.Max_Iteration == 1) {
+    // Shrinking trust-region radius until step is accepted
+    double radius = trustRegionInitialRadius;
+    while (true) {
+      Solver.initial_Delta = radius;
+      Solver.maximum_Delta = radius;
+      Solver.Run();
+      if (Solver.latestStepAccepted()) {
+        break;
+      } else {
+        radius = radius / 4;
+        printf("RTR step rejected. Shrinking trust-region radius to %f.\n", radius);
+      }
+    }
+  } else {
     Solver.Run();
   }
-
   // record tCG status
   result.tCGStatus = Solver.gettCGStatus();
 

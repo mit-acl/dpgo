@@ -69,7 +69,7 @@ namespace ROPTLIB{
 			}
 			if (rho > Acceptence_Rho || (fabs(f1 - f2) / (fabs(f1) + 1) < sqeps && f2 < f1))
 			{
-				Acceptence(); // Algorithm specific operations
+			    Acceptence(); // Algorithm specific operations
 				ngf = sqrt(Mani->Metric(x2, gf2, gf2));
 				isstop = IsStopped(); /*This is done when the candidate is accepted. This is necessary for partly smooth stopping criterion*/
 				xTemp = x1; x1 = x2; x2 = xTemp;
@@ -77,10 +77,12 @@ namespace ROPTLIB{
 				iter++;
 				if (Debug >= ITERRESULT && iter % OutputGap == 0)
 				{
-					PrintGenInfo();
+                    printf("X_{%d} WAS ACCEPTED. Rho: %f, Acceptance_Rho: %f\n", iter, rho, Acceptence_Rho);
+                    PrintGenInfo();
 					PrintInfo(); // Output information specific to Algorithms
 				}
 				f1 = f2;
+				latestStepAccepted_ = true;
 			}
 			else
 			{
@@ -91,6 +93,7 @@ namespace ROPTLIB{
 					PrintGenInfo();
 					PrintInfo(); // Output information specific to Algorithms
 				}
+                latestStepAccepted_ = false;
 			}
 
 			if (Debug >= ITERRESULT)

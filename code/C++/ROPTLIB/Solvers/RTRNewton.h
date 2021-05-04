@@ -41,6 +41,7 @@ namespace ROPTLIB{
 
 		/*Return tCG status*/
 		tCGstatusSet gettCGStatus() {return tCGstatus; }
+		bool latestStepAccepted() {return latestStepAccepted_; }
 	protected:
 		/*Compute result = H[Eta], where H is the Hessian*/
 		virtual void HessianEta(Vector *Eta, Vector *result);
