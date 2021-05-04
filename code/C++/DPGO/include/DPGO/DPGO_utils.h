@@ -18,14 +18,19 @@
 #include "Manifolds/Stiefel/Stiefel.h"
 
 namespace DPGO {
+/**
+ * @brief Write a dense Eigen matrix to file
+ * @param M
+ * @param filename
+ */
+void writeMatrixToFile(const Matrix &M, const std::string &filename);
 
 /**
-Helper function to read a matrix from a .txt file
-File format:
-first row contains rows and cols
-remaining rows store data
-*/
-Matrix read_matrix_from_file(const std::string &filename);
+ * @brief Write a sparse matrix to file
+ * @param M
+ * @param filename
+ */
+void writeSparseMatrixToFile(const SparseMatrix &M, const std::string &filename);
 
 /**
 Helper function to read a dataset in .g2o format

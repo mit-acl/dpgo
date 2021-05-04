@@ -147,15 +147,34 @@ void PGOAgent::setPoseGraph(
   }
 
   // Check validity of initial trajectory estimate, if provided
-  int expected_rows = dimension();
-  int expected_cols = (dimension() + 1) * num_poses();
+  unsigned expected_rows = dimension();
+  unsigned expected_cols = (dimension() + 1) * num_poses();
   if (TInit.rows() > 0 && TInit.cols() > 0) {
-    if (TInit.rows() != expected_rows || TInit.cols() != expected_cols) {
-      printf("Error: initial trajectory estimate has wrong dimension. "
-             "Expected dimension (%i,%i), actual dimension (%zu,%zu)\n",
-             expected_rows, expected_cols, TInit.rows(), TInit.cols());
+    if (TInit.rows() != expected_rows) {
+      printf("Error: provided initial trajectory has wrong number of rows (expect %u but received %ld). \n"
+             "Pose graph not set. \n",
+             expected_rows, TInit.rows());
       return;
     }
+    if (TInit.cols() < expected_cols) {
+      printf("Error: provided initial trajectory has fewer columns than expected (expect %u but received %ld). \n"
+             "Pose graph not set. \n",
+             expected_cols, TInit.cols());
+      return;
+    }
+    if (TInit.cols() > expected_cols) {
+      printf("Warning: provided initial trajectory has more columns than expected (expect %u but received %ld). \n"
+             "Perhaps some poses do not have any measurements? Extra columns ignored. \n ",
+             expected_cols, TInit.cols());
+    }
+  }
+
+  // Save pose graph
+  if (mParams.logData) {
+    std::vector<RelativeSEMeasurement> measurements = odometry;
+    measurements.insert(measurements.end(), privateLoopClosures.begin(), privateLoopClosures.end());
+    measurements.insert(measurements.end(), sharedLoopClosures.begin(), sharedLoopClosures.end());
+    mLogger.logMeasurements(measurements, "measurements.csv");
   }
 
   // Create new optimization problem
@@ -166,10 +185,12 @@ void PGOAgent::setPoseGraph(
 
   // Initialize trajectory estimate in an arbitrary frame
   if (TInit.rows() > 0 && TInit.cols() > 0) {
-    if (mParams.verbose) printf("Using provided trajectory initialization.\n");
-    TLocalInit.emplace(TInit);
+    if (mParams.verbose)
+      printf("Using provided trajectory initialization.\n");
+    TLocalInit.emplace(TInit.block(0, 0, expected_rows, expected_cols));
   } else {
-    if (mParams.verbose) printf("Using internal trajectory initialization.\n");
+    if (mParams.verbose)
+      printf("Using internal trajectory initialization.\n");
     localInitialization();
   }
   // Optionally perform local PGO
@@ -450,11 +471,6 @@ void PGOAgent::reset() {
   endOptimizationLoop();
 
   if (mParams.logData) {
-    // Save pose graph
-    std::vector<RelativeSEMeasurement> measurements = odometry;
-    measurements.insert(measurements.end(), privateLoopClosures.begin(), privateLoopClosures.end());
-    measurements.insert(measurements.end(), sharedLoopClosures.begin(), sharedLoopClosures.end());
-    mLogger.logMeasurements(measurements, "measurements.csv");
 
     // Save trajectory estimates after rounding
     Matrix T;
@@ -464,9 +480,7 @@ void PGOAgent::reset() {
     }
 
     // Save solution before rounding
-    std::string filename = mParams.logDirectory + "X.txt";
-    std::ofstream file(filename);
-    file << X;
+    writeMatrixToFile(X, mParams.logDirectory + "X.txt");
   }
 
   mInstanceNumber++;
@@ -1006,10 +1020,25 @@ bool PGOAgent::updateX(bool doOptimization, bool acceleration) {
   assert(XInit.rows() == relaxation_rank());
   assert(XInit.cols() == (dimension() + 1) * num_poses());
 
+  // Save data matrices
+  writeSparseMatrixToFile(mProblemPtr->getQ(), mParams.logDirectory + "Q.txt");
+  writeSparseMatrixToFile(mProblemPtr->getG(), mParams.logDirectory + "G.txt");
+  writeMatrixToFile(XInit, mParams.logDirectory + "XInit.txt");
+
   // Optimize!
   X = optimizer.optimize(XInit);
   assert(X.rows() == relaxation_rank());
   assert(X.cols() == (dimension() + 1) * num_poses());
+
+  // Print optimization statistics
+  const auto &result = optimizer.getOptResult();
+  if (mParams.verbose) {
+    printf("df: %f, gn0: %f, gn1: %f, df/gn0: %f\n",
+           result.fInit - result.fOpt,
+           result.gradNormInit,
+           result.gradNormOpt,
+           (result.fInit - result.fOpt) / result.gradNormInit);
+  }
 
   return true;
 }

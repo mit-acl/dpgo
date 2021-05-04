@@ -18,17 +18,34 @@
 
 namespace DPGO {
 
-Matrix read_matrix_from_file(const std::string &filename) {
-  std::ifstream f(filename);
-  size_t rows, cols;
-  f >> rows >> cols;
-  Matrix Mat = Matrix::Zero(rows, cols);
-  for (size_t row = 0; row < rows; ++row) {
-    for (size_t col = 0; col < cols; ++col) {
-      f >> Mat(row, col);
+void writeMatrixToFile(const Matrix &M, const std::string &filename) {
+  std::ofstream file;
+  file.open(filename);
+  if (!file.is_open()) {
+    printf("Cannot write to specified file: %s\n", filename.c_str());
+    return;
+  }
+  const static Eigen::IOFormat CSVFormat(Eigen::FullPrecision, Eigen::DontAlignCols, ", ", "\n");
+  file << M.format(CSVFormat);
+  file.close();
+}
+
+void writeSparseMatrixToFile(const SparseMatrix &M, const std::string &filename) {
+  std::ofstream file;
+  file.open(filename);
+  if (!file.is_open()) {
+    printf("Cannot write to specified file: %s\n", filename.c_str());
+    return;
+  }
+
+  for (int k = 0; k < M.outerSize(); ++k) {
+    for (SparseMatrix::InnerIterator it(M, k); it; ++it) {
+      file << it.row() << ",";
+      file << it.col() << ",";
+      file << it.value() << "\n";
     }
   }
-  return Mat;
+  file.close();
 }
 
 /**
