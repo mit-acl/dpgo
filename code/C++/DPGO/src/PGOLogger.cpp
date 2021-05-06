@@ -80,6 +80,71 @@ void PGOLogger::logTrajectory(unsigned int d, unsigned int n, const Matrix &T, c
   file.close();
 }
 
+Matrix PGOLogger::loadTrajectory(const std::string &filename) {
+  std::ifstream infile(logDirectory + filename);
+  std::cout << "Loading trajectory from " << logDirectory + filename << "..." << std::endl;
+  if (!infile.is_open()) {
+    std::cout << "Could not open specified file!" << std::endl;
+    return Matrix(0, 0);
+  }
+
+  std::unordered_map<uint32_t, Matrix> Tmap;
+
+  // Scalars that will be populated
+  uint32_t pose_id = 0;
+  uint32_t num_poses = 0;
+  double qx, qy, qz, qw;
+  double tx, ty, tz;
+
+  std::string line;
+  std::string token;
+
+  // Skip first line (headers)
+  std::getline(infile, line);
+
+  // Iterate over remaining lines
+  while (std::getline(infile, line)) {
+    std::istringstream ss(line);
+    num_poses++;
+
+    std::getline(ss, token, ',');
+    pose_id = std::stoi(token);
+
+    std::getline(ss, token, ',');
+    qx = std::stod(token);
+    std::getline(ss, token, ',');
+    qy = std::stod(token);
+    std::getline(ss, token, ',');
+    qz = std::stod(token);
+    std::getline(ss, token, ',');
+    qw = std::stod(token);
+    Eigen::Quaternion<double> quat(qw, qx, qy, qz);
+    quat.normalize();
+
+    std::getline(ss, token, ',');
+    tx = std::stod(token);
+    std::getline(ss, token, ',');
+    ty = std::stod(token);
+    std::getline(ss, token, ',');
+    tz = std::stod(token);
+    Eigen::Vector3d tVec;
+    tVec << tx, ty, tz;
+
+    Matrix Ti(3, 4);
+    Ti.block(0, 0, 3, 3) = quat.toRotationMatrix();
+    Ti.block(0, 3, 3, 1) = tVec;
+    Tmap.emplace(pose_id, Ti);
+  }
+
+  Matrix T = Matrix(3, 4 * num_poses);
+  for (unsigned i = 0; i < num_poses; ++i) {
+    T.block(0, 4 * i, 3, 4) = Tmap.at(i);
+  }
+
+  std::cout << "Loaded " << num_poses << " poses." << std::endl;
+  return T;
+}
+
 std::vector<RelativeSEMeasurement> PGOLogger::loadMeasurements(const std::string &filename, bool load_weight) {
   std::vector<RelativeSEMeasurement> measurements;
   std::cout << "Loading measurements from " << logDirectory + filename << "..." << std::endl;
@@ -90,7 +155,6 @@ std::vector<RelativeSEMeasurement> PGOLogger::loadMeasurements(const std::string
     return measurements;
   }
 
-  size_t num_measurements_read = 0;
   // Scalars that will be filled upon reading each measurement
   uint32_t robot_src, robot_dst, pose_src, pose_dst;
   double qx, qy, qz, qw;

@@ -169,14 +169,6 @@ void PGOAgent::setPoseGraph(
     }
   }
 
-  // Save pose graph
-  if (mParams.logData) {
-    std::vector<RelativeSEMeasurement> measurements = odometry;
-    measurements.insert(measurements.end(), privateLoopClosures.begin(), privateLoopClosures.end());
-    measurements.insert(measurements.end(), sharedLoopClosures.begin(), sharedLoopClosures.end());
-    mLogger.logMeasurements(measurements, "measurements.csv");
-  }
-
   // Create new optimization problem
   mProblemPtr = new QuadraticProblem(num_poses(), dimension(), relaxation_rank());
 
@@ -196,6 +188,14 @@ void PGOAgent::setPoseGraph(
   // Optionally perform local PGO
   // if (mParams.verbose) printf("Optimizing local initial trajectory.\n");
   // TLocalInit.emplace(localPoseGraphOptimization());
+
+  // Save pose graph
+  if (mParams.logData) {
+    std::vector<RelativeSEMeasurement> measurements = odometry;
+    measurements.insert(measurements.end(), privateLoopClosures.begin(), privateLoopClosures.end());
+    measurements.insert(measurements.end(), sharedLoopClosures.begin(), sharedLoopClosures.end());
+    mLogger.logMeasurements(measurements, "measurements.csv");
+  }
 
   // Waiting for initialization in the GLOBAL frame
   mState = PGOAgentState::WAIT_FOR_INITIALIZATION;
@@ -852,7 +852,7 @@ Matrix PGOAgent::localPoseGraphOptimization() {
   // Initialize optimizer object
   QuadraticOptimizer optimizer(&problem);
   optimizer.setVerbose(mParams.verbose);
-  optimizer.setTrustRegionInitialRadius(20);
+  optimizer.setTrustRegionInitialRadius(10);
   optimizer.setTrustRegionIterations(10);
   optimizer.setTrustRegionTolerance(1e-1);
   optimizer.setTrustRegionMaxInnerIterations(50);
@@ -1007,7 +1007,7 @@ bool PGOAgent::updateX(bool doOptimization, bool acceleration) {
   optimizer.setAlgorithm(mParams.algorithm);
   optimizer.setTrustRegionTolerance(1e-6); // Force optimizer to make progress
   optimizer.setTrustRegionIterations(1);
-  optimizer.setTrustRegionMaxInnerIterations(5);
+  optimizer.setTrustRegionMaxInnerIterations(10);
   optimizer.setTrustRegionInitialRadius(10);
 
   // Starting solution
@@ -1019,11 +1019,6 @@ bool PGOAgent::updateX(bool doOptimization, bool acceleration) {
   }
   assert(XInit.rows() == relaxation_rank());
   assert(XInit.cols() == (dimension() + 1) * num_poses());
-
-  // Save data matrices
-  writeSparseMatrixToFile(mProblemPtr->getQ(), mParams.logDirectory + "Q.txt");
-  writeSparseMatrixToFile(mProblemPtr->getG(), mParams.logDirectory + "G.txt");
-  writeMatrixToFile(XInit, mParams.logDirectory + "XInit.txt");
 
   // Optimize!
   X = optimizer.optimize(XInit);
