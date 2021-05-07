@@ -62,9 +62,10 @@ Matrix QuadraticOptimizer::trustRegion(const Matrix &Yinit) {
   unsigned r = problem->relaxation_rank();
   unsigned d = problem->dimension();
   unsigned n = problem->num_poses();
+  const double gn0 = problem->RieGradNorm(Yinit);
 
   // No optimization if gradient norm already below threshold
-  if (problem->RieGradNorm(Yinit) < trustRegionTolerance) {
+  if (gn0 < trustRegionTolerance) {
     return Yinit;
   }
 
@@ -74,10 +75,10 @@ Matrix QuadraticOptimizer::trustRegion(const Matrix &Yinit) {
 
   ROPTLIB::RTRNewton Solver(problem, VarInit.var());
   Solver.Stop_Criterion =
-      ROPTLIB::StopCrit::GRAD_F;                                     // Stopping criterion based on absolute gradient norm
-  Solver.Tolerance = trustRegionTolerance;                           // Tolerance associated with stopping criterion
-  Solver.maximum_Delta = 10 * trustRegionInitialRadius;              // Maximum trust-region radius
-  Solver.initial_Delta = trustRegionInitialRadius;                   // Initial trust-region radius
+      ROPTLIB::StopCrit::GRAD_F;                                               // Stopping criterion based on absolute gradient norm
+  Solver.Tolerance = trustRegionTolerance;                                     // Tolerance associated with stopping criterion
+  Solver.initial_Delta = trustRegionInitialRadius;                             // Trust-region radius
+  Solver.maximum_Delta = 5 * Solver.initial_Delta;                             // Maximum trust-region radius
   if (verbose) {
     Solver.Debug = ROPTLIB::DEBUGINFO::ITERRESULT;
   } else {
@@ -90,7 +91,7 @@ Matrix QuadraticOptimizer::trustRegion(const Matrix &Yinit) {
 
   if (Solver.Max_Iteration == 1) {
     // Shrinking trust-region radius until step is accepted
-    double radius = trustRegionInitialRadius;
+    double radius = Solver.initial_Delta;
     while (true) {
       Solver.initial_Delta = radius;
       Solver.maximum_Delta = radius;
