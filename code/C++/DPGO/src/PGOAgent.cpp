@@ -200,7 +200,9 @@ void PGOAgent::setPoseGraph(
   // Waiting for initialization in the GLOBAL frame
   mState = PGOAgentState::WAIT_FOR_INITIALIZATION;
 
-  if (mID == 0) {
+  // If I am the first robot or if cross-robot initialization if off,
+  // I will consider myself as initialized in the global frame
+  if (mID == 0 || !mParams.multirobot_initialization) {
     // The first robot can further initialize in the GLOBAL frame
     X = YLift.value() * TLocalInit.value();  // Lift to correct relaxation rank
     mState = PGOAgentState::INITIALIZED;
@@ -214,6 +216,9 @@ void PGOAgent::setPoseGraph(
       mLogger.logTrajectory(dimension(), num_poses(), TLocalInit.value(), "trajectory_initial.csv");
     }
   }
+
+  if (!mParams.multirobot_initialization)
+    mCluster = 0;
 }
 
 void PGOAgent::addOdometry(const RelativeSEMeasurement &factor) {
@@ -287,8 +292,8 @@ void PGOAgent::updateNeighborPose(unsigned neighborCluster, unsigned neighborID,
   // Check if this agent is ready to initialize
   if (mState == PGOAgentState::WAIT_FOR_INITIALIZATION) {
     if (neighborCluster == 0) {
-      printf("Robot %u informed by neighbor robot %u to initialize trajectory estimate!\n",
-             getID(), neighborID);
+      printf("Robot %u use neighbor pose (%u, %u) for initialization!\n",
+             getID(), neighborID, neighborPose);
 
       // Require the lifting matrix to initialize
       assert(YLift);

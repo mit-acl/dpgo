@@ -69,6 +69,9 @@ struct PGOAgentParameters {
   // Riemannian optimization algorithm used when solving local subproblem
   ROPTALG algorithm;
 
+  // Cross-robot initialization
+  bool multirobot_initialization;
+
   // Use Nesterov acceleration
   bool acceleration;
 
@@ -119,7 +122,7 @@ struct PGOAgentParameters {
                      bool log = false,
                      std::string logDir = "")
       : d(dIn), r(rIn), numRobots(numRobotsIn),
-        algorithm(algorithmIn),
+        algorithm(algorithmIn), multirobot_initialization(true),
         acceleration(accel), restartInterval(restartInt),
         robustCostType(costType), robustCostParams(costParams), weightUpdateInterval(weightInt),
         minConvergedLoopClosureRatio(gncMinRatio), maxNumIters(maxIters), relChangeTol(changeTol),
@@ -131,7 +134,8 @@ struct PGOAgentParameters {
     os << "Dimension: " << params.d << std::endl;
     os << "Relaxation rank: " << params.r << std::endl;
     os << "Number of robots: " << params.numRobots << std::endl;
-    os << "Use Nesterov acceleration: " << params.acceleration << std::endl;
+    os << "Use multi-robot initialization: " << params.multirobot_initialization << std::endl;
+    os << "Use Nesterov acceleration: " <<  params.acceleration << std::endl;
     os << "Fixed restart interval: " << params.restartInterval << std::endl;
     os << "Robust cost function: " << RobustCostNames[params.robustCostType] << std::endl;
     os << "Weight update interval: " << params.weightUpdateInterval << std::endl;
