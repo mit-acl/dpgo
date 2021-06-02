@@ -156,16 +156,11 @@ void PGOAgent::setPoseGraph(
              expected_rows, TInit.rows());
       return;
     }
-    if (TInit.cols() < expected_cols) {
+    if (TInit.cols() != expected_cols) {
       printf("Error: provided initial trajectory has fewer columns than expected (expect %u but received %ld). \n"
              "Pose graph not set. \n",
              expected_cols, TInit.cols());
       return;
-    }
-    if (TInit.cols() > expected_cols) {
-      printf("Warning: provided initial trajectory has more columns than expected (expect %u but received %ld). \n"
-             "Perhaps some poses do not have any measurements? Extra columns ignored. \n ",
-             expected_cols, TInit.cols());
     }
   }
 
