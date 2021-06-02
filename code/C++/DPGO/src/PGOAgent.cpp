@@ -883,7 +883,7 @@ bool PGOAgent::shouldTerminate() {
     }
   }
 
-  // Check if all agents reached relative change tolerance
+  // Check if all agents are ready to terminate optimization
   for (size_t robot = 0; robot < mParams.numRobots; ++robot) {
     PGOAgentStatus robotStatus = mTeamStatus[robot];
     if (!robotStatus.readyToTerminate) {
