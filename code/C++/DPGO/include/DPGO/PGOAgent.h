@@ -320,6 +320,23 @@ class PGOAgent {
   bool getTrajectoryInGlobalFrame(Matrix &Trajectory);
 
   /**
+   * @brief Return a single pose in the global frame
+   * @param poseID
+   * @param T
+   * @return
+   */
+  bool getPoseInGlobalFrame(unsigned poseID, Matrix &T);
+
+  /**
+   * @brief Get the pose of a neighbor in global frame
+   * @param neighborID
+   * @param poseID
+   * @param T
+   * @return
+   */
+  bool getNeighborPoseInGlobalFrame(unsigned neighborID, unsigned poseID, Matrix &T);
+
+  /**
    * @brief Get a single public pose of this robot.
    * Note that currently, this method does not check that the requested pose is a public pose
    * @param index: index of the requested pose

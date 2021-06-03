@@ -439,6 +439,49 @@ bool PGOAgent::getTrajectoryInGlobalFrame(Matrix &Trajectory) {
   return true;
 }
 
+bool PGOAgent::getPoseInGlobalFrame(unsigned int poseID, Matrix &T) {
+  if (!globalAnchor) return false;
+  assert(globalAnchor.value().rows() == relaxation_rank());
+  assert(globalAnchor.value().cols() == dimension() + 1);
+  if (mState != PGOAgentState::INITIALIZED) return false;
+  lock_guard<mutex> lock(mPosesMutex);
+  if (poseID < 0 || poseID >= num_poses()) return false;
+  Matrix Ya = globalAnchor.value().block(0, 0, r, d);
+  Matrix pa = globalAnchor.value().block(0, d, r, 1);
+  Matrix t0 = Ya.transpose() * pa;
+  Matrix Xi = X.block(0, poseID * (d + 1), r, d + 1);
+  Matrix Ti = Ya.transpose() * Xi;
+  Ti.block(0, d, d, 1) -= t0;
+  assert(Ti.rows() == d);
+  assert(Ti.cols() == d + 1);
+  T = Ti;
+  return true;
+}
+
+bool PGOAgent::getNeighborPoseInGlobalFrame(unsigned int neighborID, unsigned int poseID, Matrix &T) {
+  if (!globalAnchor) return false;
+  assert(globalAnchor.value().rows() == relaxation_rank());
+  assert(globalAnchor.value().cols() == dimension() + 1);
+  if (mState != PGOAgentState::INITIALIZED) return false;
+  lock_guard<mutex> lock(mNeighborPosesMutex);
+  PoseID nID = std::make_pair(neighborID, poseID);
+  if (neighborPoseDict.find(nID) != neighborPoseDict.end()) {
+    Matrix Ya = globalAnchor.value().block(0, 0, r, d);
+    Matrix pa = globalAnchor.value().block(0, d, r, 1);
+    Matrix t0 = Ya.transpose() * pa;
+    Matrix Xi = neighborPoseDict.at(nID);
+    assert(Xi.rows() == r);
+    assert(Xi.cols() == d + 1);
+    Matrix Ti = Ya.transpose() * Xi;
+    Ti.block(0, d, d, 1) -= t0;
+    assert(Ti.rows() == d);
+    assert(Ti.cols() == d + 1);
+    T = Ti;
+    return true;
+  }
+  return false;
+}
+
 std::vector<unsigned> PGOAgent::getNeighborPublicPoses(
     const unsigned &neighborID) const {
   // Check that neighborID is indeed a neighbor of this agent
