@@ -995,7 +995,7 @@ bool PGOAgent::updateX(bool doOptimization, bool acceleration) {
   QuadraticOptimizer optimizer(mProblemPtr);
   optimizer.setVerbose(mParams.verbose);
   optimizer.setAlgorithm(mParams.algorithm);
-  optimizer.setTrustRegionTolerance(1e-6); // Force optimizer to make progress
+  optimizer.setTrustRegionTolerance(1e-2); // Force optimizer to make progress
   optimizer.setTrustRegionIterations(1);
   optimizer.setTrustRegionMaxInnerIterations(10);
   optimizer.setTrustRegionInitialRadius(100);
