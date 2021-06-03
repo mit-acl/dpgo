@@ -57,7 +57,6 @@ TEST(testDPGO, TriangleGraph) {
   agent.iterate();
 
   ASSERT_EQ(agent.getID(), id);
-  ASSERT_EQ(agent.getCluster(), id);
   ASSERT_EQ(agent.num_poses(), 3);
   ASSERT_EQ(agent.dimension(), d);
   ASSERT_EQ(agent.relaxation_rank(), r);

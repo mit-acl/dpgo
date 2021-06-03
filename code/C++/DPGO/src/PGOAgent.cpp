@@ -28,7 +28,7 @@ using std::vector;
 namespace DPGO {
 
 PGOAgent::PGOAgent(unsigned ID, const PGOAgentParameters &params)
-    : mID(ID), mCluster(ID), d(params.d), r(params.r), n(1),
+    : mID(ID), d(params.d), r(params.r), n(1),
       mParams(params), mState(PGOAgentState::WAIT_FOR_DATA),
       mStatus(ID, mState, 0, 0, false, 0),
       mRobustCost(params.robustCostType, params.robustCostParams),
@@ -58,7 +58,6 @@ void PGOAgent::setX(const Matrix &Xin) {
   assert(Xin.rows() == relaxation_rank());
   assert(Xin.cols() == (dimension() + 1) * num_poses());
   mState = PGOAgentState::INITIALIZED;
-  mCluster = 0;
   X = Xin;
   if (mParams.acceleration) {
     XPrev = X;
@@ -211,9 +210,6 @@ void PGOAgent::setPoseGraph(
       mLogger.logTrajectory(dimension(), num_poses(), TLocalInit.value(), "trajectory_initial.csv");
     }
   }
-
-  if (!mParams.multirobot_initialization)
-    mCluster = 0;
 }
 
 void PGOAgent::addOdometry(const RelativeSEMeasurement &factor) {
@@ -269,8 +265,7 @@ void PGOAgent::addSharedLoopClosure(const RelativeSEMeasurement &factor) {
   sharedLoopClosures.push_back(factor);
 }
 
-void PGOAgent::updateNeighborPose(unsigned neighborCluster, unsigned neighborID,
-                                  unsigned neighborPose, const Matrix &var) {
+void PGOAgent::updateNeighborPose(unsigned neighborID, unsigned neighborPose, const Matrix &var) {
   assert(neighborID != mID);
   assert(var.rows() == r);
   assert(var.cols() == d + 1);
@@ -285,108 +280,105 @@ void PGOAgent::updateNeighborPose(unsigned neighborCluster, unsigned neighborID,
   }
 
   // Check if this agent is ready to initialize
-  if (mState == PGOAgentState::WAIT_FOR_INITIALIZATION) {
-    if (neighborCluster == 0) {
-      printf("Robot %u use neighbor pose (%u, %u) for initialization!\n",
-             getID(), neighborID, neighborPose);
+  const auto neighborState = getNeighborStatus(neighborID).state;
+  if (mState == PGOAgentState::WAIT_FOR_INITIALIZATION && neighborState == PGOAgentState::INITIALIZED) {
+    printf("Robot %u use neighbor pose (%u, %u) for initialization!\n",
+           getID(), neighborID, neighborPose);
 
-      // Require the lifting matrix to initialize
-      assert(YLift);
+    // Require the lifting matrix to initialize
+    assert(YLift);
 
-      // Halt optimization
-      bool optimizationHalted = false;
-      if (isOptimizationRunning()) {
-        if (mParams.verbose)
-          printf("Robot %u halting optimization thread...\n", getID());
-        optimizationHalted = true;
-        endOptimizationLoop();
-      }
-
-      // Halt insertion of new poses
-      lock_guard<mutex> tLock(mPosesMutex);
-
-      // Halt insertion of new measurements
-      lock_guard<mutex> mLock(mMeasurementsMutex);
-
-      // Clear cache
-      lock_guard<mutex> nLock(mNeighborPosesMutex);
-      neighborPoseDict.clear();
-      neighborAuxPoseDict.clear();
-
-      // Find the corresponding inter-robot loop closure
-      RelativeSEMeasurement &m = findSharedLoopClosureWithNeighbor(neighborID, neighborPose);
-
-      // Notations:
-      // world1: world frame before alignment
-      // world2: world frame after alignment
-      // frame1 : frame associated to my public pose
-      // frame2 : frame associated to neighbor's public pose
-      Matrix dT = Matrix::Identity(d + 1, d + 1);
-      dT.block(0, 0, d, d) = m.R;
-      dT.block(0, d, d, 1) = m.t;
-      Matrix T_world2_frame2 = Matrix::Identity(d + 1, d + 1);
-      T_world2_frame2.block(0, 0, d, d + 1) =
-          YLift.value().transpose() *
-              var;  // Round the received neighbor pose value back to SE(d)
-      Matrix T = TLocalInit.value();
-      Matrix T_frame1_frame2 = Matrix::Identity(d + 1, d + 1);
-      Matrix T_world1_frame1 = Matrix::Identity(d + 1, d + 1);
-      if (m.r1 == neighborID) {
-        // Incoming edge
-        T_frame1_frame2 = dT.inverse();
-        T_world1_frame1.block(0, 0, d, d + 1) =
-            T.block(0, m.p2 * (d + 1), d, d + 1);
-      } else {
-        // Outgoing edge
-        T_frame1_frame2 = dT;
-        T_world1_frame1.block(0, 0, d, d + 1) =
-            T.block(0, m.p1 * (d + 1), d, d + 1);
-      }
-      Matrix T_world2_frame1 = T_world2_frame2 * T_frame1_frame2.inverse();
-      Matrix T_world2_world1 = T_world2_frame1 * T_world1_frame1.inverse();
-
-      Matrix T_world1_frame = Matrix::Identity(d + 1, d + 1);
-      Matrix T_world2_frame = Matrix::Identity(d + 1, d + 1);
-      for (size_t i = 0; i < n; ++i) {
-        T_world1_frame.block(0, 0, d, d + 1) =
-            T.block(0, i * (d + 1), d, d + 1);
-        T_world2_frame = T_world2_world1 * T_world1_frame;
-        T.block(0, i * (d + 1), d, d + 1) =
-            T_world2_frame.block(0, 0, d, d + 1);
-      }
-
-      // Lift back to correct relaxation rank
-      X = YLift.value() * T;
-
-      // Mark this agent as initialized
-      mCluster = neighborCluster;
-      mState = PGOAgentState::INITIALIZED;
-
-      // Initialize auxiliary variables
-      if (mParams.acceleration) {
-        XPrev = X;
-        initializeAcceleration();
-      }
-
-      // Log initial trajectory
-      if (mParams.logData) {
-        mLogger.logTrajectory(dimension(), num_poses(), T, "trajectory_initial.csv");
-      }
-
-      if (optimizationHalted) startOptimizationLoop(mRate);
+    // Halt optimization
+    bool optimizationHalted = false;
+    if (isOptimizationRunning()) {
+      if (mParams.verbose)
+        printf("Robot %u halting optimization thread...\n", getID());
+      optimizationHalted = true;
+      endOptimizationLoop();
     }
+
+    // Halt insertion of new poses
+    lock_guard<mutex> tLock(mPosesMutex);
+
+    // Halt insertion of new measurements
+    lock_guard<mutex> mLock(mMeasurementsMutex);
+
+    // Clear cache
+    lock_guard<mutex> nLock(mNeighborPosesMutex);
+    neighborPoseDict.clear();
+    neighborAuxPoseDict.clear();
+
+    // Find the corresponding inter-robot loop closure
+    RelativeSEMeasurement &m = findSharedLoopClosureWithNeighbor(neighborID, neighborPose);
+
+    // Notations:
+    // world1: world frame before alignment
+    // world2: world frame after alignment
+    // frame1 : frame associated to my public pose
+    // frame2 : frame associated to neighbor's public pose
+    Matrix dT = Matrix::Identity(d + 1, d + 1);
+    dT.block(0, 0, d, d) = m.R;
+    dT.block(0, d, d, 1) = m.t;
+    Matrix T_world2_frame2 = Matrix::Identity(d + 1, d + 1);
+    T_world2_frame2.block(0, 0, d, d + 1) =
+        YLift.value().transpose() *
+            var;  // Round the received neighbor pose value back to SE(d)
+    Matrix T = TLocalInit.value();
+    Matrix T_frame1_frame2 = Matrix::Identity(d + 1, d + 1);
+    Matrix T_world1_frame1 = Matrix::Identity(d + 1, d + 1);
+    if (m.r1 == neighborID) {
+      // Incoming edge
+      T_frame1_frame2 = dT.inverse();
+      T_world1_frame1.block(0, 0, d, d + 1) =
+          T.block(0, m.p2 * (d + 1), d, d + 1);
+    } else {
+      // Outgoing edge
+      T_frame1_frame2 = dT;
+      T_world1_frame1.block(0, 0, d, d + 1) =
+          T.block(0, m.p1 * (d + 1), d, d + 1);
+    }
+    Matrix T_world2_frame1 = T_world2_frame2 * T_frame1_frame2.inverse();
+    Matrix T_world2_world1 = T_world2_frame1 * T_world1_frame1.inverse();
+
+    Matrix T_world1_frame = Matrix::Identity(d + 1, d + 1);
+    Matrix T_world2_frame = Matrix::Identity(d + 1, d + 1);
+    for (size_t i = 0; i < n; ++i) {
+      T_world1_frame.block(0, 0, d, d + 1) =
+          T.block(0, i * (d + 1), d, d + 1);
+      T_world2_frame = T_world2_world1 * T_world1_frame;
+      T.block(0, i * (d + 1), d, d + 1) =
+          T_world2_frame.block(0, 0, d, d + 1);
+    }
+
+    // Lift back to correct relaxation rank
+    X = YLift.value() * T;
+
+    // Mark this agent as initialized
+    mState = PGOAgentState::INITIALIZED;
+
+    // Initialize auxiliary variables
+    if (mParams.acceleration) {
+      XPrev = X;
+      initializeAcceleration();
+    }
+
+    // Log initial trajectory
+    if (mParams.logData) {
+      mLogger.logTrajectory(dimension(), num_poses(), T, "trajectory_initial.csv");
+    }
+
+    if (optimizationHalted) startOptimizationLoop(mRate);
   }
 
   // Only save poses from neighbors if this agent is initialized
   // and if the sending agent is also initialized
-  if (mState == PGOAgentState::INITIALIZED && neighborCluster == 0) {
+  if (mState == PGOAgentState::INITIALIZED && neighborState == PGOAgentState::INITIALIZED) {
     lock_guard<mutex> lock(mNeighborPosesMutex);
     neighborPoseDict[nID] = var;
   }
 }
 
-void PGOAgent::updateAuxNeighborPose(unsigned neighborCluster, unsigned neighborID,
-                                     unsigned neighborPose, const Matrix &var) {
+void PGOAgent::updateAuxNeighborPose(unsigned neighborID, unsigned neighborPose, const Matrix &var) {
   assert(mParams.acceleration);
   assert(neighborID != mID);
   assert(var.rows() == r);
@@ -401,7 +393,7 @@ void PGOAgent::updateAuxNeighborPose(unsigned neighborCluster, unsigned neighbor
 
   // Only save poses from neighbors if this agent is initialized
   // and if the sending agent is also initialized
-  if (mState == PGOAgentState::INITIALIZED && neighborCluster == 0) {
+  if (mState == PGOAgentState::INITIALIZED && getNeighborStatus(neighborID).state == PGOAgentState::INITIALIZED) {
     lock_guard<mutex> lock(mNeighborPosesMutex);
     neighborAuxPoseDict[nID] = var;
   }
@@ -489,7 +481,7 @@ void PGOAgent::reset() {
 
   // Assume that the old lifting matrix can still be used
   mState = PGOAgentState::WAIT_FOR_DATA;
-  mStatus = PGOAgentStatus(getID(), getState(), mInstanceNumber, mIterationNumber, false, 0);
+  mStatus = PGOAgentStatus(getID(), mState, mInstanceNumber, mIterationNumber, false, 0);
 
   odometry.clear();
   privateLoopClosures.clear();
@@ -517,8 +509,6 @@ void PGOAgent::reset() {
   n = 1;
   X = Matrix::Zero(r, d + 1);
   X.block(0, 0, d, d) = Matrix::Identity(d, d);
-
-  mCluster = mID;
 }
 
 void PGOAgent::iterate(bool doOptimization) {
@@ -575,7 +565,7 @@ void PGOAgent::iterate(bool doOptimization) {
 
     if (doOptimization) {
       mStatus.agentID = getID();
-      mStatus.state = getState();
+      mStatus.state = mState;
       mStatus.instanceNumber = instance_number();
       mStatus.iterationNumber = iteration_number();
       mStatus.relativeChange = sqrt((X - XPrev).squaredNorm() / num_poses());
@@ -893,7 +883,7 @@ bool PGOAgent::shouldTerminate() {
     }
   }
 
-  // Check if all agents reached relative change tolerance
+  // Check if all agents are ready to terminate optimization
   for (size_t robot = 0; robot < mParams.numRobots; ++robot) {
     PGOAgentStatus robotStatus = mTeamStatus[robot];
     if (!robotStatus.readyToTerminate) {
@@ -912,7 +902,7 @@ bool PGOAgent::shouldRestart() {
 }
 
 void PGOAgent::restartNesterovAcceleration(bool doOptimization) {
-  if (mParams.acceleration && getState() == PGOAgentState::INITIALIZED) {
+  if (mParams.acceleration && mState == PGOAgentState::INITIALIZED) {
     if (mParams.verbose) {
       printf("Agent %u restarts Nesteorv acceleration.\n", getID());
     }
@@ -1005,7 +995,7 @@ bool PGOAgent::updateX(bool doOptimization, bool acceleration) {
   QuadraticOptimizer optimizer(mProblemPtr);
   optimizer.setVerbose(mParams.verbose);
   optimizer.setAlgorithm(mParams.algorithm);
-  optimizer.setTrustRegionTolerance(1e-6); // Force optimizer to make progress
+  optimizer.setTrustRegionTolerance(1e-2); // Force optimizer to make progress
   optimizer.setTrustRegionIterations(1);
   optimizer.setTrustRegionMaxInnerIterations(10);
   optimizer.setTrustRegionInitialRadius(100);

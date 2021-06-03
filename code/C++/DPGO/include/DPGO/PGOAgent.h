@@ -135,7 +135,7 @@ struct PGOAgentParameters {
     os << "Relaxation rank: " << params.r << std::endl;
     os << "Number of robots: " << params.numRobots << std::endl;
     os << "Use multi-robot initialization: " << params.multirobot_initialization << std::endl;
-    os << "Use Nesterov acceleration: " <<  params.acceleration << std::endl;
+    os << "Use Nesterov acceleration: " << params.acceleration << std::endl;
     os << "Fixed restart interval: " << params.restartInterval << std::endl;
     os << "Robust cost function: " << RobustCostNames[params.robustCostType] << std::endl;
     os << "Weight update interval: " << params.weightUpdateInterval << std::endl;
@@ -172,12 +172,12 @@ struct PGOAgentStatus {
   double relativeChange;
 
   // Constructor
-  PGOAgentStatus(unsigned id,
-                 PGOAgentState s = PGOAgentState::WAIT_FOR_DATA,
-                 unsigned instance = 0,
-                 unsigned iteration = 0,
-                 bool ready_to_terminate = false,
-                 double relative_change = 0)
+  explicit PGOAgentStatus(unsigned id,
+                          PGOAgentState s = PGOAgentState::WAIT_FOR_DATA,
+                          unsigned instance = 0,
+                          unsigned iteration = 0,
+                          bool ready_to_terminate = false,
+                          double relative_change = 0)
       : agentID(id),
         state(s),
         instanceNumber(instance),
@@ -196,7 +196,7 @@ struct PGOAgentStatus {
     os << "Relative change: " << status.relativeChange << std::endl;
     return os;
   }
-};
+} __attribute__((aligned(32)));
 
 class PGOAgent {
  public:
@@ -243,11 +243,6 @@ class PGOAgent {
   inline unsigned getID() const { return mID; }
 
   /**
-  Return the cluster that this robot belongs to
-  */
-  inline unsigned getCluster() const { return mCluster; }
-
-  /**
   Return number of poses of this robot
   */
   inline unsigned num_poses() const { return n; }
@@ -273,21 +268,32 @@ class PGOAgent {
   inline unsigned iteration_number() const { return mIterationNumber; }
 
   /**
-   * @brief get the current state of this agent
-   * @return PGOAgentState struct
-   */
-  inline PGOAgentState getState() const { return mState; }
-
-  /**
    * @brief get the current status of this agent
    * @return
    */
   inline PGOAgentStatus getStatus() {
     mStatus.agentID = getID();
-    mStatus.state = getState();
+    mStatus.state = mState;
     mStatus.instanceNumber = instance_number();
     mStatus.iterationNumber = iteration_number();
     return mStatus;
+  }
+
+  /**
+   * @brief get current state of a neighbor
+   * @param neighborID
+   * @return
+   */
+  inline PGOAgentStatus getNeighborStatus(unsigned neighborID) const {
+    return mTeamStatus[neighborID];
+  }
+
+  /**
+   * @brief Set the status of a neighbor
+   * @param status
+   */
+  inline void setNeighborStatus(const PGOAgentStatus &status) {
+    mTeamStatus[status.agentID] = status;
   }
 
   /**
@@ -408,23 +414,19 @@ class PGOAgent {
 
   /**
  * @brief Update local copy of a neighbor agent's pose
- * @param neighborCluster the cluster the neighbor agent belongs to
  * @param neighborID the ID of the neighbor agent
  * @param neighborPose local index of the received neighbor pose
  * @param var Actual value of the received pose
  */
-  void updateNeighborPose(unsigned neighborCluster, unsigned neighborID,
-                          unsigned neighborPose, const Matrix &var);
+  void updateNeighborPose(unsigned neighborID, unsigned neighborPose, const Matrix &var);
 
   /**
    * @brief Update local copy of a neighbor's auxiliary pose
-   * @param neighborCluster
    * @param neighborID
    * @param neighborPose
    * @param var
    */
-  void updateAuxNeighborPose(unsigned neighborCluster, unsigned neighborID,
-                             unsigned neighborPose, const Matrix &var);
+  void updateAuxNeighborPose(unsigned neighborID, unsigned neighborPose, const Matrix &var);
 
   /**
    * @brief Perform local PGO using the standard L2 (least-squares) cost function
@@ -435,9 +437,6 @@ class PGOAgent {
  protected:
   // The unique ID associated to this robot
   unsigned mID;
-
-  // The cluster that this robot belongs to
-  unsigned mCluster;
 
   // Dimension
   unsigned d;
@@ -464,7 +463,7 @@ class PGOAgent {
   QuadraticProblem *mProblemPtr;
 
   // Rate in Hz of the optimization loop (only used in asynchronous mode)
-  double mRate;
+  double mRate{};
 
   // Current PGO instance
   unsigned mInstanceNumber;
@@ -626,10 +625,10 @@ class PGOAgent {
   PoseDict neighborAuxPoseDict;
 
   // Auxiliary scalar used in acceleration
-  double gamma;
+  double gamma{};
 
   // Auxiliary scalar used in acceleration
-  double alpha;
+  double alpha{};
 
   // Auxiliary variable used in acceleration
   Matrix Y;

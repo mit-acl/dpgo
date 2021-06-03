@@ -54,7 +54,7 @@ int main(int argc, char **argv) {
   n = num_poses;
   r = 5;
   bool acceleration = true;
-  bool verbose = true;
+  bool verbose = false;
   unsigned numIters = 1000;
 
   // Construct the centralized problem (used for evaluation)
@@ -187,9 +187,8 @@ int main(int argc, char **argv) {
       for (auto &sharedPose : sharedPoses) {
         PoseID nID = sharedPose.first;
         Matrix var = sharedPose.second;
-        unsigned agentID = get<0>(nID);
-        unsigned localID = get<1>(nID);
-        selectedRobotPtr->updateNeighborPose(0, agentID, localID, var);
+        selectedRobotPtr->setNeighborStatus(robotPtr->getStatus());
+        selectedRobotPtr->updateNeighborPose(nID.first, nID.second, var);
       }
     }
 
@@ -204,9 +203,8 @@ int main(int argc, char **argv) {
         for (auto &auxSharedPose : auxSharedPoses) {
           PoseID nID = auxSharedPose.first;
           Matrix var = auxSharedPose.second;
-          unsigned agentID = get<0>(nID);
-          unsigned localID = get<1>(nID);
-          selectedRobotPtr->updateAuxNeighborPose(0, agentID, localID, var);
+          selectedRobotPtr->setNeighborStatus(robotPtr->getStatus());
+          selectedRobotPtr->updateAuxNeighborPose(nID.first, nID.second, var);
         }
       }
     }
