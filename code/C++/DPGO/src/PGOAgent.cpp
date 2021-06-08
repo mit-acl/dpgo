@@ -146,20 +146,17 @@ void PGOAgent::setPoseGraph(
   }
 
   // Check validity of initial trajectory estimate, if provided
+  bool local_init = true;
   unsigned expected_rows = dimension();
   unsigned expected_cols = (dimension() + 1) * num_poses();
   if (TInit.rows() > 0 && TInit.cols() > 0) {
-    if (TInit.rows() != expected_rows) {
-      printf("Error: provided initial trajectory has wrong number of rows (expect %u but received %ld). \n"
-             "Pose graph not set. \n",
-             expected_rows, TInit.rows());
-      return;
-    }
-    if (TInit.cols() != expected_cols) {
-      printf("Error: provided initial trajectory has fewer columns than expected (expect %u but received %ld). \n"
-             "Pose graph not set. \n",
-             expected_cols, TInit.cols());
-      return;
+    if (TInit.rows() == expected_rows && TInit.cols() == expected_cols) {
+      local_init = false;
+    } else {
+      local_init = true;
+      printf("Error: provided initial trajectory has wrong dimension! "
+             "Expect (%u,%u), received (%ld, %ld). Using local initialization. \n",
+             expected_rows, expected_cols, TInit.rows(), TInit.cols());
     }
   }
 
@@ -170,18 +167,13 @@ void PGOAgent::setPoseGraph(
   constructQMatrix();
 
   // Initialize trajectory estimate in an arbitrary frame
-  if (TInit.rows() > 0 && TInit.cols() > 0) {
-    if (mParams.verbose)
-      printf("Using provided trajectory initialization.\n");
+  if (!local_init) {
+    if (mParams.verbose) printf("Using provided trajectory initialization.\n");
     TLocalInit.emplace(TInit.block(0, 0, expected_rows, expected_cols));
   } else {
-    if (mParams.verbose)
-      printf("Using internal trajectory initialization.\n");
+    if (mParams.verbose) printf("Using internal trajectory initialization.\n");
     localInitialization();
   }
-  // Optionally perform local PGO
-  // if (mParams.verbose) printf("Optimizing local initial trajectory.\n");
-  // TLocalInit.emplace(localPoseGraphOptimization());
 
   // Save pose graph
   if (mParams.logData) {
@@ -197,7 +189,6 @@ void PGOAgent::setPoseGraph(
   // If I am the first robot or if cross-robot initialization if off,
   // I will consider myself as initialized in the global frame
   if (mID == 0 || !mParams.multirobot_initialization) {
-    // The first robot can further initialize in the GLOBAL frame
     X = YLift.value() * TLocalInit.value();  // Lift to correct relaxation rank
     mState = PGOAgentState::INITIALIZED;
     if (mParams.acceleration) {
@@ -569,8 +560,14 @@ void PGOAgent::iterate(bool doOptimization) {
   if (shouldUpdateLoopClosureWeights()) {
     updateLoopClosuresWeights();
     mRobustCost.update();
+    // If warm start is disabled, reset trajectory estimate to initial guess
+    if (!mParams.robustOptWarmStart) {
+      X = YLift.value() * TLocalInit.value();
+      printf("Warm start is disabled. Robot %u resets trajectory estimates.\n", getID());
+    }
     // Reset acceleration
-    if (mParams.acceleration) restartNesterovAcceleration(false);
+    if (mParams.acceleration)
+      restartNesterovAcceleration(false);
   }
 
   // Perform iteration
@@ -617,7 +614,7 @@ void PGOAgent::iterate(bool doOptimization) {
       if (!success) readyToTerminate = false;
       if (mStatus.relativeChange > mParams.relChangeTol) readyToTerminate = false;
       double ratio = computeConvergedLoopClosureRatio();
-      if (ratio < mParams.minConvergedLoopClosureRatio) readyToTerminate = false;
+      if (ratio < mParams.robustOptMinConvergenceRatio) readyToTerminate = false;
       mStatus.readyToTerminate = readyToTerminate;
     }
   }
@@ -637,7 +634,7 @@ void PGOAgent::constructQMatrix() {
   Matrix Omega = Matrix::Zero(d + 1, d + 1);
 
   // Go through shared loop closures
-  for (auto m : sharedLoopClosures) {
+  for (const auto& m : sharedLoopClosures) {
     // Set relative SE matrix (homogeneous form)
     T.block(0, 0, d, d) = m.R;
     T.block(0, d, d, 1) = m.t;
@@ -689,7 +686,7 @@ void PGOAgent::constructQMatrix() {
 bool PGOAgent::constructGMatrix(const PoseDict &poseDict) {
   SparseMatrix G(relaxation_rank(), (dimension() + 1) * num_poses());
 
-  for (auto m : sharedLoopClosures) {
+  for (const auto& m : sharedLoopClosures) {
     // Construct relative SE matrix in homogeneous form
     Matrix T = Matrix::Zero(d + 1, d + 1);
     T.block(0, 0, d, d) = m.R;
@@ -947,7 +944,7 @@ bool PGOAgent::shouldRestart() {
 void PGOAgent::restartNesterovAcceleration(bool doOptimization) {
   if (mParams.acceleration && mState == PGOAgentState::INITIALIZED) {
     if (mParams.verbose) {
-      printf("Agent %u restarts Nesteorv acceleration.\n", getID());
+      printf("Robot %u restarts Nesteorv acceleration.\n", getID());
     }
     X = XPrev;
     updateX(doOptimization, false);
@@ -1082,7 +1079,7 @@ bool PGOAgent::shouldUpdateLoopClosureWeights() const {
   // No need to update weight if using L2 cost
   if (mParams.robustCostType == RobustCostType::L2) return false;
 
-  return ((mIterationNumber + 1) % mParams.weightUpdateInterval == 0);
+  return ((mIterationNumber + 1) % mParams.robustOptInnerIters == 0);
 }
 
 void PGOAgent::updateLoopClosuresWeights() {
