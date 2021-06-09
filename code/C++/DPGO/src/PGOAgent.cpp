@@ -190,6 +190,7 @@ void PGOAgent::setPoseGraph(
   // I will consider myself as initialized in the global frame
   if (mID == 0 || !mParams.multirobot_initialization) {
     X = YLift.value() * TLocalInit.value();  // Lift to correct relaxation rank
+    XInit.emplace(X);
     mState = PGOAgentState::INITIALIZED;
     if (mParams.acceleration) {
       XPrev = X;
@@ -343,6 +344,7 @@ void PGOAgent::updateNeighborPose(unsigned neighborID, unsigned neighborPose, co
 
     // Lift back to correct relaxation rank
     X = YLift.value() * T;
+    XInit.emplace(X);
 
     // Mark this agent as initialized
     mState = PGOAgentState::INITIALIZED;
@@ -535,6 +537,7 @@ void PGOAgent::reset() {
   mRobustCost.reset();
   globalAnchor.reset();
   TLocalInit.reset();
+  XInit.reset();
 
   mOptimizationRequested = false;
   mPublishPublicPosesRequested = false;
@@ -562,7 +565,8 @@ void PGOAgent::iterate(bool doOptimization) {
     mRobustCost.update();
     // If warm start is disabled, reset trajectory estimate to initial guess
     if (!mParams.robustOptWarmStart) {
-      X = YLift.value() * TLocalInit.value();
+      assert(XInit);
+      X = XInit.value();
       printf("Warm start is disabled. Robot %u resets trajectory estimates.\n", getID());
     }
     // Reset acceleration

@@ -520,6 +520,9 @@ class PGOAgent {
   // Solution before rounding
   Matrix X;
 
+  // Initial iterate
+  std::optional<Matrix> XInit;
+
   // Initial solution TInit = [R1 t1 ... Rn tn] in an arbitrary coordinate frame
   std::optional<Matrix> TLocalInit;
 
