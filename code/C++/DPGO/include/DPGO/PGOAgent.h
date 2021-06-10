@@ -84,11 +84,14 @@ struct PGOAgentParameters {
   // Parameter settings over robust cost functions
   RobustCostParameters robustCostParams;
 
-  // Interval to update loop closure weights
-  unsigned weightUpdateInterval;
+  // Warm start iterate during robust optimization
+  bool robustOptWarmStart;
 
-  // Mininum ratio of converged loop closures to terminate
-  double minConvergedLoopClosureRatio;
+  // Number of inner iterations to apply before updating measurement weights during robust optimization
+  unsigned robustOptInnerIters;
+
+  // Minimum ratio of converged weights before terminating robust optimization
+  double robustOptMinConvergenceRatio;
 
   // Maximum number of global iterations
   unsigned maxNumIters;
@@ -114,8 +117,9 @@ struct PGOAgentParameters {
                      unsigned restartInt = 30,
                      RobustCostType costType = RobustCostType::L2,
                      RobustCostParameters costParams = RobustCostParameters(),
-                     unsigned weightInt = 30,
-                     double gncMinRatio = 0.8,
+                     bool robust_opt_warm_start = true,
+                     unsigned robust_opt_inner_iters = 30,
+                     double robust_opt_min_convergence_ratio = 0.8,
                      unsigned maxIters = 500,
                      double changeTol = 5e-3,
                      bool v = false,
@@ -124,8 +128,11 @@ struct PGOAgentParameters {
       : d(dIn), r(rIn), numRobots(numRobotsIn),
         algorithm(algorithmIn), multirobot_initialization(true),
         acceleration(accel), restartInterval(restartInt),
-        robustCostType(costType), robustCostParams(costParams), weightUpdateInterval(weightInt),
-        minConvergedLoopClosureRatio(gncMinRatio), maxNumIters(maxIters), relChangeTol(changeTol),
+        robustCostType(costType), robustCostParams(costParams),
+        robustOptWarmStart(robust_opt_warm_start),
+        robustOptInnerIters(robust_opt_inner_iters),
+        robustOptMinConvergenceRatio(robust_opt_min_convergence_ratio),
+        maxNumIters(maxIters), relChangeTol(changeTol),
         verbose(v), logData(log), logDirectory(std::move(logDir)) {}
 
   inline friend std::ostream &operator<<(
@@ -138,8 +145,9 @@ struct PGOAgentParameters {
     os << "Use Nesterov acceleration: " << params.acceleration << std::endl;
     os << "Fixed restart interval: " << params.restartInterval << std::endl;
     os << "Robust cost function: " << RobustCostNames[params.robustCostType] << std::endl;
-    os << "Weight update interval: " << params.weightUpdateInterval << std::endl;
-    os << "Minimum ratio of converged loop closures: " << params.minConvergedLoopClosureRatio << std::endl;
+    os << "Robust optimization warm start: " << params.robustOptWarmStart << std::endl;
+    os << "Robust optimization inner iterations: " << params.robustOptInnerIters << std::endl;
+    os << "Robust optimization weight convergence min ratio: " << params.robustOptMinConvergenceRatio << std::endl;
     os << "Local optimization algorithm: " << params.algorithm << std::endl;
     os << "Max iterations: " << params.maxNumIters << std::endl;
     os << "Relative change tol: " << params.relChangeTol << std::endl;
@@ -511,6 +519,9 @@ class PGOAgent {
 
   // Solution before rounding
   Matrix X;
+
+  // Initial iterate
+  std::optional<Matrix> XInit;
 
   // Initial solution TInit = [R1 t1 ... Rn tn] in an arbitrary coordinate frame
   std::optional<Matrix> TLocalInit;
