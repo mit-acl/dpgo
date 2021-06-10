@@ -60,7 +60,6 @@ void PGOAgent::setX(const Matrix &Xin) {
   mState = PGOAgentState::INITIALIZED;
   X = Xin;
   if (mParams.acceleration) {
-    XPrev = X;
     initializeAcceleration();
   }
   if (mParams.verbose) {
@@ -193,7 +192,6 @@ void PGOAgent::setPoseGraph(
     XInit.emplace(X);
     mState = PGOAgentState::INITIALIZED;
     if (mParams.acceleration) {
-      XPrev = X;
       initializeAcceleration();
     }
 
@@ -351,7 +349,6 @@ void PGOAgent::updateNeighborPose(unsigned neighborID, unsigned neighborPose, co
 
     // Initialize auxiliary variables
     if (mParams.acceleration) {
-      XPrev = X;
       initializeAcceleration();
     }
 
@@ -570,8 +567,10 @@ void PGOAgent::iterate(bool doOptimization) {
       printf("Warm start is disabled. Robot %u resets trajectory estimates.\n", getID());
     }
     // Reset acceleration
-    if (mParams.acceleration)
-      restartNesterovAcceleration(false);
+    if (mParams.acceleration){
+      initializeAcceleration();
+    }
+
   }
 
   // Perform iteration
@@ -962,7 +961,7 @@ void PGOAgent::restartNesterovAcceleration(bool doOptimization) {
 void PGOAgent::initializeAcceleration() {
   assert(mParams.acceleration);
   if (mState == PGOAgentState::INITIALIZED) {
-    X = XPrev;
+    XPrev = X;
     gamma = 0;
     alpha = 0;
     V = X;
