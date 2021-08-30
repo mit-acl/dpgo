@@ -126,6 +126,12 @@ double computeMeasurementError(const RelativeSEMeasurement &m,
  */
 double chi2inv(double quantile, size_t dof);
 
+/**
+ * @brief Verify that the input matrix is a valid rotation
+ * @param R
+ */
+void checkRotationMatrix(const Matrix &R);
+
 }  // namespace DPGO
 
 #endif

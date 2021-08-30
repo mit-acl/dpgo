@@ -184,12 +184,8 @@ int main(int argc, char **argv) {
       if (!robotPtr->getSharedPoseDict(sharedPoses)) {
         continue;
       }
-      for (auto &sharedPose : sharedPoses) {
-        PoseID nID = sharedPose.first;
-        Matrix var = sharedPose.second;
-        selectedRobotPtr->setNeighborStatus(robotPtr->getStatus());
-        selectedRobotPtr->updateNeighborPose(nID.first, nID.second, var);
-      }
+      selectedRobotPtr->setNeighborStatus(robotPtr->getStatus());
+      selectedRobotPtr->updateNeighborPoses(robotPtr->getID(), sharedPoses);
     }
 
     // When using acceleration, selected robot also requests auxiliary poses
@@ -200,12 +196,8 @@ int main(int argc, char **argv) {
         if (!robotPtr->getAuxSharedPoseDict(auxSharedPoses)) {
           continue;
         }
-        for (auto &auxSharedPose : auxSharedPoses) {
-          PoseID nID = auxSharedPose.first;
-          Matrix var = auxSharedPose.second;
-          selectedRobotPtr->setNeighborStatus(robotPtr->getStatus());
-          selectedRobotPtr->updateAuxNeighborPose(nID.first, nID.second, var);
-        }
+        selectedRobotPtr->setNeighborStatus(robotPtr->getStatus());
+        selectedRobotPtr->updateAuxNeighborPoses(robotPtr->getID(), auxSharedPoses);
       }
     }
 

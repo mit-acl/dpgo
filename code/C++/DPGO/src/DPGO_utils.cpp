@@ -206,7 +206,7 @@ void constructOrientedConnectionIncidenceMatrixSE(
   size_t m;           // Number of measurements
   m = measurements.size();
   size_t n = 0;  // Number of poses
-  for (const RelativeSEMeasurement &meas : measurements) {
+  for (const RelativeSEMeasurement &meas: measurements) {
     if (n < meas.p1) n = meas.p1;
     if (n < meas.p2) n = meas.p2;
   }
@@ -502,6 +502,13 @@ double computeMeasurementError(const RelativeSEMeasurement &m,
 double chi2inv(double quantile, size_t dof) {
   boost::math::chi_squared_distribution<double> chi2(dof);
   return boost::math::quantile(chi2, quantile);
+}
+
+void checkRotationMatrix(const Matrix &R) {
+  const auto d = R.rows();
+  assert(R.cols() == d);
+  assert(abs(R.determinant() - 1.0) < 1e-8);
+  assert((R.transpose() * R - Matrix::Identity(d, d)).norm() < 1e-8);
 }
 
 }  // namespace DPGO
