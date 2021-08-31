@@ -321,10 +321,17 @@ void PGOAgent::initializeInGlobalFrame(unsigned neighborID, const PoseDict &pose
 
   // Compute relative transform to neighbor's frame of reference
   // TODO: robust estimate of relative transformation
-  const auto nID = poseDict.begin()->first;
-  assert(nID.first == neighborID);
-  const auto var = poseDict.begin()->second;
-  const auto T_world2_world1 = computeNeighborTransform(nID, var);
+  Matrix T_world2_world1;
+  bool success = false;
+  for (const auto &it: poseDict) {
+    const auto nID = it.first;
+    const auto var = it.second;
+    if (neighborSharedPoseIDs.find(nID) != neighborSharedPoseIDs.end()) {
+      T_world2_world1 = computeNeighborTransform(nID, var);
+      success = true;
+    }
+  }
+  assert(success);
 
   // Apply global transformation to local trajectory estimate
   Matrix T = TLocalInit.value();
