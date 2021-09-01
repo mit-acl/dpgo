@@ -447,6 +447,13 @@ class PGOAgent {
   Matrix computeNeighborTransform(const PoseID &nID, const Matrix &var);
 
   /**
+   * @brief Compute a robust relative transform estimate between this robot and neighbor robot, using GNC.
+   * @param neighborID
+   * @param poseDict
+   * @return
+   */
+  Matrix computeRobustNeighborTransform(unsigned neighborID, const PoseDict &poseDict);
+  /**
    * @brief Initialize this robot's trajectory estimate in the global frame, using a list of public poses from a neighbor robot
    * @param neighborID
    * @param poseIDs

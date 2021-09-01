@@ -515,11 +515,31 @@ void checkRotationMatrix(const Matrix &R) {
   assert((R.transpose() * R - Matrix::Identity(d, d)).norm() < 1e-8);
 }
 
+void singleTranslationAveraging(Vector &tOpt,
+                                const std::vector<Vector> &tVec,
+                                const Vector &tau) {
+  const int n = (int) tVec.size();
+  assert(n > 0);
+  const auto d = tVec[0].rows();
+  Vector tau_ = Vector::Ones(n);
+  if (tau.rows() == n) {
+    tau_ = tau;
+  }
+  Vector s = Vector::Zero(d);
+  double w = 0;
+  for (Eigen::Index i = 0; i < n; ++i) {
+    s += tau_(i) * tVec[i];
+    w += tau_(i);
+  }
+  tOpt = s / w;
+}
+
 void singleRotationAveraging(Matrix &ROpt,
                              const std::vector<Matrix> &RVec,
                              const Vector &kappa) {
-  const auto d = RVec[0].rows();
   const int n = (int) RVec.size();
+  assert(n > 0);
+  const auto d = RVec[0].rows();
   Vector kappa_ = Vector::Ones(n);
   if (kappa.rows() == n) {
     kappa_ = kappa;
@@ -544,7 +564,7 @@ void robustSingleRotationAveraging(Matrix &ROpt,
   if (kappa.rows() == n) {
     kappa_ = kappa;
   }
-  for (const auto &Ri : RVec) {
+  for (const auto &Ri: RVec) {
     checkRotationMatrix(Ri);
   }
   // Initialize estimate
@@ -556,7 +576,8 @@ void robustSingleRotationAveraging(Matrix &ROpt,
   // Initialize robust cost
   double barc = errorThreshold;
   double barcSq = barc * barc;
-  double muInit = barcSq / (2 * rSqVec.maxCoeff() - barcSq);
+//  double muInit = barcSq / (2 * rSqVec.maxCoeff() - barcSq);
+  double muInit = 1e-4;
   RobustCostParameters params;
   params.GNCBarc = barc;
   params.GNCMaxNumIters = 1000;
@@ -582,6 +603,7 @@ void robustSingleRotationAveraging(Matrix &ROpt,
     cost.update();
   }
   // Retrieve inliers
+  // std::cout << "Final GNC weights: \n" << weights_ << std::endl;
   inlierIndices.clear();
   for (Eigen::Index i = 0; i < n; ++i) {
     double wi = weights_(i);

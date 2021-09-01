@@ -140,6 +140,16 @@ double angular2ChordalSO3(double rad);
 void checkRotationMatrix(const Matrix &R);
 
 /**
+ * @brief Single translation averaging using the Euclidean distance
+ * @param tOpt
+ * @param tVec
+ * @param tau
+ */
+void singleTranslationAveraging(Vector &tOpt,
+                                const std::vector<Vector> &tVec,
+                                const Vector &tau = Vector::Ones(0));
+
+/**
  * @brief Single rotation averaging with the chordal distance
  * @param ROpt
  * @param RVec
