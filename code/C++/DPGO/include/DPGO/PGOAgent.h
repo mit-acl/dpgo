@@ -398,7 +398,7 @@ class PGOAgent {
    * @brief Check restart condition
    * @return boolean
    */
-  bool shouldRestart();
+  bool shouldRestart() const;
 
   /**
    * @brief Restart Nesterov acceleration sequence

@@ -959,7 +959,7 @@ bool PGOAgent::shouldTerminate() {
   return true;
 }
 
-bool PGOAgent::shouldRestart() {
+bool PGOAgent::shouldRestart() const {
   if (mParams.acceleration) {
     return ((mIterationNumber + 1) % mParams.restartInterval == 0);
   }

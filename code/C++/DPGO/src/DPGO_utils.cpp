@@ -6,7 +6,7 @@
  * -------------------------------------------------------------------------- */
 
 #include <DPGO/DPGO_utils.h>
-
+#include <DPGO/DPGO_robust.h>
 #include <Eigen/Geometry>
 #include <Eigen/SPQRSupport>
 #include <algorithm>
@@ -504,11 +504,91 @@ double chi2inv(double quantile, size_t dof) {
   return boost::math::quantile(chi2, quantile);
 }
 
+double angular2ChordalSO3(double rad) {
+  return 2 * sqrt(2) * sin(rad / 2);
+}
+
 void checkRotationMatrix(const Matrix &R) {
   const auto d = R.rows();
   assert(R.cols() == d);
   assert(abs(R.determinant() - 1.0) < 1e-8);
   assert((R.transpose() * R - Matrix::Identity(d, d)).norm() < 1e-8);
+}
+
+void singleRotationAveraging(Matrix &ROpt,
+                             const std::vector<Matrix> &RVec,
+                             const Vector &kappa) {
+  const auto d = RVec[0].rows();
+  const int n = (int) RVec.size();
+  Vector kappa_ = Vector::Ones(n);
+  if (kappa.rows() == n) {
+    kappa_ = kappa;
+  }
+  Matrix M = Matrix::Zero(d, d);
+  for (Eigen::Index i = 0; i < n; ++i) {
+    M += kappa_(i) * RVec[i];
+  }
+  ROpt = projectToRotationGroup(M);
+}
+
+void robustSingleRotationAveraging(Matrix &ROpt,
+                                   std::vector<size_t> &inlierIndices,
+                                   const std::vector<Matrix> &RVec,
+                                   const Vector &kappa,
+                                   double errorThreshold) {
+  const double w_tol = 1e-3;
+  const int n = (int) RVec.size();
+  assert(n > 0);
+  Vector kappa_ = Vector::Ones(n);
+  Vector weights_ = Vector::Ones(n);
+  if (kappa.rows() == n) {
+    kappa_ = kappa;
+  }
+  for (const auto &Ri : RVec) {
+    checkRotationMatrix(Ri);
+  }
+  // Initialize estimate
+  singleRotationAveraging(ROpt, RVec, kappa_);
+  Vector rSqVec = Vector::Zero(n);
+  for (Eigen::Index i = 0; i < n; ++i) {
+    rSqVec(i) = kappa_(i) * (ROpt - RVec[i]).squaredNorm();
+  }
+  // Initialize robust cost
+  double barc = errorThreshold;
+  double barcSq = barc * barc;
+  double muInit = barcSq / (2 * rSqVec.maxCoeff() - barcSq);
+  RobustCostParameters params;
+  params.GNCBarc = barc;
+  params.GNCMaxNumIters = 1000;
+  params.GNCInitMu = muInit;
+  RobustCost cost(RobustCostType::GNC_TLS, params);
+  for (unsigned iter = 0; iter < params.GNCMaxNumIters; ++iter) {
+    // Update solution
+    singleRotationAveraging(ROpt, RVec, kappa_.cwiseProduct(weights_));
+    // Update weight
+    int nc = 0;
+    for (Eigen::Index i = 0; i < n; ++i) {
+      double rSq = kappa_(i) * (ROpt - RVec[i]).squaredNorm();
+      double wi = cost.weight(sqrt(rSq));
+      if (wi < w_tol || wi > 1 - w_tol) {
+        nc++;
+      }
+      weights_(i) = wi;
+    }
+    if (nc == n) {
+      break;
+    }
+    // Update GNC
+    cost.update();
+  }
+  // Retrieve inliers
+  inlierIndices.clear();
+  for (Eigen::Index i = 0; i < n; ++i) {
+    double wi = weights_(i);
+    if (wi > 1 - w_tol) {
+      inlierIndices.push_back(i);
+    }
+  }
 }
 
 }  // namespace DPGO
