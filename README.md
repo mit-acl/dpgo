@@ -40,15 +40,6 @@ The installation is required for using the ROS wrapper.
 
 A ROS wrapper for DPGO is provided in https://gitlab.com/mit-acl/dpgo/dpgo_ros.git . 
 
-## License
-DPGO is released under the GNU GENERAL PUBLIC LICENSE Version 3 (GPLv3). Please see LICENSE for more information.
-
-
-This repository also contains the following third-party libraries that are not properties of the authors of DPGO. 
- 
- *   **Eigen** (MPL2 license).
- * **ROPTLIB** (GPLv3 license). 
-
 
 
 
