@@ -27,7 +27,7 @@ TEST(testDPGO, testStiefelProjection) {
   size_t d = 3;
   size_t r = 5;
   Matrix I = Matrix::Identity(d, d);
-  for (size_t j = 0; j < 50; ++ j) {
+  for (size_t j = 0; j < 50; ++j) {
     Matrix M = Matrix::Random(r, d);
     Matrix Y = projectToStiefelManifold(M);
     Matrix D = Y.transpose() * Y - I;
@@ -40,10 +40,10 @@ TEST(testDPGO, testLiftedSEManifoldProjection) {
   int r = 5;
   int n = 100;
   LiftedSEManifold Manifold(r, d, n);
-  Matrix M = Matrix::Random(r, (d+1)*n);
+  Matrix M = Matrix::Random(r, (d + 1) * n);
   Matrix X = Manifold.project(M);
   ASSERT_EQ(X.rows(), r);
-  ASSERT_EQ(X.cols(), (d+1) * n);
+  ASSERT_EQ(X.cols(), (d + 1) * n);
   for (int i = 0; i < n; ++i) {
     Matrix Y = X.block(0, i * (d + 1), r, d);
     Matrix D = Y.transpose() * Y - Matrix::Identity(d, d);
@@ -60,10 +60,40 @@ TEST(testDPGO, testChi2Inv) {
   std::chi_squared_distribution<double> distribution(dof);
   int numTrials = 100000;
   int count = 0;
-  for (int i =0; i < numTrials; ++i) {
+  for (int i = 0; i < numTrials; ++i) {
     double number = distribution(rng);
-    if (number < threshold) count ++;
+    if (number < threshold) count++;
   }
   double q = (double) count / numTrials;
   ASSERT_LE(abs(q - quantile), 0.01);
+}
+
+TEST(testDPGO, testRobustSingleRotationAveraging) {
+  for (int trial = 0; trial < 100; ++trial) {
+    const double tol = angular2ChordalSO3(0.02);
+    const double cbar = angular2ChordalSO3(0.3);
+    const Matrix RTrue = Eigen::Quaterniond::UnitRandom().toRotationMatrix();
+    std::vector<Matrix> RVec;
+    // Push inliers
+    for (int i = 0; i < 10; ++i) {
+      RVec.emplace_back(RTrue);
+    }
+    // Push outliers
+    while (RVec.size() < 50) {
+      Matrix RRand = Eigen::Quaterniond::UnitRandom().toRotationMatrix();
+      if ((RRand - RTrue).norm() > 1.2 * cbar)  // Make sure that outlier is separated from the true rotation
+        RVec.emplace_back(RRand);
+    }
+    Matrix ROpt;
+    std::vector<size_t> inlierIndices;
+    const auto kappa = Vector::Ones(50);
+    robustSingleRotationAveraging(ROpt, inlierIndices, RVec, kappa, cbar);
+    checkRotationMatrix(ROpt);
+    double distChordal = (ROpt - RTrue).norm();
+    ASSERT_LE(distChordal, tol);
+    ASSERT_EQ(inlierIndices.size(), 10);
+    for (int i = 0; i < 10; ++i) {
+      ASSERT_EQ(inlierIndices[i], i);
+    }
+  }
 }

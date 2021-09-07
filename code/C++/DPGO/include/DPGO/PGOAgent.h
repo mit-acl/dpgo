@@ -398,7 +398,7 @@ class PGOAgent {
    * @brief Check restart condition
    * @return boolean
    */
-  bool shouldRestart();
+  bool shouldRestart() const;
 
   /**
    * @brief Restart Nesterov acceleration sequence
@@ -438,20 +438,40 @@ class PGOAgent {
   void setGlobalAnchor(const Matrix &M);
 
   /**
+   * @brief
+   * @param neighborID
+   * @param neighborPose
+   * @param var
+   * @return
+   */
+  Matrix computeNeighborTransform(const PoseID &nID, const Matrix &var);
+
+  /**
+   * @brief Compute a robust relative transform estimate between this robot and neighbor robot, using GNC.
+   * @param neighborID
+   * @param poseDict
+   * @return
+   */
+  Matrix computeRobustNeighborTransform(unsigned neighborID, const PoseDict &poseDict);
+  /**
+   * @brief Initialize this robot's trajectory estimate in the global frame, using a list of public poses from a neighbor robot
+   * @param neighborID
+   * @param poseIDs
+   * @param vars
+   */
+  void initializeInGlobalFrame(unsigned neighborID, const PoseDict &poseDict);
+
+  /**
  * @brief Update local copy of a neighbor agent's pose
  * @param neighborID the ID of the neighbor agent
- * @param neighborPose local index of the received neighbor pose
- * @param var Actual value of the received pose
  */
-  void updateNeighborPose(unsigned neighborID, unsigned neighborPose, const Matrix &var);
+  void updateNeighborPoses(unsigned neighborID, const PoseDict &poseDict);
 
   /**
    * @brief Update local copy of a neighbor's auxiliary pose
    * @param neighborID
-   * @param neighborPose
-   * @param var
    */
-  void updateAuxNeighborPose(unsigned neighborID, unsigned neighborPose, const Matrix &var);
+  void updateAuxNeighborPoses(unsigned neighborID, const PoseDict &poseDict);
 
   /**
    * @brief Perform local PGO using the standard L2 (least-squares) cost function
@@ -612,11 +632,9 @@ class PGOAgent {
 
   /**
    * @brief Find and return any shared measurement with the specified neighbor pose
-   * @param neighborID
-   * @param neighborPose
    * @return
    */
-  RelativeSEMeasurement &findSharedLoopClosureWithNeighbor(unsigned neighborID, unsigned neighborPose);
+  RelativeSEMeasurement &findSharedLoopClosureWithNeighbor(const PoseID &nID);
 
   /**
    * @brief Find and return the specified shared measurement
@@ -626,10 +644,7 @@ class PGOAgent {
    * @param dstPoseID
    * @return
    */
-  RelativeSEMeasurement &findSharedLoopClosure(unsigned srcRobotID,
-                                               unsigned srcPoseID,
-                                               unsigned dstRobotID,
-                                               unsigned dstPoseID);
+  RelativeSEMeasurement &findSharedLoopClosure(const PoseID &srcID, const PoseID &dstID);
 
   /**
    * @brief Return true if should update loop closure weights

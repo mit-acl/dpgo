@@ -63,7 +63,7 @@ struct ROPTResult {
 typedef std::pair<unsigned, unsigned> PoseID;
 
 // Implement a dictionary for easy access of pose value by PoseID
-typedef std::map<PoseID, Matrix, std::less<PoseID>,
+typedef std::map<PoseID, Matrix, std::less<>,
                  Eigen::aligned_allocator<std::pair<const PoseID, Matrix>>>
     PoseDict;
 
