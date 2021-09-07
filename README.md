@@ -34,7 +34,6 @@ Optionally, install the C++ library via,
 ```
 sudo make install
 ```
-The installation is required for using the ROS wrapper. 
 
 ## ROS support
 
