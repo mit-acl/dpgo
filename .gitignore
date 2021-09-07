@@ -1,6 +1,5 @@
 # Ignore C++ build directory
-code/C++/build
-code/C++/DPGO/logs
+build/*
 
 # Ignore temp files
 *.m~

@@ -1,0 +1,9 @@
+get_filename_component(DPGO_CMAKE_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
+
+include(CMakeFindDependencyMacro)
+
+find_dependency(roptlib)
+
+if(NOT TARGET DPGO)
+    include("${DPGO_CMAKE_DIR}/DPGOTargets.cmake")
+endif()
