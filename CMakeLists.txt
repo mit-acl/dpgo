@@ -5,8 +5,8 @@ project(DPGO)
 
 if(NOT CMAKE_BUILD_TYPE)
     # Options: Debug, Release, MinSizeRel, RelWithDebInfo
-    message(STATUS "No build type selected, default to Debug")
-    set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "Choose build type." FORCE)
+    message(STATUS "No build type selected, default to Release")
+    set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose build type." FORCE)
 endif()
 
 message(STATUS "CXX compiler version: " ${CMAKE_CXX_COMPILER_VERSION})
