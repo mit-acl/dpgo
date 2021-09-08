@@ -18,14 +18,19 @@
 #include "Manifolds/Stiefel/Stiefel.h"
 
 namespace DPGO {
+/**
+ * @brief Write a dense Eigen matrix to file
+ * @param M
+ * @param filename
+ */
+void writeMatrixToFile(const Matrix &M, const std::string &filename);
 
 /**
-Helper function to read a matrix from a .txt file
-File format:
-first row contains rows and cols
-remaining rows store data
-*/
-Matrix read_matrix_from_file(const std::string &filename);
+ * @brief Write a sparse matrix to file
+ * @param M
+ * @param filename
+ */
+void writeSparseMatrixToFile(const SparseMatrix &M, const std::string &filename);
 
 /**
 Helper function to read a dataset in .g2o format
@@ -120,6 +125,53 @@ double computeMeasurementError(const RelativeSEMeasurement &m,
  * @return
  */
 double chi2inv(double quantile, size_t dof);
+
+/**
+ * @brief For SO(3), convert angular distance in radian to chordal distance
+ * @param rad input angular distance in radian
+ * @return
+ */
+double angular2ChordalSO3(double rad);
+
+/**
+ * @brief Verify that the input matrix is a valid rotation
+ * @param R
+ */
+void checkRotationMatrix(const Matrix &R);
+
+/**
+ * @brief Single translation averaging using the Euclidean distance
+ * @param tOpt
+ * @param tVec
+ * @param tau
+ */
+void singleTranslationAveraging(Vector &tOpt,
+                                const std::vector<Vector> &tVec,
+                                const Vector &tau = Vector::Ones(0));
+
+/**
+ * @brief Single rotation averaging with the chordal distance
+ * @param ROpt
+ * @param RVec
+ * @param kappa
+ */
+void singleRotationAveraging(Matrix &ROpt,
+                             const std::vector<Matrix> &RVec,
+                             const Vector &kappa = Vector::Ones(0));
+
+/**
+ * @brief Robust single rotation averaging using GNC
+ * @param ROpt output rotation matrix
+ * @param inlierIndices output inlier indices
+ * @param RVec input rotation matrices
+ * @param kappaVec weights associated with rotation matrices
+ * @param errorThreshold max error threshold, specified in CHORDAL distance
+ */
+void robustSingleRotationAveraging(Matrix &ROpt,
+                                   std::vector<size_t> &inlierIndices,
+                                   const std::vector<Matrix> &RVec,
+                                   const Vector &kappa = Vector::Ones(0),
+                                   double errorThreshold = 0.1);
 
 }  // namespace DPGO
 

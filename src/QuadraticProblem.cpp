@@ -6,7 +6,6 @@
  * -------------------------------------------------------------------------- */
 
 #include <DPGO/QuadraticProblem.h>
-
 #include <iostream>
 
 using namespace std;
@@ -14,10 +13,9 @@ using namespace std;
 /*Define the namespace*/
 namespace DPGO {
 
-QuadraticProblem::QuadraticProblem(size_t nIn, size_t dIn, size_t rIn):
+QuadraticProblem::QuadraticProblem(size_t nIn, size_t dIn, size_t rIn) :
     n(nIn), d(dIn), r(rIn),
-    M(new LiftedSEManifold(r, d, n))
-{
+    M(new LiftedSEManifold(r, d, n)) {
   assert(r >= d);
   ROPTLIB::Problem::SetUseGrad(true);
   ROPTLIB::Problem::SetUseHess(true);
@@ -71,13 +69,7 @@ void QuadraticProblem::EucHessianEta(ROPTLIB::Variable *x, ROPTLIB::Vector *v,
                                      ROPTLIB::Vector *Hv) const {
   Eigen::Map<const Matrix> V((double *) v->ObtainReadData(), r, (d + 1) * n);
   Eigen::Map<Matrix> HV((double *) Hv->ObtainWriteEntireData(), r, (d + 1) * n);
-  if (solver.info() == Eigen::Success) {
-    HV = V * mQ;
-  }
-  else {
-    cout << "WARNING: preconditioner failed." << endl;
-    HV = V;
-  }
+  HV = V * mQ;
 }
 
 void QuadraticProblem::PreConditioner(ROPTLIB::Variable *x,
@@ -86,7 +78,12 @@ void QuadraticProblem::PreConditioner(ROPTLIB::Variable *x,
   Eigen::Map<const Matrix> INVEC((double *) inVec->ObtainReadData(), r, (d + 1) * n);
   Eigen::Map<Matrix> OUTVEC((double *) outVec->ObtainWriteEntireData(), r, (d + 1) * n);
   OUTVEC = solver.solve(INVEC.transpose()).transpose();
-  M->getManifold()->Projection(x, outVec, outVec);  // Project output to the tangent space at x
+  if (solver.info() == Eigen::Success) {
+    M->getManifold()->Projection(x, outVec, outVec);  // Project output to the tangent space at x
+  } else {
+    printf("Preconditioner failed.\n");
+    OUTVEC = INVEC;
+  }
 }
 
 Matrix QuadraticProblem::RieGrad(const Matrix &Y) const {

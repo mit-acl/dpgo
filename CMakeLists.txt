@@ -1,7 +1,13 @@
 # PROJECT CONFIGURATION
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.5)
 
 project(DPGO)
+
+if(NOT CMAKE_BUILD_TYPE)
+    # Options: Debug, Release, MinSizeRel, RelWithDebInfo
+    message(STATUS "No build type selected, default to Debug")
+    set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "Choose build type." FORCE)
+endif()
 
 message(STATUS "CXX compiler version: " ${CMAKE_CXX_COMPILER_VERSION})
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -march=native")
@@ -19,8 +25,16 @@ set(EXECUTABLE_OUTPUT_PATH ${CMAKE_CURRENT_BINARY_DIR}/bin CACHE PATH "The direc
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 message(STATUS "CMAKE_MODULE_PATH: " ${CMAKE_MODULE_PATH})
 
+# ROPTLIB
+configure_file(cmake/roptlib.cmake roptlib-download/CMakeLists.txt)
+execute_process(COMMAND "${CMAKE_COMMAND}" -G "${CMAKE_GENERATOR}" .
+        WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/roptlib-download")
+execute_process(COMMAND "${CMAKE_COMMAND}" --build .
+        WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/roptlib-download")
+add_subdirectory("${CMAKE_BINARY_DIR}/roptlib-src"
+        "${CMAKE_BINARY_DIR}/roptlib-build")
+
 # Dependencies
-find_package(roptlib REQUIRED)
 find_package(SPQR REQUIRED)
 find_package(Cholmod REQUIRED)
 find_package(BLAS REQUIRED)

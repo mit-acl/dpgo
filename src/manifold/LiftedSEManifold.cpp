@@ -6,7 +6,7 @@
  * -------------------------------------------------------------------------- */
 
 #include <cassert>
-#include <DPGO//DPGO_utils.h>
+#include <DPGO/DPGO_utils.h>
 #include <DPGO/manifold/LiftedSEManifold.h>
 
 using namespace std;

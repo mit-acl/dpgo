@@ -54,6 +54,7 @@ int main(int argc, char **argv) {
   n = num_poses;
   r = 5;
   bool acceleration = true;
+  bool verbose = false;
   unsigned numIters = 1000;
 
   // Construct the centralized problem (used for evaluation)
@@ -126,6 +127,7 @@ int main(int argc, char **argv) {
   for (unsigned robot = 0; robot < (unsigned) num_robots; ++robot) {
     PGOAgentParameters options(d, r, num_robots);
     options.acceleration = acceleration;
+    options.verbose = verbose;
 
     auto *agent = new PGOAgent(robot, options);
 
@@ -182,13 +184,8 @@ int main(int argc, char **argv) {
       if (!robotPtr->getSharedPoseDict(sharedPoses)) {
         continue;
       }
-      for (auto &sharedPose : sharedPoses) {
-        PoseID nID = sharedPose.first;
-        Matrix var = sharedPose.second;
-        unsigned agentID = get<0>(nID);
-        unsigned localID = get<1>(nID);
-        selectedRobotPtr->updateNeighborPose(0, agentID, localID, var);
-      }
+      selectedRobotPtr->setNeighborStatus(robotPtr->getStatus());
+      selectedRobotPtr->updateNeighborPoses(robotPtr->getID(), sharedPoses);
     }
 
     // When using acceleration, selected robot also requests auxiliary poses
@@ -199,13 +196,8 @@ int main(int argc, char **argv) {
         if (!robotPtr->getAuxSharedPoseDict(auxSharedPoses)) {
           continue;
         }
-        for (auto &auxSharedPose : auxSharedPoses) {
-          PoseID nID = auxSharedPose.first;
-          Matrix var = auxSharedPose.second;
-          unsigned agentID = get<0>(nID);
-          unsigned localID = get<1>(nID);
-          selectedRobotPtr->updateAuxNeighborPose(0, agentID, localID, var);
-        }
+        selectedRobotPtr->setNeighborStatus(robotPtr->getStatus());
+        selectedRobotPtr->updateAuxNeighborPoses(robotPtr->getID(), auxSharedPoses);
       }
     }
 

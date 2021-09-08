@@ -43,6 +43,21 @@ class PGOLogger {
    */
   void logMeasurements(std::vector<RelativeSEMeasurement> &measurements, const std::string &filename);
 
+  /**
+   * @brief load trajectory from file
+   * @param filename
+   * @return
+   */
+  Matrix loadTrajectory(const std::string &filename);
+
+  /**
+   * @brief read a list of measurements from file
+   * @param filename
+   * @param load_weight
+   * @return
+   */
+  std::vector<RelativeSEMeasurement> loadMeasurements(const std::string &filename, bool load_weight = false);
+
  private:
   std::string logDirectory;
 };
