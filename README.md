@@ -25,19 +25,15 @@ cmake ../
 make
 ```
 
-The built executables are located in directory build/bin. For a serialized demo of distributed PGO on one of the benchmark datasets, move to the top-level directory and run:
+The built executables are located in directory build/bin. For a serialized demo of distributed PGO on one of the benchmark datasets, inside the build directory run:
 ```
-./C++/build/bin/multi-robot-example 5 data/smallGrid3D.g2o
+./bin/multi-robot-example 5 ../data/smallGrid3D.g2o
 ```
 
 Optionally, install the C++ library via,
 ```
 sudo make install
 ```
-
-## ROS support
-
-A ROS wrapper for DPGO is provided in https://gitlab.com/mit-acl/dpgo/dpgo_ros.git . 
 
 
 
