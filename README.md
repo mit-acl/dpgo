@@ -40,7 +40,7 @@ Optionally, run the unit tests by,
 A ROS wrapper of dpgo is provided: [dpgo_ros](https://github.com/mit-acl/dpgo_ros). If you want to use dpgo with ROS, please follow instructions in the [README](https://github.com/mit-acl/dpgo_ros). 
 
 
-## Citation
+## References
 
 If you find this library useful, please cite our papers:
 ```
