@@ -45,8 +45,12 @@ struct RobustCostParameters {
   double TLSThreshold;
 
   // Default constructor
-  RobustCostParameters(unsigned gncMaxIters = 100, double gncBarc = 10, double gncMuStep = 1.4, double gncInitMu = 1e-4,
-                       double huberThresh = 3, double TLSThresh = 10)
+  explicit RobustCostParameters(unsigned gncMaxIters = 100,
+                                double gncBarc = 10,
+                                double gncMuStep = 1.4,
+                                double gncInitMu = 1e-4,
+                                double huberThresh = 3,
+                                double TLSThresh = 10)
       : GNCMaxNumIters(gncMaxIters), GNCBarc(gncBarc), GNCMuStep(gncMuStep), GNCInitMu(gncInitMu),
         HuberThreshold(huberThresh), TLSThreshold(TLSThresh) {}
 
@@ -95,16 +99,16 @@ class RobustCost {
   void update();
 
   /**
-   * @brief Set error threshold based on the quantile of chi-squared distribution
+   * @brief Set error threshold based on the quantile of chi-squared distribution. This function only works for 3D measurements.
    * @param quantile
    * @param dimension
    * @return threshold
    */
   static double computeErrorThresholdAtQuantile(double quantile, size_t dimension) {
-    assert(dimension == 2 || dimension == 3);
+    assert(dimension == 3);
     assert(quantile > 0);
     if (quantile < 1)
-      return std::sqrt(chi2inv(quantile, 2 * dimension));
+      return std::sqrt(chi2inv(quantile, 6));
     else
       return 1e5;
   }

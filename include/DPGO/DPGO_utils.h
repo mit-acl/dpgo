@@ -160,18 +160,52 @@ void singleRotationAveraging(Matrix &ROpt,
                              const Vector &kappa = Vector::Ones(0));
 
 /**
+ * @brief Single pose averaging with chordal distance
+ * @param ROpt
+ * @param tOpt
+ * @param RVec
+ * @param tVec
+ * @param kappa
+ * @param tau
+ */
+void singlePoseAveraging(Matrix &ROpt, Vector &tOpt,
+                         const std::vector<Matrix> &RVec,
+                         const std::vector<Vector> &tVec,
+                         const Vector &kappa = Vector::Ones(0),
+                         const Vector &tau = Vector::Ones(0));
+
+/**
  * @brief Robust single rotation averaging using GNC
  * @param ROpt output rotation matrix
  * @param inlierIndices output inlier indices
  * @param RVec input rotation matrices
  * @param kappaVec weights associated with rotation matrices
- * @param errorThreshold max error threshold, specified in CHORDAL distance
+ * @param errorThreshold max error threshold under Langevin noise distribution
  */
 void robustSingleRotationAveraging(Matrix &ROpt,
                                    std::vector<size_t> &inlierIndices,
                                    const std::vector<Matrix> &RVec,
                                    const Vector &kappa = Vector::Ones(0),
                                    double errorThreshold = 0.1);
+
+/**
+ * @brief Robust single pose averaging using GNC
+ * @param ROpt
+ * @param tOpt
+ * @param inlierIndices
+ * @param RVec
+ * @param tVec
+ * @param kappa
+ * @param tau
+ * @param errorThreshold max error threshold under Langevin noise distribution
+ */
+void robustSinglePoseAveraging(Matrix &ROpt, Vector &tOpt,
+                               std::vector<size_t> &inlierIndices,
+                               const std::vector<Matrix> &RVec,
+                               const std::vector<Vector> &tVec,
+                               const Vector &kappa = Vector::Ones(0),
+                               const Vector &tau = Vector::Ones(0),
+                               double errorThreshold = 0.1);
 
 }  // namespace DPGO
 

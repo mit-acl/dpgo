@@ -1,5 +1,6 @@
 #include <DPGO/DPGO_types.h>
 #include <DPGO/DPGO_utils.h>
+#include <DPGO/DPGO_robust.h>
 #include <DPGO/manifold/LiftedSEManifold.h>
 #include <iostream>
 #include <random>
@@ -91,6 +92,50 @@ TEST(testDPGO, testRobustSingleRotationAveraging) {
     checkRotationMatrix(ROpt);
     double distChordal = (ROpt - RTrue).norm();
     ASSERT_LE(distChordal, tol);
+    ASSERT_EQ(inlierIndices.size(), 10);
+    for (int i = 0; i < 10; ++i) {
+      ASSERT_EQ(inlierIndices[i], i);
+    }
+  }
+}
+
+TEST(testDPGO, testRobustSinglePoseAveraging) {
+  const double RMaxError = angular2ChordalSO3(0.02);
+  const double tMaxError = 1e-2;
+  const double gnc_quantile = 0.9;
+  const double gnc_barc = RobustCost::computeErrorThresholdAtQuantile(gnc_quantile, 3);
+  const double kappa = 10000;
+  const double tau = 100;
+  const auto kappa_vec = kappa * Vector::Ones(50);
+  const auto tau_vec = tau * Vector::Ones(50);
+
+  for (int trial = 0; trial < 100; ++trial) {
+    const Matrix RTrue = Eigen::Quaterniond::UnitRandom().toRotationMatrix();
+    const Vector tTrue = Eigen::Vector3d::Zero();
+    std::vector<Matrix> RVec;
+    std::vector<Vector> tVec;
+    // Push inliers
+    for (int i = 0; i < 10; ++i) {
+      RVec.emplace_back(RTrue);
+      tVec.emplace_back(tTrue);
+    }
+    // Push outliers
+    while (RVec.size() < 50) {
+      Matrix RRand = Eigen::Quaterniond::UnitRandom().toRotationMatrix();
+      Matrix tRand = Eigen::Vector3d::Random();
+      double rSq = kappa * (RTrue - RRand).squaredNorm() + tau * (tTrue - tRand).squaredNorm();
+      if (std::sqrt(rSq) > 1.2 * gnc_barc) { // Make sure that outliers are sufficiently far away from ground truth
+        RVec.emplace_back(RRand);
+        tVec.emplace_back(tRand);
+      }
+    }
+    Matrix ROpt;
+    Vector tOpt;
+    std::vector<size_t> inlierIndices;
+    robustSinglePoseAveraging(ROpt, tOpt, inlierIndices, RVec, tVec, kappa_vec, tau_vec, gnc_barc);
+    checkRotationMatrix(ROpt);
+    ASSERT_LE((ROpt - RTrue).norm(), RMaxError);
+    ASSERT_LE((tOpt - tTrue).norm(), tMaxError);
     ASSERT_EQ(inlierIndices.size(), 10);
     for (int i = 0; i < 10; ++i) {
       ASSERT_EQ(inlierIndices[i], i);

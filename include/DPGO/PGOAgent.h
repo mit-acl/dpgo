@@ -447,7 +447,17 @@ class PGOAgent {
   Matrix computeNeighborTransform(const PoseID &nID, const Matrix &var);
 
   /**
-   * @brief Compute a robust relative transform estimate between this robot and neighbor robot, using GNC.
+   * @brief Compute a robust relative transform estimate between this robot and neighbor robot, using a two-stage method
+   * which first perform robust single rotation averaging, and then performs translation averaging on the inlier set.
+   * @param neighborID
+   * @param poseDict
+   * @return
+   */
+  Matrix computeRobustNeighborTransformTwoStage(unsigned neighborID, const PoseDict &poseDict);
+
+  /**
+   * @brief Compute a robust relative transform estimate between this robot and neighbor robot, by solving a robust single
+   * pose averaging problem using GNC.
    * @param neighborID
    * @param poseDict
    * @return
