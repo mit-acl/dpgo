@@ -69,8 +69,26 @@ TEST(testDPGO, testChi2Inv) {
   ASSERT_LE(abs(q - quantile), 0.01);
 }
 
+TEST(testDPGO, testRobustSingleRotationAveragingTrivial) {
+  for (int trial = 0; trial < 50; ++trial) {
+    const Matrix RTrue = Eigen::Quaterniond::UnitRandom().toRotationMatrix();
+    const double cbar = angular2ChordalSO3(0.5);  // approximately 30 deg
+    std::vector<Matrix> RVec;
+    RVec.push_back(RTrue);
+    Matrix ROpt;
+    std::vector<size_t> inlierIndices;
+    const auto kappa = Vector::Ones(1);
+    robustSingleRotationAveraging(ROpt, inlierIndices, RVec, kappa, cbar);
+    checkRotationMatrix(ROpt);
+    double distChordal = (ROpt - RTrue).norm();
+    ASSERT_LE(distChordal, 1e-8);
+    ASSERT_EQ(inlierIndices.size(), 1);
+    ASSERT_EQ(inlierIndices[0], 0);
+  }
+}
+
 TEST(testDPGO, testRobustSingleRotationAveraging) {
-  for (int trial = 0; trial < 100; ++trial) {
+  for (int trial = 0; trial < 50; ++trial) {
     const double tol = angular2ChordalSO3(0.02);
     const double cbar = angular2ChordalSO3(0.3);
     const Matrix RTrue = Eigen::Quaterniond::UnitRandom().toRotationMatrix();
@@ -99,17 +117,41 @@ TEST(testDPGO, testRobustSingleRotationAveraging) {
   }
 }
 
-TEST(testDPGO, testRobustSinglePoseAveraging) {
-  const double RMaxError = angular2ChordalSO3(0.02);
-  const double tMaxError = 1e-2;
-  const double gnc_quantile = 0.9;
-  const double gnc_barc = RobustCost::computeErrorThresholdAtQuantile(gnc_quantile, 3);
-  const double kappa = 10000;
-  const double tau = 100;
-  const auto kappa_vec = kappa * Vector::Ones(50);
-  const auto tau_vec = tau * Vector::Ones(50);
+TEST(testDPGO, testRobustSinglePoseAveragingTrivial) {
+  for (int trial = 0; trial < 50; ++trial) {
+    const Matrix RTrue = Eigen::Quaterniond::UnitRandom().toRotationMatrix();
+    const Vector tTrue = Eigen::Vector3d::Zero();
+    std::vector<Matrix> RVec;
+    RVec.push_back(RTrue);
+    std::vector<Vector> tVec;
+    tVec.push_back(tTrue);
+    const auto kappa = 10000 * Vector::Ones(1);
+    const auto tau = 100 * Vector::Ones(1);
+    const double gnc_quantile = 0.9;
+    const double gnc_barc = RobustCost::computeErrorThresholdAtQuantile(gnc_quantile, 3);
+    Matrix ROpt;
+    Vector tOpt;
+    std::vector<size_t> inlierIndices;
+    robustSinglePoseAveraging(ROpt, tOpt, inlierIndices, RVec, tVec, kappa, tau, gnc_barc);
+    checkRotationMatrix(ROpt);
+    ASSERT_LE((ROpt - RTrue).norm(), 1e-8);
+    ASSERT_LE((tOpt - tTrue).norm(), 1e-8);
+    ASSERT_EQ(inlierIndices.size(), 1);
+    ASSERT_EQ(inlierIndices[0], 0);
+  }
+}
 
-  for (int trial = 0; trial < 100; ++trial) {
+TEST(testDPGO, testRobustSinglePoseAveraging) {
+  for (int trial = 0; trial < 50; ++trial) {
+    const double RMaxError = angular2ChordalSO3(0.02);
+    const double tMaxError = 1e-2;
+    const double gnc_quantile = 0.9;
+    const double gnc_barc = RobustCost::computeErrorThresholdAtQuantile(gnc_quantile, 3);
+    const double kappa = 10000;
+    const double tau = 100;
+    const auto kappa_vec = kappa * Vector::Ones(50);
+    const auto tau_vec = tau * Vector::Ones(50);
+
     const Matrix RTrue = Eigen::Quaterniond::UnitRandom().toRotationMatrix();
     const Vector tTrue = Eigen::Vector3d::Zero();
     std::vector<Matrix> RVec;

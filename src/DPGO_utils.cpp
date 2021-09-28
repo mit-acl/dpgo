@@ -590,29 +590,33 @@ void robustSingleRotationAveraging(Matrix &ROpt,
   double barc = errorThreshold;
   double barcSq = barc * barc;
   double muInit = barcSq / (2 * rSqVec.maxCoeff() - barcSq);
-  RobustCostParameters params;
-  params.GNCBarc = barc;
-  params.GNCMaxNumIters = 1000;
-  params.GNCInitMu = muInit;
-  RobustCost cost(RobustCostType::GNC_TLS, params);
-  for (unsigned iter = 0; iter < params.GNCMaxNumIters; ++iter) {
-    // Update solution
-    singleRotationAveraging(ROpt, RVec, kappa_.cwiseProduct(weights_));
-    // Update weight
-    int nc = 0;
-    for (Eigen::Index i = 0; i < n; ++i) {
-      double rSq = kappa_(i) * (ROpt - RVec[i]).squaredNorm();
-      double wi = cost.weight(sqrt(rSq));
-      if (wi < w_tol || wi > 1 - w_tol) {
-        nc++;
+  muInit = std::min(muInit, 1e-5);
+  // Negative values of initial mu corresponds to small residual errors. In this case skip applying GNC.
+  if (muInit > 0) {
+    RobustCostParameters params;
+    params.GNCBarc = barc;
+    params.GNCMaxNumIters = 1000;
+    params.GNCInitMu = muInit;
+    RobustCost cost(RobustCostType::GNC_TLS, params);
+    for (unsigned iter = 0; iter < params.GNCMaxNumIters; ++iter) {
+      // Update solution
+      singleRotationAveraging(ROpt, RVec, kappa_.cwiseProduct(weights_));
+      // Update weight
+      int nc = 0;
+      for (Eigen::Index i = 0; i < n; ++i) {
+        double rSq = kappa_(i) * (ROpt - RVec[i]).squaredNorm();
+        double wi = cost.weight(sqrt(rSq));
+        if (wi < w_tol || wi > 1 - w_tol) {
+          nc++;
+        }
+        weights_(i) = wi;
       }
-      weights_(i) = wi;
+      if (nc == n) {
+        break;
+      }
+      // Update GNC
+      cost.update();
     }
-    if (nc == n) {
-      break;
-    }
-    // Update GNC
-    cost.update();
   }
   // Retrieve inliers
   inlierIndices.clear();
@@ -662,38 +666,41 @@ void robustSinglePoseAveraging(Matrix &ROpt, Vector &tOpt,
   double barc = errorThreshold;
   double barcSq = barc * barc;
   double muInit = barcSq / (2 * rSqVec.maxCoeff() - barcSq);
-  RobustCostParameters params;
-  params.GNCBarc = barc;
-  params.GNCMaxNumIters = 10000;
-  params.GNCInitMu = muInit;
-  RobustCost cost(RobustCostType::GNC_TLS, params);
-  unsigned iter = 0;
-  for (iter = 0; iter < params.GNCMaxNumIters; ++iter) {
-    // Update solution
-    singlePoseAveraging(ROpt,
-                        tOpt,
-                        RVec,
-                        tVec,
-                        kappa_.cwiseProduct(weights_),
-                        tau_.cwiseProduct(weights_));
-    // Update weight
-    int nc = 0;
-    for (Eigen::Index i = 0; i < n; ++i) {
-      double rSq = kappa_(i) * (ROpt - RVec[i]).squaredNorm() + tau_(i) * (tOpt - tVec[i]).squaredNorm();
-      double wi = cost.weight(sqrt(rSq));
-      if (wi < w_tol || wi > 1 - w_tol) {
-        nc++;
+  muInit = std::min(muInit, 1e-5);
+  // Negative values of initial mu corresponds to small residual errors. In this case skip applying GNC.
+  if (muInit > 0) {
+    RobustCostParameters params;
+    params.GNCBarc = barc;
+    params.GNCMaxNumIters = 10000;
+    params.GNCInitMu = muInit;
+    RobustCost cost(RobustCostType::GNC_TLS, params);
+    unsigned iter = 0;
+    for (iter = 0; iter < params.GNCMaxNumIters; ++iter) {
+      // Update solution
+      singlePoseAveraging(ROpt,
+                          tOpt,
+                          RVec,
+                          tVec,
+                          kappa_.cwiseProduct(weights_),
+                          tau_.cwiseProduct(weights_));
+      // Update weight
+      int nc = 0;
+      for (Eigen::Index i = 0; i < n; ++i) {
+        double rSq = kappa_(i) * (ROpt - RVec[i]).squaredNorm() + tau_(i) * (tOpt - tVec[i]).squaredNorm();
+        double wi = cost.weight(sqrt(rSq));
+        if (wi < w_tol || wi > 1 - w_tol) {
+          nc++;
+        }
+        weights_(i) = wi;
       }
-      weights_(i) = wi;
+      if (nc == n) {
+        break;
+      }
+      // Update GNC
+      cost.update();
     }
-    if (nc == n) {
-      break;
-    }
-    // Update GNC
-    cost.update();
   }
   // Retrieve inliers
-  // std::cout << "GNC iterations: " << iter << std::endl;
   inlierIndices.clear();
   for (Eigen::Index i = 0; i < n; ++i) {
     double wi = weights_(i);
