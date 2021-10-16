@@ -174,14 +174,6 @@ void PGOAgent::setPoseGraph(
     localInitialization();
   }
 
-  // Save pose graph
-  if (mParams.logData) {
-    std::vector<RelativeSEMeasurement> measurements = odometry;
-    measurements.insert(measurements.end(), privateLoopClosures.begin(), privateLoopClosures.end());
-    measurements.insert(measurements.end(), sharedLoopClosures.begin(), sharedLoopClosures.end());
-    mLogger.logMeasurements(measurements, "measurements.csv");
-  }
-
   // Waiting for initialization in the GLOBAL frame
   mState = PGOAgentState::WAIT_FOR_INITIALIZATION;
 
@@ -593,6 +585,11 @@ void PGOAgent::reset() {
   endOptimizationLoop();
 
   if (mParams.logData) {
+    // Save measurements (including final weights)
+    std::vector<RelativeSEMeasurement> measurements = odometry;
+    measurements.insert(measurements.end(), privateLoopClosures.begin(), privateLoopClosures.end());
+    measurements.insert(measurements.end(), sharedLoopClosures.begin(), sharedLoopClosures.end());
+    mLogger.logMeasurements(measurements, "measurements.csv");
 
     // Save trajectory estimates after rounding
     Matrix T;
