@@ -92,14 +92,19 @@ Matrix QuadraticOptimizer::trustRegion(const Matrix &Yinit) {
   if (Solver.Max_Iteration == 1) {
     // Shrinking trust-region radius until step is accepted
     double radius = Solver.initial_Delta;
+    int total_steps = 0;
     while (true) {
       Solver.initial_Delta = radius;
       Solver.maximum_Delta = radius;
       Solver.Run();
       if (Solver.latestStepAccepted()) {
         break;
+      } else if (total_steps > 10) {
+        printf("Too many RTR rejections. Returning initial guess.\n");
+        return Yinit;
       } else {
         radius = radius / 4;
+        total_steps++;
         printf("RTR step rejected. Shrinking trust-region radius to %f.\n", radius);
       }
     }
