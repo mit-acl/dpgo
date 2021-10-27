@@ -174,14 +174,6 @@ void PGOAgent::setPoseGraph(
     localInitialization();
   }
 
-  // Save pose graph
-  if (mParams.logData) {
-    std::vector<RelativeSEMeasurement> measurements = odometry;
-    measurements.insert(measurements.end(), privateLoopClosures.begin(), privateLoopClosures.end());
-    measurements.insert(measurements.end(), sharedLoopClosures.begin(), sharedLoopClosures.end());
-    mLogger.logMeasurements(measurements, "measurements.csv");
-  }
-
   // Waiting for initialization in the GLOBAL frame
   mState = PGOAgentState::WAIT_FOR_INITIALIZATION;
 
@@ -295,7 +287,7 @@ Matrix PGOAgent::computeNeighborTransform(const PoseID &nID, const Matrix &var) 
   return T_world2_world1;
 }
 
-Matrix PGOAgent::computeRobustNeighborTransform(unsigned int neighborID, const PoseDict &poseDict) {
+Matrix PGOAgent::computeRobustNeighborTransformTwoStage(unsigned int neighborID, const PoseDict &poseDict) {
   std::vector<Matrix> RVec;
   std::vector<Vector> tVec;
   for (const auto &it: poseDict) {
@@ -338,6 +330,42 @@ Matrix PGOAgent::computeRobustNeighborTransform(unsigned int neighborID, const P
   return TOpt;
 }
 
+Matrix PGOAgent::computeRobustNeighborTransform(unsigned int neighborID, const PoseDict &poseDict) {
+  std::vector<Matrix> RVec;
+  std::vector<Vector> tVec;
+  for (const auto &it: poseDict) {
+    const PoseID nID = it.first;
+    const auto var = it.second;
+    if (neighborSharedPoseIDs.find(nID) != neighborSharedPoseIDs.end()) {
+      const auto T = computeNeighborTransform(nID, var);
+      RVec.emplace_back(T.block(0, 0, d, d));
+      tVec.emplace_back(T.block(0, d, d, 1));
+    }
+  }
+  int m = (int) RVec.size();
+  const Vector kappa = 1.82 * Vector::Ones(m);  // rotation stddev approximately 30 degree
+  const Vector tau = 0.01 * Vector::Ones(m);  // translation stddev 10 m
+  const double cbar = RobustCost::computeErrorThresholdAtQuantile(0.9, 3);
+  Matrix ROpt;
+  Vector tOpt;
+  std::vector<size_t> inlierIndices;
+  robustSinglePoseAveraging(ROpt, tOpt, inlierIndices, RVec, tVec, kappa, tau, cbar);
+  int inlierSize = (int) inlierIndices.size();
+  printf("[RobustRelativeTransform] This robot %u, neighbor %u: finds %i inliers out of %i measurements.\n",
+         getID(),
+         neighborID,
+         inlierSize,
+         m);
+  if (inlierSize == 0) {
+    throw std::runtime_error("Robust single pose averaging returns empty inlier set!");
+  }
+  // Return transformation as matrix
+  Matrix TOpt = Matrix::Identity(dimension() + 1, dimension() + 1);
+  TOpt.block(0, 0, d, d) = ROpt;
+  TOpt.block(0, d, d, 1) = tOpt;
+  return TOpt;
+}
+
 void PGOAgent::initializeInGlobalFrame(unsigned neighborID, const PoseDict &poseDict) {
   // Require the lifting matrix to initialize
   assert(YLift);
@@ -365,7 +393,7 @@ void PGOAgent::initializeInGlobalFrame(unsigned neighborID, const PoseDict &pose
   // Compute relative transform to neighbor's frame of reference
   Matrix T_world2_world1;
   try {
-    T_world2_world1 = computeRobustNeighborTransform(neighborID, poseDict);
+    T_world2_world1 = computeRobustNeighborTransformTwoStage(neighborID, poseDict);
   } catch (const std::runtime_error& e) {
     printf("Robust initialization is not successful! Abort and wait to try again...\n");
     return;
@@ -557,6 +585,11 @@ void PGOAgent::reset() {
   endOptimizationLoop();
 
   if (mParams.logData) {
+    // Save measurements (including final weights)
+    std::vector<RelativeSEMeasurement> measurements = odometry;
+    measurements.insert(measurements.end(), privateLoopClosures.begin(), privateLoopClosures.end());
+    measurements.insert(measurements.end(), sharedLoopClosures.begin(), sharedLoopClosures.end());
+    mLogger.logMeasurements(measurements, "measurements.csv");
 
     // Save trajectory estimates after rounding
     Matrix T;
