@@ -44,7 +44,6 @@ PGOAgent::PGOAgent(unsigned ID, const PGOAgentParameters &params)
   X = Matrix::Zero(r, d + 1);
   X.block(0, 0, d, d) = Matrix::Identity(d, d);
   if (mID == 0) setLiftingMatrix(fixedStiefelVariable(d, r));
-  resetTeamStatus();
 }
 
 PGOAgent::~PGOAgent() {
@@ -287,7 +286,9 @@ Matrix PGOAgent::computeNeighborTransform(const PoseID &nID, const Matrix &var) 
   return T_world2_world1;
 }
 
-Matrix PGOAgent::computeRobustNeighborTransformTwoStage(unsigned int neighborID, const PoseDict &poseDict) {
+bool PGOAgent::computeRobustNeighborTransformTwoStage(unsigned int neighborID,
+                                                      const PoseDict &poseDict) {
+  InitializationResult result;
   std::vector<Matrix> RVec;
   std::vector<Vector> tVec;
   for (const auto &it: poseDict) {
@@ -299,38 +300,43 @@ Matrix PGOAgent::computeRobustNeighborTransformTwoStage(unsigned int neighborID,
       tVec.emplace_back(T.block(0, d, d, 1));
     }
   }
+  if (RVec.empty()) return false;
   int m = (int) RVec.size();
   const Vector kappa = Vector::Ones(m);
   const Vector tau = Vector::Ones(m);
   Matrix ROpt;
   Vector tOpt;
   std::vector<size_t> inlierIndices;
+
   // Perform robust single rotation averaging
   double maxRotationError = angular2ChordalSO3(0.5);  // approximately 30 deg
   robustSingleRotationAveraging(ROpt, inlierIndices, RVec, kappa, maxRotationError);
   int inlierSize = (int) inlierIndices.size();
-  printf("[RobustRelativeTransform] This robot %u, neighbor %u: finds %i inliers out of %i measurements.\n",
-         getID(),
-         neighborID,
-         inlierSize,
-         m);
-  if (inlierSize == 0) {
-    throw std::runtime_error("Robust single rotation averaging returns empty inlier set!");
-  }
+  printf("Robot %u attempts initialization from neighbor %u: finds %i/%i measurements.\n",
+         getID(), neighborID, inlierSize, m);
+
+  // Return if robust rotation averaging fails to find any inlier
+  if (inlierIndices.size() < mParams.robustInitMinInliers) return false;
+
   // Perform single translation averaging on the inlier set
   std::vector<Vector> tVecInliers;
   for (const auto index: inlierIndices) {
     tVecInliers.emplace_back(tVec[index]);
   }
   singleTranslationAveraging(tOpt, tVecInliers);
+
   // Return transformation as matrix
-  Matrix TOpt = Matrix::Identity(dimension() + 1, dimension() + 1);
-  TOpt.block(0, 0, d, d) = ROpt;
-  TOpt.block(0, d, d, 1) = tOpt;
-  return TOpt;
+  result.T_world_robot = Matrix::Identity(d + 1, d + 1);
+  result.T_world_robot.block(0, 0, d, d) = ROpt;
+  result.T_world_robot.block(0, d, d, 1) = tOpt;
+  result.score = inlierSize;
+  mCandidateInitializations[neighborID] = result;
+  return true;
 }
 
-Matrix PGOAgent::computeRobustNeighborTransform(unsigned int neighborID, const PoseDict &poseDict) {
+bool PGOAgent::computeRobustNeighborTransform(unsigned int neighborID,
+                                              const PoseDict &poseDict) {
+  InitializationResult result;
   std::vector<Matrix> RVec;
   std::vector<Vector> tVec;
   for (const auto &it: poseDict) {
@@ -342,6 +348,8 @@ Matrix PGOAgent::computeRobustNeighborTransform(unsigned int neighborID, const P
       tVec.emplace_back(T.block(0, d, d, 1));
     }
   }
+  if (RVec.empty()) return false;
+  // Perform robust single pose averaging
   int m = (int) RVec.size();
   const Vector kappa = 1.82 * Vector::Ones(m);  // rotation stddev approximately 30 degree
   const Vector tau = 0.01 * Vector::Ones(m);  // translation stddev 10 m
@@ -351,24 +359,26 @@ Matrix PGOAgent::computeRobustNeighborTransform(unsigned int neighborID, const P
   std::vector<size_t> inlierIndices;
   robustSinglePoseAveraging(ROpt, tOpt, inlierIndices, RVec, tVec, kappa, tau, cbar);
   int inlierSize = (int) inlierIndices.size();
-  printf("[RobustRelativeTransform] This robot %u, neighbor %u: finds %i inliers out of %i measurements.\n",
-         getID(),
-         neighborID,
-         inlierSize,
-         m);
-  if (inlierSize == 0) {
-    throw std::runtime_error("Robust single pose averaging returns empty inlier set!");
-  }
+  printf("Robot %u attempts initialization from neighbor %u: finds %i/%i measurements.\n",
+         getID(), neighborID, inlierSize, m);
+
+  // Return if fails to identify any inlier
+  if (inlierIndices.size() < mParams.robustInitMinInliers) return false;
+
   // Return transformation as matrix
-  Matrix TOpt = Matrix::Identity(dimension() + 1, dimension() + 1);
-  TOpt.block(0, 0, d, d) = ROpt;
-  TOpt.block(0, d, d, 1) = tOpt;
-  return TOpt;
+  result.T_world_robot = Matrix::Identity(d + 1, d + 1);
+  result.T_world_robot.block(0, 0, d, d) = ROpt;
+  result.T_world_robot.block(0, d, d, 1) = tOpt;
+  result.score = inlierSize;
+  mCandidateInitializations[neighborID] = result;
+  return true;
 }
 
-void PGOAgent::initializeInGlobalFrame(unsigned neighborID, const PoseDict &poseDict) {
-  // Require the lifting matrix to initialize
+void PGOAgent::initializeInGlobalFrame(const Matrix &T_world_robot) {
   assert(YLift);
+  assert(T_world_robot.rows() == dimension() + 1);
+  assert(T_world_robot.cols() == dimension() + 1);
+  checkRotationMatrix(T_world_robot.block(0, 0, d, d));
 
   // Halt optimization
   bool optimizationHalted = false;
@@ -390,33 +400,29 @@ void PGOAgent::initializeInGlobalFrame(unsigned neighborID, const PoseDict &pose
   neighborPoseDict.clear();
   neighborAuxPoseDict.clear();
 
-  // Compute relative transform to neighbor's frame of reference
-  Matrix T_world2_world1;
-  try {
-    T_world2_world1 = computeRobustNeighborTransformTwoStage(neighborID, poseDict);
-  } catch (const std::runtime_error& e) {
-    printf("Robust initialization is not successful! Abort and wait to try again...\n");
-    return;
-  }
-
   // Apply global transformation to local trajectory estimate
   Matrix T = TLocalInit.value();
-  Matrix T_world1_frame = Matrix::Identity(d + 1, d + 1);
-  Matrix T_world2_frame = Matrix::Identity(d + 1, d + 1);
+  Matrix T_robot_frame = Matrix::Identity(d + 1, d + 1);
+  Matrix T_world_frame = Matrix::Identity(d + 1, d + 1);
   for (size_t i = 0; i < num_poses(); ++i) {
-    T_world1_frame.block(0, 0, d, d + 1) =
+    T_robot_frame.block(0, 0, d, d + 1) =
         T.block(0, i * (d + 1), d, d + 1);
-    T_world2_frame = T_world2_world1 * T_world1_frame;
+    T_world_frame = T_world_robot * T_robot_frame;
     T.block(0, i * (d + 1), d, d + 1) =
-        T_world2_frame.block(0, 0, d, d + 1);
+        T_world_frame.block(0, 0, d, d + 1);
   }
 
   // Lift back to correct relaxation rank
   X = YLift.value() * T;
   XInit.emplace(X);
 
-  // Mark this agent as initialized
-  mState = PGOAgentState::INITIALIZED;
+  // Change state for this agent
+  if (mState == PGOAgentState::INITIALIZED) {
+    printf("Robot %u re-initializes in global frame!\n", getID());
+  } else {
+    printf("Robot %u initializes in global frame!\n", getID());
+    mState = PGOAgentState::INITIALIZED;
+  }
 
   // Initialize auxiliary variables
   if (mParams.acceleration) {
@@ -433,10 +439,16 @@ void PGOAgent::initializeInGlobalFrame(unsigned neighborID, const PoseDict &pose
 
 void PGOAgent::updateNeighborPoses(unsigned neighborID, const PoseDict &poseDict) {
   assert(neighborID != mID);
-  // Initialize this robot in the global frame, if not initialized
   const auto neighborState = getNeighborStatus(neighborID).state;
-  if (mState == PGOAgentState::WAIT_FOR_INITIALIZATION && neighborState == PGOAgentState::INITIALIZED) {
-    initializeInGlobalFrame(neighborID, poseDict);
+  if (getID() != 0 && neighborState == PGOAgentState::INITIALIZED && !hasInitializationWithRobot(neighborID)) {
+    if (computeRobustNeighborTransformTwoStage(neighborID, poseDict)) {
+      auto result = mCandidateInitializations.at(neighborID);
+      // Initialize this robot in the global frame if this robot is not yet initialized
+      if (mState == PGOAgentState::WAIT_FOR_INITIALIZATION) {
+        mCurrentInitialization = result;
+        initializeInGlobalFrame(result.T_world_robot);
+      }
+    }
   }
   // Save neighbor public poses in local cache
   for (const auto &it: poseDict) {
@@ -619,7 +631,9 @@ void PGOAgent::reset() {
   localSharedPoseIDs.clear();
   neighborSharedPoseIDs.clear();
   neighborRobotIDs.clear();
-  resetTeamStatus();
+  mTeamStatus.clear();
+  mCandidateInitializations.clear();
+  mCurrentInitialization = PGOAgent::InitializationResult();
 
   if (mProblemPtr) {
     delete mProblemPtr;
@@ -1012,7 +1026,7 @@ bool PGOAgent::shouldTerminate() {
   }
 
   for (size_t robot = 0; robot < mParams.numRobots; ++robot) {
-    PGOAgentStatus robotStatus = mTeamStatus[robot];
+    PGOAgentStatus robotStatus = mTeamStatus.at(robot);
     assert(robotStatus.agentID == robot);
     if (robotStatus.state != PGOAgentState::INITIALIZED) {
       return false;
@@ -1021,7 +1035,7 @@ bool PGOAgent::shouldTerminate() {
 
   // Check if all agents are ready to terminate optimization
   for (size_t robot = 0; robot < mParams.numRobots; ++robot) {
-    PGOAgentStatus robotStatus = mTeamStatus[robot];
+    PGOAgentStatus robotStatus = mTeamStatus.at(robot);
     if (!robotStatus.readyToTerminate) {
       return false;
     }
@@ -1162,13 +1176,6 @@ bool PGOAgent::updateX(bool doOptimization, bool acceleration) {
   }
 
   return true;
-}
-
-void PGOAgent::resetTeamStatus() {
-  mTeamStatus.clear();
-  for (unsigned robot = 0; robot < mParams.numRobots; ++robot) {
-    mTeamStatus.emplace_back(robot);
-  }
 }
 
 bool PGOAgent::shouldUpdateLoopClosureWeights() const {

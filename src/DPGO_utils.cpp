@@ -511,8 +511,8 @@ double angular2ChordalSO3(double rad) {
 void checkRotationMatrix(const Matrix &R) {
   const auto d = R.rows();
   assert(R.cols() == d);
-  assert(abs(R.determinant() - 1.0) < 1e-8);
-  assert((R.transpose() * R - Matrix::Identity(d, d)).norm() < 1e-8);
+  assert(abs(R.determinant() - 1.0) < 1e-5);
+  assert((R.transpose() * R - Matrix::Identity(d, d)).norm() < 1e-5);
 }
 
 void singleTranslationAveraging(Vector &tOpt,
