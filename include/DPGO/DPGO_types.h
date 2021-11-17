@@ -58,8 +58,7 @@ struct ROPTResult {
   ROPTLIB::tCGstatusSet tCGStatus;  // status of truncated conjugate gradient (only used by trust region solver)
 };
 
-// In distributed PGO, each pose is uniquely determined by the robot ID and pose
-// ID
+// In distributed PGO, each pose is uniquely determined by the robot ID and pose ID
 typedef std::pair<unsigned, unsigned> PoseID;
 
 // Implement a dictionary for easy access of pose value by PoseID

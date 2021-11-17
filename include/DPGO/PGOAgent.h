@@ -42,6 +42,7 @@ namespace DPGO {
 /**
 Defines the possible states of a PGOAgent
 Each state can only transition to the state below
+TODO: merge into PGOAgentStatus
 */
 enum PGOAgentState {
 
@@ -93,6 +94,9 @@ struct PGOAgentParameters {
   // Minimum ratio of converged weights before terminating robust optimization
   double robustOptMinConvergenceRatio;
 
+  // Minimum number of inliers for robust distributed initialization
+  unsigned robustInitMinInliers;
+
   // Maximum number of global iterations
   unsigned maxNumIters;
 
@@ -120,6 +124,7 @@ struct PGOAgentParameters {
                      bool robust_opt_warm_start = true,
                      unsigned robust_opt_inner_iters = 30,
                      double robust_opt_min_convergence_ratio = 0.8,
+                     unsigned robust_init_min_inliers = 2,
                      unsigned maxIters = 500,
                      double changeTol = 5e-3,
                      bool v = false,
@@ -132,6 +137,7 @@ struct PGOAgentParameters {
         robustOptWarmStart(robust_opt_warm_start),
         robustOptInnerIters(robust_opt_inner_iters),
         robustOptMinConvergenceRatio(robust_opt_min_convergence_ratio),
+        robustInitMinInliers(robust_init_min_inliers),
         maxNumIters(maxIters), relChangeTol(changeTol),
         verbose(v), logData(log), logDirectory(std::move(logDir)) {}
 
@@ -148,6 +154,7 @@ struct PGOAgentParameters {
     os << "Robust optimization warm start: " << params.robustOptWarmStart << std::endl;
     os << "Robust optimization inner iterations: " << params.robustOptInnerIters << std::endl;
     os << "Robust optimization weight convergence min ratio: " << params.robustOptMinConvergenceRatio << std::endl;
+    os << "Robust initialization minimum inliers: " << params.robustInitMinInliers << std::endl;
     os << "Local optimization algorithm: " << params.algorithm << std::endl;
     os << "Max iterations: " << params.maxNumIters << std::endl;
     os << "Relative change tol: " << params.relChangeTol << std::endl;
@@ -160,6 +167,7 @@ struct PGOAgentParameters {
 };
 
 // Status of an agent to be shared with its peers
+// TODO: declare state within
 struct PGOAgentStatus {
   // Unique ID of this agent
   unsigned agentID;
@@ -180,7 +188,7 @@ struct PGOAgentStatus {
   double relativeChange;
 
   // Constructor
-  explicit PGOAgentStatus(unsigned id,
+  explicit PGOAgentStatus(unsigned id = 0,
                           PGOAgentState s = PGOAgentState::WAIT_FOR_DATA,
                           unsigned instance = 0,
                           unsigned iteration = 0,
@@ -208,6 +216,18 @@ struct PGOAgentStatus {
 
 class PGOAgent {
  public:
+
+  /**
+   * @brief A struct that stores the initial transformation from robot's local frame to the global frame,
+   * The transformation is associated with a score that reflects the quality of the estimated transformation
+   */
+  struct InitializationResult {
+   public:
+    InitializationResult() : score(0) {}
+    Matrix T_world_robot;  // A (d+1)-by-(d+1) transformation matrix
+    double score;          // Score of this transformation (e.g., number of inliers in estimation)
+  };
+
   /** Constructor that creates an empty pose graph
    */
   PGOAgent(unsigned ID, const PGOAgentParameters &params);
@@ -293,7 +313,9 @@ class PGOAgent {
    * @return
    */
   inline PGOAgentStatus getNeighborStatus(unsigned neighborID) const {
-    return mTeamStatus[neighborID];
+    if (mTeamStatus.find(neighborID) != mTeamStatus.end())
+      return mTeamStatus.at(neighborID);
+    return PGOAgentStatus();
   }
 
   /**
@@ -453,7 +475,7 @@ class PGOAgent {
    * @param poseDict
    * @return
    */
-  Matrix computeRobustNeighborTransformTwoStage(unsigned neighborID, const PoseDict &poseDict);
+  bool computeRobustNeighborTransformTwoStage(unsigned neighborID, const PoseDict &poseDict);
 
   /**
    * @brief Compute a robust relative transform estimate between this robot and neighbor robot, by solving a robust single
@@ -462,19 +484,17 @@ class PGOAgent {
    * @param poseDict
    * @return
    */
-  Matrix computeRobustNeighborTransform(unsigned neighborID, const PoseDict &poseDict);
+  bool computeRobustNeighborTransform(unsigned neighborID, const PoseDict &poseDict);
   /**
-   * @brief Initialize this robot's trajectory estimate in the global frame, using a list of public poses from a neighbor robot
-   * @param neighborID
-   * @param poseIDs
-   * @param vars
+   * @brief Initialize this robot's trajectory estimate in the global frame
+   * @param T_world_robot d+1 by d+1 transformation from robot (local) frame to the world frame
    */
-  void initializeInGlobalFrame(unsigned neighborID, const PoseDict &poseDict);
+  void initializeInGlobalFrame(const Matrix &T_world_robot);
 
   /**
- * @brief Update local copy of a neighbor agent's pose
- * @param neighborID the ID of the neighbor agent
- */
+   * @brief Update local copy of a neighbor agent's pose
+   * @param neighborID the ID of the neighbor agent
+   */
   void updateNeighborPoses(unsigned neighborID, const PoseDict &poseDict);
 
   /**
@@ -514,7 +534,8 @@ class PGOAgent {
   // Robust cost function
   RobustCost mRobustCost;
 
-  // Pointer to optimization problem
+  // Pointer to optimization problem 
+  // TODO: change to smart pointer
   QuadraticProblem *mProblemPtr;
 
   // Rate in Hz of the optimization loop (only used in asynchronous mode)
@@ -533,7 +554,13 @@ class PGOAgent {
   PGOLogger mLogger;
 
   // Store status of peer agents
-  std::vector<PGOAgentStatus> mTeamStatus;
+  std::unordered_map<unsigned, PGOAgentStatus> mTeamStatus;
+
+  // Store initialization computed based on different neighbors
+  std::unordered_map<unsigned, InitializationResult> mCandidateInitializations;
+
+  // Current initialization result in use
+  InitializationResult mCurrentInitialization;
 
   // Request to perform single local optimization step
   bool mOptimizationRequested = false;
@@ -602,25 +629,21 @@ class PGOAgent {
   This function automatically initialize the new pose, by propagating odometry
   */
   void addOdometry(const RelativeSEMeasurement &factor);
-
   /**
   Add a private loop closure of this robot
   (Warning: this function does not check for duplicate loop closures!)
   */
   void addPrivateLoopClosure(const RelativeSEMeasurement &factor);
-
   /**
   Add a shared loop closure between this robot and another
   (Warning: this function does not check for duplicate loop closures!)
   */
   void addSharedLoopClosure(const RelativeSEMeasurement &factor);
-
   /**
   * @brief Construct the quadratic data matrix Q in the local PGO problem
      f(X) = 0.5<Q, XtX> + <X, G>
   */
   void constructQMatrix();
-
   /**
    * @brief Construct the cost matrix G in the local PGO problem
       f(X) = 0.5<Q, XtX> + <X, G>
@@ -628,24 +651,20 @@ class PGOAgent {
    * @return true if the data matrix is computed successfully
    */
   bool constructGMatrix(const PoseDict &poseDict);
-
   /**
    * @brief initialize local trajectory estimate
    */
   void localInitialization();
-
   /**
   Optimize pose graph by calling optimize().
   This function will run in a separate thread.
   */
   void runOptimizationLoop();
-
   /**
    * @brief Find and return any shared measurement with the specified neighbor pose
    * @return
    */
   RelativeSEMeasurement &findSharedLoopClosureWithNeighbor(const PoseID &nID);
-
   /**
    * @brief Find and return the specified shared measurement
    * @param srcRobotID
@@ -655,23 +674,28 @@ class PGOAgent {
    * @return
    */
   RelativeSEMeasurement &findSharedLoopClosure(const PoseID &srcID, const PoseID &dstID);
-
   /**
    * @brief Return true if should update loop closure weights
    * @return bool
    */
   bool shouldUpdateLoopClosureWeights() const;
-
   /**
    * @brief Update loop closure weights.
    */
   void updateLoopClosuresWeights();
-
   /**
    * @brief Compute the ratio of loop closure weights that have converged (assuming GNC_TLS)
    * @return ratio
    */
   double computeConvergedLoopClosureRatio();
+  /**
+   * @brief Return true if this robot has a successful initialization with the specified robot
+   * @param robotID
+   * @return
+   */
+  bool hasInitializationWithRobot(unsigned robotID) {
+    return mCandidateInitializations.find(robotID) != mCandidateInitializations.end();
+  }
 
  private:
   // Stores the auxiliary variables from neighbors (only used in acceleration)
@@ -707,8 +731,6 @@ class PGOAgent {
   void updateY();
 
   void updateV();
-
-  void resetTeamStatus();
 
   /**
    * @brief Return True is the given measurement is already present
