@@ -14,7 +14,7 @@ TEST(testDPGO, Construction) {
   PGOAgent agent(id, options);
 
   ASSERT_EQ(agent.getID(), id);
-  ASSERT_EQ(agent.num_poses(), 1);
+  ASSERT_EQ(agent.num_poses(), 0);
   ASSERT_EQ(agent.dimension(), d);
   ASSERT_EQ(agent.relaxation_rank(), r);
 }

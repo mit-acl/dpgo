@@ -8,45 +8,76 @@
 #include <DPGO/DPGO_robust.h>
 
 #include <cmath>
-#include <cassert>
 #include <DPGO/DPGO_utils.h>
 
 using namespace std;
 
 namespace DPGO {
 
-RobustCost::RobustCost(RobustCostType costType, const RobustCostParameters &params) :
-    mCostType(costType), mParams(params) {
+//"L2", "L1", "TLS", "Huber", "GM", "GNC_TLS"
+std::string RobustCostParameters::robustCostName(RobustCostParameters::Type type) {
+  std::string name;
+  switch (type) {
+    case Type::L2: {
+      name = "L2";
+      break;
+    }
+    case Type::L1: {
+      name = "L1";
+      break;
+    }
+    case Type::TLS: {
+      name = "TLS";
+      break;
+    }
+    case Type::Huber: {
+      name = "Huber";
+      break;
+    }
+    case Type::GM: {
+      name = "GM";
+      break;
+    }
+    case Type::GNC_TLS: {
+      name = "GNC_TLS";
+      break;
+    }
+  }
+  return name;
+}
+
+RobustCost::RobustCost(const RobustCostParameters &params) :
+    mParams(params), mu(params.GNCInitMu) {
   reset();
 }
 
-double RobustCost::weight(double r) {
-  switch (mCostType) {
-    case RobustCostType::L2: {
+double RobustCost::weight(double r) const {
+  switch (mParams.costType) {
+    case RobustCostParameters::Type::L2: {
       return 1;
     }
-    case RobustCostType::L1: {
+    case RobustCostParameters::Type::L1: {
       return 1 / r;
     }
-    case RobustCostType::Huber: {
+    case RobustCostParameters::Type::Huber: {
       if (r < mParams.HuberThreshold) {
         return 1;
       } else {
         return mParams.HuberThreshold / r;
       }
     }
-    case RobustCostType::TLS: {
+    case RobustCostParameters::Type::TLS: {
       if (r < mParams.TLSThreshold) {
         return 1;
       } else {
         return 0;
       }
     }
-    case RobustCostType::GM: {
+    case RobustCostParameters::Type::GM: {
       double a = 1 + r * r;
       return 1 / (a * a);
     }
-    case RobustCostType::GNC_TLS: {
+    case RobustCostParameters::Type::GNC_TLS: {
       // Implements eq. (14) of GNC paper
       double rSq = r * r;
       double mGNCBarcSq = mParams.GNCBarc * mParams.GNCBarc;
@@ -68,8 +99,8 @@ double RobustCost::weight(double r) {
 
 void RobustCost::reset() {
   // Initialize the mu parameter in GNC, if used
-  switch (mCostType) {
-    case RobustCostType::GNC_TLS: {
+  switch (mParams.costType) {
+    case RobustCostParameters::Type::GNC_TLS: {
       mu = mParams.GNCInitMu;
       mGNCIteration = 0;
       break;
@@ -83,7 +114,7 @@ void RobustCost::reset() {
 }
 
 void RobustCost::update() {
-  if (mCostType != RobustCostType::GNC_TLS) return;
+  if (mParams.costType != RobustCostParameters::Type::GNC_TLS) return;
 
   mGNCIteration++;
   if (mGNCIteration > mParams.GNCMaxNumIters) {
@@ -91,8 +122,8 @@ void RobustCost::update() {
     return;
   }
 
-  switch (mCostType) {
-    case RobustCostType::GNC_TLS: {
+  switch (mParams.costType) {
+    case RobustCostParameters::Type::GNC_TLS: {
       mu = mParams.GNCMuStep * mu;
       break;
     }

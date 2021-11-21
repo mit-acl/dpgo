@@ -43,6 +43,13 @@ find_package(Boost)
 find_package(Eigen3 REQUIRED)
 message(STATUS "Found Eigen version: ${EIGEN3_VERSION}")
 message(STATUS "EIGEN3_INCLUDE_DIR: ${EIGEN3_INCLUDE_DIR}")
+find_package(Glog REQUIRED)
+if (GLOG_FOUND)
+	message(STATUS "Found Google Logging: ${GLOG_INCLUDE_DIRS}")
+else (GLOG_FOUND)
+	message(FATAL_ERROR "Can't find Google Logging. Please set GLOG_INCLUDE_DIR & "
+			"GLOG_LIBRARY")
+endif (GLOG_FOUND)
 
 # Enable OpenMP (if available)
 set(ENABLE_OPENMP OFF CACHE BOOL "Enable OpenMP (if available)")
@@ -61,12 +68,15 @@ set(EXTERNAL_INCLUDES
 	${CHOLMOD_INCLUDES}
 	${EIGEN3_INCLUDE_DIR}
 	${Boost_INCLUDE_DIRS}
+	${GLOG_INCLUDE_DIRS}
 	CACHE INTERNAL "")
 
 add_library(DPGO SHARED
+	src/manifold/Poses.cpp
 	src/manifold/LiftedSEManifold.cpp
 	src/manifold/LiftedSEVariable.cpp
 	src/manifold/LiftedSEVector.cpp
+	src/PoseGraph.cpp
 	src/PGOAgent.cpp
 	src/QuadraticProblem.cpp
 	src/QuadraticOptimizer.cpp
@@ -80,7 +90,13 @@ target_include_directories(DPGO PUBLIC
 	# INSTALL
 	$<INSTALL_INTERFACE:${DPGO_INSTALL_INCLUDEDIR}>
 	)
-target_link_libraries(DPGO ${CMAKE_THREAD_LIBS_INIT} roptlib ${CHOLMOD_LIBRARIES} ${SPQR_LIBRARIES} ${Boost_LIBRARIES})
+target_link_libraries(DPGO
+		${CMAKE_THREAD_LIBS_INIT}
+		roptlib
+		${GLOG_LIBRARIES}
+		${CHOLMOD_LIBRARIES}
+		${SPQR_LIBRARIES}
+		${Boost_LIBRARIES})
 
 if(OPENMP_FOUND)
 # Add additional compilation flags to enable OpenMP support
@@ -139,14 +155,14 @@ if(BUILD_DPGO_TESTS)
 	endif()
 
 	add_executable(
-		testDPGO
-		tests/testUtils.cpp
-		tests/testEigenMap.cpp
-		tests/testConstruction.cpp
-		tests/testLineGraph.cpp
-		tests/testTriangleGraph.cpp
-		tests/testOptimizationThread.cpp
-		)
+			testDPGO
+			tests/testUtils.cpp
+            tests/testPoses.cpp
+			tests/testEigenMap.cpp
+			tests/testConstruction.cpp
+			tests/testLineGraph.cpp
+			tests/testTriangleGraph.cpp
+			tests/testOptimizationThread.cpp)
 	target_include_directories(testDPGO PUBLIC
 		${EXTERNAL_INCLUDES}
 		${CMAKE_CURRENT_SOURCE_DIR}/include>

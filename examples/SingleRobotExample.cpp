@@ -49,9 +49,8 @@ int main(int argc, char** argv) {
   ###########################################
   */
 
-  unsigned int n, d, r;    //vector<float> PoseData;
+  unsigned int d, r;
   d = (!dataset.empty() ? dataset[0].t.size() : 0);
-  n = num_poses;
   r = d;
   PGOAgentParameters options(d, r, 1);
   options.verbose = true;
@@ -75,10 +74,10 @@ int main(int argc, char** argv) {
     }
   }
 
-  // Construct the centralized problem (used for evaluation)
-  SparseMatrix QCentral = constructConnectionLaplacianSE(dataset);
-  QuadraticProblem problemCentral(n, d, r);
-  problemCentral.setQ(QCentral);
+  // Construct the centralized PGO problem (used for evaluation)
+  auto pose_graph = std::make_shared<PoseGraph>(0, d, d);
+  pose_graph->setMeasurements(dataset);
+  QuadraticProblem problemCentral(pose_graph);
 
   /**
   ###########################################

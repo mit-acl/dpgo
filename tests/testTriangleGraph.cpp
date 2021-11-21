@@ -50,9 +50,12 @@ TEST(testDPGO, TriangleGraph) {
 
   agent.setPoseGraph(odometry, private_loop_closures, shared_loop_closures);
 
-  Matrix Testimated;
-  agent.getTrajectoryInLocalFrame(Testimated);
-  ASSERT_LE((Ttrue - Testimated).norm(), 1e-4);
+  Matrix TLocal = agent.localPoseGraphOptimization();
+  ASSERT_LE((Ttrue - TLocal).norm(), 1e-4);
+
+  Matrix T;
+  agent.getTrajectoryInLocalFrame(T);
+  ASSERT_LE((Ttrue - T).norm(), 1e-4);
 
   agent.iterate();
 
@@ -61,6 +64,6 @@ TEST(testDPGO, TriangleGraph) {
   ASSERT_EQ(agent.dimension(), d);
   ASSERT_EQ(agent.relaxation_rank(), r);
 
-  agent.getTrajectoryInLocalFrame(Testimated);
-  ASSERT_LE((Ttrue - Testimated).norm(), 1e-4);
+  agent.getTrajectoryInLocalFrame(T);
+  ASSERT_LE((Ttrue - T).norm(), 1e-4);
 }

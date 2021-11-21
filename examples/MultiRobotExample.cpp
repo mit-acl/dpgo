@@ -58,9 +58,9 @@ int main(int argc, char **argv) {
   unsigned numIters = 1000;
 
   // Construct the centralized problem (used for evaluation)
-  SparseMatrix QCentral = constructConnectionLaplacianSE(dataset);
-  QuadraticProblem problemCentral(n, d, r);
-  problemCentral.setQ(QCentral);
+  std::shared_ptr<PoseGraph> pose_graph = std::make_shared<PoseGraph>(0, r, d);
+  pose_graph->setMeasurements(dataset);
+  QuadraticProblem problemCentral(pose_graph);
 
 
   /**
@@ -82,7 +82,7 @@ int main(int argc, char **argv) {
     if (robot == (unsigned) num_robots - 1) endIdx = n;
     for (unsigned idx = startIdx; idx < endIdx; ++idx) {
       unsigned localIdx = idx - startIdx;  // this is the local ID of this pose
-      PoseID pose = make_pair(robot, localIdx);
+      PoseID pose(robot, localIdx);
       PoseMap[idx] = pose;
     }
   }
@@ -90,14 +90,14 @@ int main(int argc, char **argv) {
   vector<vector<RelativeSEMeasurement>> odometry(num_robots);
   vector<vector<RelativeSEMeasurement>> private_loop_closures(num_robots);
   vector<vector<RelativeSEMeasurement>> shared_loop_closure(num_robots);
-  for (auto mIn : dataset) {
+  for (auto mIn: dataset) {
     PoseID src = PoseMap[mIn.p1];
     PoseID dst = PoseMap[mIn.p2];
 
-    unsigned srcRobot = src.first;
-    unsigned srcIdx = src.second;
-    unsigned dstRobot = dst.first;
-    unsigned dstIdx = dst.second;
+    unsigned srcRobot = src.robot_id;
+    unsigned srcIdx = src.frame_id;
+    unsigned dstRobot = dst.robot_id;
+    unsigned dstIdx = dst.frame_id;
 
     RelativeSEMeasurement m(srcRobot, dstRobot, srcIdx, dstIdx, mIn.R, mIn.t,
                             mIn.kappa, mIn.tau);
@@ -169,7 +169,7 @@ int main(int argc, char **argv) {
     PGOAgent *selectedRobotPtr = agents[selectedRobot];
 
     // Non-selected robots perform an iteration
-    for (auto *robotPtr : agents) {
+    for (auto *robotPtr: agents) {
       assert(robotPtr->instance_number() == 0);
       assert(robotPtr->iteration_number() == iter);
       if (robotPtr->getID() != selectedRobot) {
@@ -178,7 +178,7 @@ int main(int argc, char **argv) {
     }
 
     // Selected robot requests public poses from others
-    for (auto *robotPtr : agents) {
+    for (auto *robotPtr: agents) {
       if (robotPtr->getID() == selectedRobot) continue;
       PoseDict sharedPoses;
       if (!robotPtr->getSharedPoseDict(sharedPoses)) {
@@ -190,7 +190,7 @@ int main(int argc, char **argv) {
 
     // When using acceleration, selected robot also requests auxiliary poses
     if (acceleration) {
-      for (auto *robotPtr : agents) {
+      for (auto *robotPtr: agents) {
         if (robotPtr->getID() == selectedRobot) continue;
         PoseDict auxSharedPoses;
         if (!robotPtr->getAuxSharedPoseDict(auxSharedPoses)) {
@@ -216,7 +216,7 @@ int main(int argc, char **argv) {
       }
     }
     Matrix RGrad = problemCentral.RieGrad(Xopt);
-    double RGradNorm  = RGrad.norm();
+    double RGradNorm = RGrad.norm();
     std::cout << std::setprecision(5)
               << "Iter = " << iter << " | "
               << "robot = " << selectedRobotPtr->getID() << " | "
@@ -247,12 +247,12 @@ int main(int argc, char **argv) {
     // Share global anchor for rounding
     Matrix M;
     agents[0]->getSharedPose(0, M);
-    for (auto agentPtr : agents) {
+    for (auto agentPtr: agents) {
       agentPtr->setGlobalAnchor(M);
     }
   }
 
-  for (auto agentPtr : agents) {
+  for (auto agentPtr: agents) {
     agentPtr->reset();
   }
 

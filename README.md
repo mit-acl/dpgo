@@ -13,7 +13,7 @@ This repository contains implementation of synchronous and asynchronous Distribu
 Install dependencies.
 
 ```
-sudo apt-get install build-essential cmake-gui libsuitesparse-dev
+sudo apt-get install build-essential cmake-gui libsuitesparse-dev libboost-all-dev libeigen3-dev libgoogle-glog-dev
 ```
 
 Inside the C++ directory, execute the following commands.

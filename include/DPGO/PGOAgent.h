@@ -13,6 +13,7 @@
 #include <DPGO/DPGO_robust.h>
 #include <DPGO/QuadraticProblem.h>
 #include <DPGO/RelativeSEMeasurement.h>
+#include <DPGO/manifold/Poses.h>
 #include <DPGO/manifold/LiftedSEManifold.h>
 #include <DPGO/manifold/LiftedSEVariable.h>
 #include <DPGO/manifold/LiftedSEVector.h>
@@ -26,6 +27,7 @@
 #include <vector>
 #include <stdexcept>
 #include <optional>
+#include <glog/logging.h>
 
 #include "Manifolds/Element.h"
 #include "Manifolds/Manifold.h"
@@ -38,21 +40,6 @@ using std::vector;
 
 /*Define the namespace*/
 namespace DPGO {
-
-/**
-Defines the possible states of a PGOAgent
-Each state can only transition to the state below
-TODO: merge into PGOAgentStatus
-*/
-enum PGOAgentState {
-
-  WAIT_FOR_DATA,  // waiting to receive pose graph
-
-  WAIT_FOR_INITIALIZATION,  // waiting to initialize trajectory estimate
-
-  INITIALIZED,  // trajectory initialized and ready to update
-
-};
 
 /**
 This struct contains parameters for PGOAgent
@@ -78,9 +65,6 @@ struct PGOAgentParameters {
 
   // Interval for fixed (periodic) restart
   unsigned restartInterval;
-
-  // Robust cost function
-  RobustCostType robustCostType;
 
   // Parameter settings over robust cost functions
   RobustCostParameters robustCostParams;
@@ -119,7 +103,6 @@ struct PGOAgentParameters {
                      ROPTALG algorithmIn = ROPTALG::RTR,
                      bool accel = false,
                      unsigned restartInt = 30,
-                     RobustCostType costType = RobustCostType::L2,
                      RobustCostParameters costParams = RobustCostParameters(),
                      bool robust_opt_warm_start = true,
                      unsigned robust_opt_inner_iters = 30,
@@ -133,7 +116,7 @@ struct PGOAgentParameters {
       : d(dIn), r(rIn), numRobots(numRobotsIn),
         algorithm(algorithmIn), multirobot_initialization(true),
         acceleration(accel), restartInterval(restartInt),
-        robustCostType(costType), robustCostParams(costParams),
+        robustCostParams(costParams),
         robustOptWarmStart(robust_opt_warm_start),
         robustOptInnerIters(robust_opt_inner_iters),
         robustOptMinConvergenceRatio(robust_opt_min_convergence_ratio),
@@ -150,7 +133,6 @@ struct PGOAgentParameters {
     os << "Use multi-robot initialization: " << params.multirobot_initialization << std::endl;
     os << "Use Nesterov acceleration: " << params.acceleration << std::endl;
     os << "Fixed restart interval: " << params.restartInterval << std::endl;
-    os << "Robust cost function: " << RobustCostNames[params.robustCostType] << std::endl;
     os << "Robust optimization warm start: " << params.robustOptWarmStart << std::endl;
     os << "Robust optimization inner iterations: " << params.robustOptInnerIters << std::endl;
     os << "Robust optimization weight convergence min ratio: " << params.robustOptMinConvergenceRatio << std::endl;
@@ -166,8 +148,21 @@ struct PGOAgentParameters {
   }
 };
 
+/**
+Defines the possible states of a PGOAgent
+Each state can only transition to the state below
+*/
+enum PGOAgentState {
+
+  WAIT_FOR_DATA,  // waiting to receive pose graph
+
+  WAIT_FOR_INITIALIZATION,  // waiting to initialize trajectory estimate
+
+  INITIALIZED,  // trajectory initialized and ready to update
+
+};
+
 // Status of an agent to be shared with its peers
-// TODO: declare state within
 struct PGOAgentStatus {
   // Unique ID of this agent
   unsigned agentID;
@@ -223,8 +218,8 @@ class PGOAgent {
    */
   struct InitializationResult {
    public:
-    InitializationResult() : score(0) {}
-    Matrix T_world_robot;  // A (d+1)-by-(d+1) transformation matrix
+    InitializationResult() : T_world_robot(3), score(0) {}
+    Pose T_world_robot;    // A transformation in SE(d)
     double score;          // Score of this transformation (e.g., number of inliers in estimation)
   };
 
@@ -273,17 +268,17 @@ class PGOAgent {
   /**
   Return number of poses of this robot
   */
-  inline unsigned num_poses() const { return n; }
+  inline unsigned num_poses() const { return mPoseGraph->n(); }
 
   /**
   Get dimension
   */
-  inline unsigned dimension() const { return d; }
+  inline unsigned dimension() const { return mPoseGraph->d(); }
 
   /**
   Get relaxation rank
   */
-  inline unsigned relaxation_rank() const { return r; }
+  inline unsigned relaxation_rank() const { return mPoseGraph->r(); }
 
   /**
    * @brief Get current instance number
@@ -306,16 +301,21 @@ class PGOAgent {
     mStatus.iterationNumber = iteration_number();
     return mStatus;
   }
-
+  /**
+   * @brief return true if the status of a neighbor robot is available locally
+   * @return
+   */
+  bool hasNeighborStatus(unsigned neighborID) const {
+    return mTeamStatus.find(neighborID) != mTeamStatus.end();
+  }
   /**
    * @brief get current state of a neighbor
    * @param neighborID
    * @return
    */
   inline PGOAgentStatus getNeighborStatus(unsigned neighborID) const {
-    if (mTeamStatus.find(neighborID) != mTeamStatus.end())
-      return mTeamStatus.at(neighborID);
-    return PGOAgentStatus();
+    CHECK(hasNeighborStatus(neighborID));
+    return mTeamStatus.at(neighborID);
   }
 
   /**
@@ -458,16 +458,6 @@ class PGOAgent {
   Set the global anchor
   */
   void setGlobalAnchor(const Matrix &M);
-
-  /**
-   * @brief
-   * @param neighborID
-   * @param neighborPose
-   * @param var
-   * @return
-   */
-  Matrix computeNeighborTransform(const PoseID &nID, const Matrix &var);
-
   /**
    * @brief Compute a robust relative transform estimate between this robot and neighbor robot, using a two-stage method
    * which first perform robust single rotation averaging, and then performs translation averaging on the inlier set.
@@ -489,7 +479,7 @@ class PGOAgent {
    * @brief Initialize this robot's trajectory estimate in the global frame
    * @param T_world_robot d+1 by d+1 transformation from robot (local) frame to the world frame
    */
-  void initializeInGlobalFrame(const Matrix &T_world_robot);
+  void initializeInGlobalFrame(const Pose &T_world_robot);
 
   /**
    * @brief Update local copy of a neighbor agent's pose
@@ -519,8 +509,8 @@ class PGOAgent {
   // Relaxed rank in Riemannian optimization problem
   unsigned r;
 
-  // Number of poses
-  unsigned n;
+  // Internal optimization iterate (before rounding)
+  LiftedPoseArray X;
 
   // Parameter settings
   const PGOAgentParameters mParams;
@@ -534,12 +524,11 @@ class PGOAgent {
   // Robust cost function
   RobustCost mRobustCost;
 
-  // Pointer to optimization problem 
-  // TODO: change to smart pointer
-  QuadraticProblem *mProblemPtr;
+  // Pointer to pose graph
+  std::shared_ptr<PoseGraph> mPoseGraph;
 
   // Rate in Hz of the optimization loop (only used in asynchronous mode)
-  double mRate{};
+  double mRate;
 
   // Current PGO instance
   unsigned mInstanceNumber;
@@ -574,42 +563,21 @@ class PGOAgent {
   // Request to terminate optimization thread
   bool mEndLoopRequested = false;
 
-  // Solution before rounding
-  Matrix X;
-
   // Initial iterate
-  std::optional<Matrix> XInit;
+  std::optional<LiftedPoseArray> XInit;
 
   // Initial solution TInit = [R1 t1 ... Rn tn] in an arbitrary coordinate frame
-  std::optional<Matrix> TLocalInit;
+  std::optional<PoseArray> TLocalInit;
 
   // Lifting matrix shared by all agents
   std::optional<Matrix> YLift;
 
   // Anchor matrix shared by all agents
-  std::optional<Matrix> globalAnchor;
-
-  // Store odometry measurement of this robot
-  vector<RelativeSEMeasurement> odometry;
-
-  // Store private loop closures of this robot
-  vector<RelativeSEMeasurement> privateLoopClosures;
-
-  // Store shared loop closure measurements
-  vector<RelativeSEMeasurement> sharedLoopClosures;
+  std::optional<LiftedPose> globalAnchor;
 
   // This dictionary stores poses owned by other robots that is connected to
   // this robot by loop closure
   PoseDict neighborPoseDict;
-
-  // Store the set of public poses that need to be sent to other robots
-  set<PoseID> localSharedPoseIDs;
-
-  // Store the set of public poses needed from other robots
-  set<PoseID> neighborSharedPoseIDs;
-
-  // Store the set of neighboring agents
-  set<unsigned> neighborRobotIDs;
 
   // Implement locking to synchronize read & write of trajectory estimate
   mutex mPosesMutex;
@@ -640,18 +608,6 @@ class PGOAgent {
   */
   void addSharedLoopClosure(const RelativeSEMeasurement &factor);
   /**
-  * @brief Construct the quadratic data matrix Q in the local PGO problem
-     f(X) = 0.5<Q, XtX> + <X, G>
-  */
-  void constructQMatrix();
-  /**
-   * @brief Construct the cost matrix G in the local PGO problem
-      f(X) = 0.5<Q, XtX> + <X, G>
-   * @param poseDict: a Map that contains the public pose values from the neighbors
-   * @return true if the data matrix is computed successfully
-   */
-  bool constructGMatrix(const PoseDict &poseDict);
-  /**
    * @brief initialize local trajectory estimate
    */
   void localInitialization();
@@ -661,20 +617,6 @@ class PGOAgent {
   */
   void runOptimizationLoop();
   /**
-   * @brief Find and return any shared measurement with the specified neighbor pose
-   * @return
-   */
-  RelativeSEMeasurement &findSharedLoopClosureWithNeighbor(const PoseID &nID);
-  /**
-   * @brief Find and return the specified shared measurement
-   * @param srcRobotID
-   * @param srcPoseID
-   * @param dstRobotID
-   * @param dstPoseID
-   * @return
-   */
-  RelativeSEMeasurement &findSharedLoopClosure(const PoseID &srcID, const PoseID &dstID);
-  /**
    * @brief Return true if should update loop closure weights
    * @return bool
    */
@@ -683,11 +625,7 @@ class PGOAgent {
    * @brief Update loop closure weights.
    */
   void updateLoopClosuresWeights();
-  /**
-   * @brief Compute the ratio of loop closure weights that have converged (assuming GNC_TLS)
-   * @return ratio
-   */
-  double computeConvergedLoopClosureRatio();
+
   /**
    * @brief Return true if this robot has a successful initialization with the specified robot
    * @param robotID
@@ -702,19 +640,19 @@ class PGOAgent {
   PoseDict neighborAuxPoseDict;
 
   // Auxiliary scalar used in acceleration
-  double gamma{};
+  double gamma;
 
   // Auxiliary scalar used in acceleration
-  double alpha{};
+  double alpha;
 
   // Auxiliary variable used in acceleration
-  Matrix Y;
+  LiftedPoseArray Y;
 
   // Auxiliary variable used in acceleration
-  Matrix V;
+  LiftedPoseArray V;
 
   // Save previous iteration (for restarting)
-  Matrix XPrev;
+  LiftedPoseArray XPrev;
 
   void updateGamma();
 
@@ -731,14 +669,20 @@ class PGOAgent {
   void updateY();
 
   void updateV();
-
+  /**
+   * @brief Compute the relative transformation to a neighboring robot using a single inter-robot loop closure
+   * @param measurement
+   * @param neighbor_pose
+   * @return
+   */
+  Pose computeNeighborTransform(const RelativeSEMeasurement &measurement, const LiftedPose &neighbor_pose);
   /**
    * @brief Return True is the given measurement is already present
    * @param m
    * @param measurements
    * @return
    */
-  static bool isDuplicateMeasurement(const RelativeSEMeasurement &m, const vector<RelativeSEMeasurement> &measurements);
+   static bool isDuplicateMeasurement(const RelativeSEMeasurement &m, const vector<RelativeSEMeasurement> &measurements);
 };
 
 }  // namespace DPGO
