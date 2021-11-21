@@ -13,8 +13,8 @@
 #include <fstream>
 #include <iostream>
 #include <random>
-#include <cassert>
 #include <boost/math/distributions/chi_squared.hpp>
+#include <glog/logging.h>
 
 namespace DPGO {
 
@@ -178,8 +178,7 @@ std::vector<RelativeSEMeasurement> read_g2o_file(const std::string &filename,
       // This is just initialization information, so do nothing
       continue;
     } else {
-      std::cout << "Error: unrecognized type: " << token << "!" << std::endl;
-      assert(false);
+      LOG(FATAL) << "Error: unrecognized type: " << token << "!";
     }
 
     // Update maximum value of poses found so far
@@ -368,8 +367,8 @@ Matrix chordalInitialization(
   // Recover rotations
   size_t d = (!measurements.empty() ? measurements[0].t.size() : 0);
   unsigned int d2 = d * d;
-  assert(dimension == d);
-  assert(num_poses == (unsigned) B3.cols() / d2);
+  CHECK(dimension == d);
+  CHECK(num_poses == (unsigned) B3.cols() / d2);
 
   SparseMatrix B3red = B3.rightCols((num_poses - 1) * d2);
   B3red.makeCompressed();  // Must be in compressed format to use
@@ -395,8 +394,8 @@ Matrix chordalInitialization(
 
   // Recover translation
   Matrix tchordal = recoverTranslations(B1, B2, Rchordal);
-  assert((unsigned) tchordal.rows() == dimension);
-  assert((unsigned) tchordal.cols() == num_poses);
+  CHECK((unsigned) tchordal.rows() == dimension);
+  CHECK((unsigned) tchordal.cols() == num_poses);
 
   // Assemble full pose
   Matrix Tchordal(d, num_poses * (d + 1));
@@ -419,8 +418,8 @@ Matrix odometryInitialization(size_t dimension, size_t num_poses, const std::vec
   for (size_t src = 0; src < odometry.size(); ++src) {
     size_t dst = src + 1;
     const RelativeSEMeasurement &m = odometry[src];
-    assert(m.p1 == src);
-    assert(m.p2 == dst);
+    CHECK(m.p1 == src);
+    CHECK(m.p2 == dst);
     Matrix Rsrc = T.block(0, src * (d + 1), d, d);
     Matrix tsrc = T.block(0, src * (d + 1) + d, d, 1);
     Matrix Rdst = Rsrc * m.R;
@@ -479,13 +478,19 @@ Matrix projectToRotationGroup(const Matrix &M) {
 Matrix projectToStiefelManifold(const Matrix &M) {
   size_t r = M.rows();
   size_t d = M.cols();
-  assert(r >= d);
+  CHECK(r >= d);
   Eigen::JacobiSVD<Matrix> svd(M, Eigen::ComputeThinU | Eigen::ComputeThinV);
   return svd.matrixU() * svd.matrixV().transpose();
 }
 
 Matrix fixedStiefelVariable(unsigned d, unsigned r) {
   std::srand(1);
+  ROPTLIB::StieVariable var(r, d);
+  var.RandInManifold();
+  return Eigen::Map<Matrix>((double *) var.ObtainReadData(), r, d);
+}
+
+Matrix randomStiefelVariable(unsigned d, unsigned r) {
   ROPTLIB::StieVariable var(r, d);
   var.RandInManifold();
   return Eigen::Map<Matrix>((double *) var.ObtainReadData(), r, d);
@@ -510,16 +515,21 @@ double angular2ChordalSO3(double rad) {
 
 void checkRotationMatrix(const Matrix &R) {
   const auto d = R.rows();
-  assert(R.cols() == d);
-  assert(abs(R.determinant() - 1.0) < 1e-5);
-  assert((R.transpose() * R - Matrix::Identity(d, d)).norm() < 1e-5);
+  CHECK(R.cols() == d);
+  CHECK(abs(R.determinant() - 1.0) < 1e-5);
+  CHECK((R.transpose() * R - Matrix::Identity(d, d)).norm() < 1e-5);
+}
+
+void checkStiefelMatrix(const Matrix &Y) {
+  const auto d = Y.cols();
+  CHECK((Y.transpose() * Y - Matrix::Identity(d, d)).norm() < 1e-5);
 }
 
 void singleTranslationAveraging(Vector &tOpt,
                                 const std::vector<Vector> &tVec,
                                 const Vector &tau) {
   const int n = (int) tVec.size();
-  assert(n > 0);
+  CHECK(n > 0);
   const auto d = tVec[0].rows();
   Vector tau_ = Vector::Ones(n);
   if (tau.rows() == n) {
@@ -538,7 +548,7 @@ void singleRotationAveraging(Matrix &ROpt,
                              const std::vector<Matrix> &RVec,
                              const Vector &kappa) {
   const int n = (int) RVec.size();
-  assert(n > 0);
+  CHECK(n > 0);
   const auto d = RVec[0].rows();
   Vector kappa_ = Vector::Ones(n);
   if (kappa.rows() == n) {
@@ -556,10 +566,10 @@ void singlePoseAveraging(Matrix &ROpt, Vector &tOpt,
                          const std::vector<Vector> &tVec,
                          const Vector &kappa,
                          const Vector &tau) {
-  assert(!RVec.empty());
-  assert(!tVec.empty());
-  assert(RVec.size() == tVec.size());
-  assert(RVec[0].rows() == tVec[0].rows());
+  CHECK(!RVec.empty());
+  CHECK(!tVec.empty());
+  CHECK(RVec.size() == tVec.size());
+  CHECK(RVec[0].rows() == tVec[0].rows());
   singleTranslationAveraging(tOpt, tVec, tau);
   singleRotationAveraging(ROpt, RVec, kappa);
 }
@@ -571,7 +581,7 @@ void robustSingleRotationAveraging(Matrix &ROpt,
                                    double errorThreshold) {
   const double w_tol = 1e-8;
   const int n = (int) RVec.size();
-  assert(n > 0);
+  CHECK(n > 0);
   Vector kappa_ = Vector::Ones(n);
   Vector weights_ = Vector::Ones(n);
   if (kappa.rows() == n) {
@@ -594,10 +604,11 @@ void robustSingleRotationAveraging(Matrix &ROpt,
   // Negative values of initial mu corresponds to small residual errors. In this case skip applying GNC.
   if (muInit > 0) {
     RobustCostParameters params;
+    params.costType = RobustCostParameters::Type::GNC_TLS;
     params.GNCBarc = barc;
     params.GNCMaxNumIters = 1000;
     params.GNCInitMu = muInit;
-    RobustCost cost(RobustCostType::GNC_TLS, params);
+    RobustCost cost(params);
     for (unsigned iter = 0; iter < params.GNCMaxNumIters; ++iter) {
       // Update solution
       singleRotationAveraging(ROpt, RVec, kappa_.cwiseProduct(weights_));
@@ -637,8 +648,8 @@ void robustSinglePoseAveraging(Matrix &ROpt, Vector &tOpt,
                                double errorThreshold) {
   const double w_tol = 1e-8;
   const int n = (int) RVec.size();
-  assert(n > 0);
-  assert(tVec.size() == n);
+  CHECK(n > 0);
+  CHECK(tVec.size() == RVec.size());
   Vector kappa_ = 10000 * Vector::Ones(n);
   Vector tau_ = 100 * Vector::Ones(n);
   Vector weights_ = Vector::Ones(n);
@@ -670,10 +681,11 @@ void robustSinglePoseAveraging(Matrix &ROpt, Vector &tOpt,
   // Negative values of initial mu corresponds to small residual errors. In this case skip applying GNC.
   if (muInit > 0) {
     RobustCostParameters params;
+    params.costType = RobustCostParameters::Type::GNC_TLS;
     params.GNCBarc = barc;
     params.GNCMaxNumIters = 10000;
     params.GNCInitMu = muInit;
-    RobustCost cost(RobustCostType::GNC_TLS, params);
+    RobustCost cost(params);
     unsigned iter = 0;
     for (iter = 0; iter < params.GNCMaxNumIters; ++iter) {
       // Update solution

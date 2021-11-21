@@ -4,10 +4,10 @@
  * Authors: Yulun Tian, et al. (see README for the full author list)
  * See LICENSE for the license information
  * -------------------------------------------------------------------------- */
-#include <cassert>
 #include <DPGO/PGOLogger.h>
 #include <Eigen/Geometry>
 #include <utility>
+#include <glog/logging.h>
 
 namespace DPGO {
 
@@ -54,8 +54,8 @@ void PGOLogger::logMeasurements(std::vector<RelativeSEMeasurement> &measurements
 
 void PGOLogger::logTrajectory(unsigned int d, unsigned int n, const Matrix &T, const std::string &filename) {
   if (d == 2) return;
-  assert(T.rows() == d);
-  assert(T.cols() == (d + 1) * n);
+  CHECK_EQ(T.rows(), d);
+  CHECK_EQ(T.cols(), (d + 1) * n);
   std::ofstream file;
   file.open(logDirectory + filename);
   if (!file.is_open()) return;

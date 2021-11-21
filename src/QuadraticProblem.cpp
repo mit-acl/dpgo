@@ -7,49 +7,51 @@
 
 #include <DPGO/QuadraticProblem.h>
 #include <iostream>
+#include <glog/logging.h>
 
 using namespace std;
 
 /*Define the namespace*/
 namespace DPGO {
 
-QuadraticProblem::QuadraticProblem(size_t nIn, size_t dIn, size_t rIn) :
-    n(nIn), d(dIn), r(rIn),
-    M(new LiftedSEManifold(r, d, n)) {
-  assert(r >= d);
+QuadraticProblem::QuadraticProblem(size_t nIn, size_t dIn, size_t rIn, const SparseMatrix &Q, const SparseMatrix &G)
+    : n(nIn), d(dIn), r(rIn), mQ(Q), mG(G),
+      M(new LiftedSEManifold(r, d, n)) {
+  CHECK(r >= d);
   ROPTLIB::Problem::SetUseGrad(true);
   ROPTLIB::Problem::SetUseHess(true);
   ROPTLIB::Problem::SetDomain(M->getManifold());
-  setQ(SparseMatrix((d + 1) * n, (d + 1) * n));
-  setG(SparseMatrix(r, (d + 1) * n));
+  // Sanity check matrix dimensions
+  CHECK_EQ(mG.rows(), (int) r);
+  CHECK_EQ(mG.cols(), (int) ((d + 1) * n));
+  CHECK_EQ(mQ.cols(), (int) ((d + 1) * n));
+  CHECK_EQ(mQ.cols(), (int) ((d + 1) * n));
+  constructPreconditioner();
+}
+
+QuadraticProblem::QuadraticProblem(const std::shared_ptr<PoseGraph> &pose_graph)
+    : n(pose_graph->n()), d(pose_graph->d()), r(pose_graph->r()),
+      pose_graph_(pose_graph),
+      M(new LiftedSEManifold(pose_graph_->r(), pose_graph_->d(), pose_graph_->n())) {
+  ROPTLIB::Problem::SetUseGrad(true);
+  ROPTLIB::Problem::SetUseHess(true);
+  ROPTLIB::Problem::SetDomain(M->getManifold());
+  // Throw error if the pose graph cannot be initialized
+  if (!pose_graph_->isInitialized()) {
+    CHECK(pose_graph->initialize()) << "Input pose graph cannot be initialized!";
+  }
+  mQ = pose_graph_->quadraticMatrix();
+  mG = pose_graph_->linearMatrix();
+  constructPreconditioner();
 }
 
 QuadraticProblem::~QuadraticProblem() {
   delete M;
 }
 
-void QuadraticProblem::setQ(const SparseMatrix &QIn) {
-  assert((unsigned) QIn.rows() == (d + 1) * n);
-  assert((unsigned) QIn.cols() == (d + 1) * n);
-  mQ = QIn;
-
-  // Update preconditioner
-  SparseMatrix P = mQ;
-  for (int i = 0; i < P.rows(); ++i) {
-    P.coeffRef(i, i) += 1e-1;
-  }
-  solver.compute(P);
-}
-
-void QuadraticProblem::setG(const SparseMatrix &GIn) {
-  assert((unsigned) GIn.rows() == r);
-  assert((unsigned) GIn.cols() == (d + 1) * n);
-  mG = GIn;
-}
-
 double QuadraticProblem::f(const Matrix &Y) const {
-  assert((unsigned) Y.rows() == r);
-  assert((unsigned) Y.cols() == (d + 1) * n);
+  CHECK_EQ((unsigned) Y.rows(), r);
+  CHECK_EQ((unsigned) Y.cols(), (d + 1) * n);
   // returns 0.5 * (Y * Q * Y.transpose()).trace() + (Y * G.transpose()).trace()
   return 0.5 * ((Y * mQ).cwiseProduct(Y)).sum() + (Y.cwiseProduct(mG)).sum();
 }
@@ -98,6 +100,15 @@ Matrix QuadraticProblem::RieGrad(const Matrix &Y) const {
 
 double QuadraticProblem::RieGradNorm(const Matrix &Y) const {
   return RieGrad(Y).norm();
+}
+
+void QuadraticProblem::constructPreconditioner() {
+  // Update preconditioner
+  SparseMatrix P = mQ;
+  for (int i = 0; i < P.rows(); ++i) {
+    P.coeffRef(i, i) += 1e-1;
+  }
+  solver.compute(P);
 }
 
 Matrix QuadraticProblem::readElement(const ROPTLIB::Element *element) const {

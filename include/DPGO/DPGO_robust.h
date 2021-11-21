@@ -8,30 +8,31 @@
 #ifndef DPGOROBUST_H
 #define DPGOROBUST_H
 
-#include <iostream>
-#include <cassert>
 #include <DPGO/DPGO_utils.h>
+#include <iostream>
+#include <glog/logging.h>
 
 namespace DPGO {
 
 /**
- * @brief A list of supported robust cost functions
- */
-enum RobustCostType {
-  L2, // L2 (least squares)
-  L1, // L1
-  TLS, // truncated least squares
-  Huber, // Huber loss
-  GM, // Geman-McClure
-  GNC_TLS, // Graduated Non-Convexity (GNC) with truncated least squares (TLS)
-};
-
-const std::vector<std::string> RobustCostNames{"L2", "L1", "TLS", "Huber", "GM", "GNC_TLS"};
-
-/**
  * @brief Parameters for robust cost functions
  */
-struct RobustCostParameters {
+class RobustCostParameters {
+ public:
+
+  // Type of robust costs supported
+  enum class Type {
+    L2, // L2 (least squares)
+    L1, // L1
+    TLS, // truncated least squares
+    Huber, // Huber loss
+    GM, // Geman-McClure
+    GNC_TLS, // Graduated Non-Convexity (GNC) with truncated least squares (TLS)
+  };
+
+  // Type of robust cost being used;
+  Type costType;
+
   // GNC parameters
   unsigned GNCMaxNumIters;
   double GNCBarc;
@@ -45,18 +46,20 @@ struct RobustCostParameters {
   double TLSThreshold;
 
   // Default constructor
-  explicit RobustCostParameters(unsigned gncMaxIters = 100,
+  explicit RobustCostParameters(Type type = Type::L2,
+                                unsigned gncMaxIters = 100,
                                 double gncBarc = 10,
                                 double gncMuStep = 1.4,
                                 double gncInitMu = 1e-4,
                                 double huberThresh = 3,
                                 double TLSThresh = 10)
-      : GNCMaxNumIters(gncMaxIters), GNCBarc(gncBarc), GNCMuStep(gncMuStep), GNCInitMu(gncInitMu),
+      : costType(type), GNCMaxNumIters(gncMaxIters), GNCBarc(gncBarc), GNCMuStep(gncMuStep), GNCInitMu(gncInitMu),
         HuberThreshold(huberThresh), TLSThreshold(TLSThresh) {}
 
   inline friend std::ostream &operator<<(
       std::ostream &os, const RobustCostParameters &params) {
     os << "Robust cost parameters: " << std::endl;
+    os << "Cost function: " << robustCostName(params.costType) << std::endl;
     os << "GNC maximum iterations: " << params.GNCMaxNumIters << std::endl;
     os << "GNC mu step: " << params.GNCMuStep << std::endl;
     os << "GNC initial mu: " << params.GNCInitMu << std::endl;
@@ -65,6 +68,12 @@ struct RobustCostParameters {
     os << "TLS threshold: " << params.TLSThreshold << std::endl;
     return os;
   }
+  /**
+   * @brief String names for the supported robust cost functions
+   * @param type
+   * @return
+   */
+  static std::string robustCostName(RobustCostParameters::Type type);
 };
 
 /**
@@ -79,14 +88,14 @@ struct RobustCostParameters {
  */
 class RobustCost {
  public:
-  RobustCost(RobustCostType costType, const RobustCostParameters &params);
+  explicit RobustCost(const RobustCostParameters &params);
 
   /**
    * @brief Compute measurement weight given current residual
    * @param r residual (unsquared)
    * @return weight
    */
-  double weight(double r);
+  double weight(double r) const;
 
   /**
    * @brief Reset the mu parameter in GNC
@@ -105,8 +114,8 @@ class RobustCost {
    * @return threshold
    */
   static double computeErrorThresholdAtQuantile(double quantile, size_t dimension) {
-    assert(dimension == 3);
-    assert(quantile > 0);
+    CHECK_EQ((int) dimension, 3) << "quantile function currently only supports 3D problem.";
+    CHECK_GT(quantile, 0);
     if (quantile < 1)
       return std::sqrt(chi2inv(quantile, 6));
     else
@@ -114,8 +123,7 @@ class RobustCost {
   }
 
  private:
-  const RobustCostType mCostType;
-
+  // Parameter settings
   const RobustCostParameters mParams;
 
   // GNC internal states

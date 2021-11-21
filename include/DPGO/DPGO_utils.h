@@ -99,10 +99,18 @@ Matrix projectToRotationGroup(const Matrix &M);
 Matrix projectToStiefelManifold(const Matrix &M);
 
 /**
-Generate a random element of the Stiefel element
-The returned value is guaranteed to be the same for each d and r
+  Generate a fixed element of the Stiefel element
+  The returned value is guaranteed to be the same for each d and r
 */
 Matrix fixedStiefelVariable(unsigned d, unsigned r);
+
+/**
+ * @brief Generate a random element of the Stiefel manifold
+ * @param d
+ * @param r
+ * @return
+ */
+Matrix randomStiefelVariable(unsigned d, unsigned r);
 
 /**
  * @brief Compute the error term (weighted squared residual)
@@ -138,6 +146,12 @@ double angular2ChordalSO3(double rad);
  * @param R
  */
 void checkRotationMatrix(const Matrix &R);
+
+/**
+ * @brief Check that the input matrix of dimension r-by-d is a valid element of the Stiefel manifold
+ * @param Y
+ */
+void checkStiefelMatrix(const Matrix &Y);
 
 /**
  * @brief Single translation averaging using the Euclidean distance

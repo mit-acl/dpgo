@@ -12,11 +12,13 @@
 #include <DPGO/manifold/LiftedSEManifold.h>
 #include <DPGO/manifold/LiftedSEVariable.h>
 #include <DPGO/manifold/LiftedSEVector.h>
+#include <DPGO/PoseGraph.h>
 
 #include <Eigen/CholmodSupport>
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
 #include <vector>
+#include <memory>
 
 #include "Problems/Problem.h"
 
@@ -30,7 +32,20 @@ namespace DPGO {
 */
 class QuadraticProblem : public ROPTLIB::Problem {
  public:
-  QuadraticProblem(size_t nIn, size_t dIn, size_t rIn);
+  /**
+   * @brief Construct a quadratic optimization problem by directly supplying the cost matrices
+   * @param nIn
+   * @param dIn
+   * @param rIn
+   * @param Q
+   * @param G
+   */
+  [[deprecated]] QuadraticProblem(size_t nIn, size_t dIn, size_t rIn, const SparseMatrix &Q, const SparseMatrix &G);
+  /**
+   * @brief Construct a quadratic optimization problem from a pose graph
+   * @param pose_graph input pose graph must be initialized (or can be initialized) otherwise throw an runtime error
+   */
+  explicit QuadraticProblem(const std::shared_ptr<PoseGraph>& pose_graph);
 
   ~QuadraticProblem() override;
 
@@ -42,18 +57,6 @@ class QuadraticProblem : public ROPTLIB::Problem {
 
   /** Relaxation rank in Riemannian optimization problem */
   unsigned int relaxation_rank() const { return r; }
-
-  /** get quadratic cost matrix */
-  SparseMatrix getQ() const { return mQ; }
-
-  /** get linear cost matrix */
-  SparseMatrix getG() const { return mG; }
-
-  /** set quadratic cost matrix */
-  void setQ(const SparseMatrix &QIn);
-
-  /** set linear cost matrix */
-  void setG(const SparseMatrix &GIn);
 
   /**
    * @brief Evaluate objective function
@@ -108,6 +111,11 @@ class QuadraticProblem : public ROPTLIB::Problem {
    */
   double RieGradNorm(const Matrix &Y) const;
 
+  /**
+   * @brief Construct preconditioner
+   */
+  void constructPreconditioner();
+
  private:
   // Number of poses
   const size_t n = 0;
@@ -123,6 +131,9 @@ class QuadraticProblem : public ROPTLIB::Problem {
 
   /** The linear component of the cost function */
   SparseMatrix mG;
+
+  // The pose graph that represents the optimization problem
+  std::shared_ptr<PoseGraph> pose_graph_;
 
   // ROPTLIB objects
   LiftedSEManifold *M;

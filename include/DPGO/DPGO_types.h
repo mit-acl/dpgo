@@ -59,12 +59,23 @@ struct ROPTResult {
 };
 
 // In distributed PGO, each pose is uniquely determined by the robot ID and pose ID
-typedef std::pair<unsigned, unsigned> PoseID;
+// typedef std::pair<unsigned, unsigned> PoseID;
 
-// Implement a dictionary for easy access of pose value by PoseID
-typedef std::map<PoseID, Matrix, std::less<>,
-                 Eigen::aligned_allocator<std::pair<const PoseID, Matrix>>>
-    PoseDict;
+// Each pose is uniquely determined by the robot ID and frame ID
+class PoseID {
+ public:
+  unsigned int robot_id;  // robot ID
+  unsigned int frame_id;  // frame ID
+  explicit PoseID(unsigned int rid = 0, unsigned int fid = 0): robot_id(rid), frame_id(fid) {}
+};
+// Comparator for PoseID
+struct ComparePoseID {
+  bool operator()(const PoseID& a, const PoseID& b) const {
+    auto pa = std::make_pair(a.robot_id, a.frame_id);
+    auto pb = std::make_pair(b.robot_id, b.frame_id);
+    return pa < pb;
+  }
+};
 
 }  // namespace DPGO
 

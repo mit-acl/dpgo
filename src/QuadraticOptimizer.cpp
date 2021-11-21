@@ -6,9 +6,8 @@
  * -------------------------------------------------------------------------- */
 
 #include <DPGO/QuadraticOptimizer.h>
-
+#include <glog/logging.h>
 #include <iostream>
-#include <cassert>
 #include <chrono>
 
 #include "RSD.h"
@@ -42,7 +41,7 @@ Matrix QuadraticOptimizer::optimize(const Matrix &Y) {
   if (algorithm == ROPTALG::RTR) {
     YOpt = trustRegion(Y);
   } else {
-    assert(algorithm == ROPTALG::RGD);
+    CHECK_EQ(algorithm, ROPTALG::RGD);
     YOpt = gradientDescent(Y);
   }
 
@@ -53,7 +52,7 @@ Matrix QuadraticOptimizer::optimize(const Matrix &Y) {
   result.gradNormOpt = problem->RieGradNorm(YOpt);
   result.relativeChange = sqrt((YOpt - Y).squaredNorm() / problem->num_poses());
   result.success = true;
-  assert(result.fOpt <= result.fInit);
+  CHECK_LE(result.fOpt, result.fInit);
 
   return YOpt;
 }

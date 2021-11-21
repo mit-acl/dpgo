@@ -39,14 +39,14 @@ int main(int argc, char **argv) {
   cout << "Loaded dataset from file " << argv[1] << "." << endl;
 
   // Construct optimization problem
-  SparseMatrix QCentral = constructConnectionLaplacianSE(dataset);
-  QuadraticProblem problemCentral(n, d, d);
-  problemCentral.setQ(QCentral);
+  std::shared_ptr<PoseGraph> pose_graph = std::make_shared<PoseGraph>(0, d, d);
+  pose_graph->setMeasurements(dataset);
+  QuadraticProblem problemCentral(pose_graph);
 
   // Compute chordal relaxation
   Matrix TChordal = chordalInitialization(d, n, dataset);
-  assert((unsigned)TChordal.rows() == d);
-  assert((unsigned)TChordal.cols() == (d + 1) * n);
+  assert((unsigned) TChordal.rows() == d);
+  assert((unsigned) TChordal.cols() == (d + 1) * n);
   std::cout << "Chordal initialization cost: " << 2 * problemCentral.f(TChordal) << std::endl;
 
   exit(0);
