@@ -90,7 +90,7 @@ int main(int argc, char **argv) {
   vector<vector<RelativeSEMeasurement>> odometry(num_robots);
   vector<vector<RelativeSEMeasurement>> private_loop_closures(num_robots);
   vector<vector<RelativeSEMeasurement>> shared_loop_closure(num_robots);
-  for (auto mIn: dataset) {
+  for (auto mIn : dataset) {
     PoseID src = PoseMap[mIn.p1];
     PoseID dst = PoseMap[mIn.p2];
 
@@ -138,8 +138,10 @@ int main(int argc, char **argv) {
       agent->setLiftingMatrix(M);
     }
 
-    agent->setPoseGraph(odometry[robot], private_loop_closures[robot],
-                        shared_loop_closure[robot]);
+    agent->setMeasurements(odometry[robot],
+                           private_loop_closures[robot],
+                           shared_loop_closure[robot]);
+    agent->initializeOptimization();
     agents.push_back(agent);
   }
 
@@ -169,7 +171,7 @@ int main(int argc, char **argv) {
     PGOAgent *selectedRobotPtr = agents[selectedRobot];
 
     // Non-selected robots perform an iteration
-    for (auto *robotPtr: agents) {
+    for (auto *robotPtr : agents) {
       assert(robotPtr->instance_number() == 0);
       assert(robotPtr->iteration_number() == iter);
       if (robotPtr->getID() != selectedRobot) {
@@ -178,7 +180,7 @@ int main(int argc, char **argv) {
     }
 
     // Selected robot requests public poses from others
-    for (auto *robotPtr: agents) {
+    for (auto *robotPtr : agents) {
       if (robotPtr->getID() == selectedRobot) continue;
       PoseDict sharedPoses;
       if (!robotPtr->getSharedPoseDict(sharedPoses)) {
@@ -190,7 +192,7 @@ int main(int argc, char **argv) {
 
     // When using acceleration, selected robot also requests auxiliary poses
     if (acceleration) {
-      for (auto *robotPtr: agents) {
+      for (auto *robotPtr : agents) {
         if (robotPtr->getID() == selectedRobot) continue;
         PoseDict auxSharedPoses;
         if (!robotPtr->getAuxSharedPoseDict(auxSharedPoses)) {
@@ -247,12 +249,12 @@ int main(int argc, char **argv) {
     // Share global anchor for rounding
     Matrix M;
     agents[0]->getSharedPose(0, M);
-    for (auto agentPtr: agents) {
+    for (auto agentPtr : agents) {
       agentPtr->setGlobalAnchor(M);
     }
   }
 
-  for (auto agentPtr: agents) {
+  for (auto agentPtr : agents) {
     agentPtr->reset();
   }
 

@@ -31,7 +31,7 @@ void PoseGraph::clear() {
 void PoseGraph::setMeasurements(const std::vector<RelativeSEMeasurement> &measurements) {
   // Reset this pose graph to be empty
   clear();
-  for (const auto &m: measurements)
+  for (const auto &m : measurements)
     addMeasurement(m);
 }
 
@@ -51,7 +51,13 @@ void PoseGraph::addMeasurement(const RelativeSEMeasurement &m) {
 }
 
 void PoseGraph::addOdometry(const RelativeSEMeasurement &factor) {
-  // check that this is an odometry measurement
+  // Check for duplicate inter-robot loop closure
+  const PoseID src_id(factor.r1, factor.p1);
+  const PoseID dst_id(factor.r2, factor.p2);
+  if (findMeasurement(odometry_, src_id, dst_id))
+    return;
+
+  // Check that this is an odometry measurement
   CHECK(factor.r1 == id_);
   CHECK(factor.r2 == id_);
   CHECK(factor.p1 + 1 == factor.p2);
@@ -62,6 +68,12 @@ void PoseGraph::addOdometry(const RelativeSEMeasurement &factor) {
 }
 
 void PoseGraph::addPrivateLoopClosure(const RelativeSEMeasurement &factor) {
+  // Check for duplicate inter-robot loop closure
+  const PoseID src_id(factor.r1, factor.p1);
+  const PoseID dst_id(factor.r2, factor.p2);
+  if (findMeasurement(private_lcs_, src_id, dst_id))
+    return;
+
   CHECK(factor.r1 == id_);
   CHECK(factor.r2 == id_);
   CHECK(factor.R.rows() == d_ && factor.R.cols() == d_);
@@ -72,9 +84,14 @@ void PoseGraph::addPrivateLoopClosure(const RelativeSEMeasurement &factor) {
 }
 
 void PoseGraph::addSharedLoopClosure(const RelativeSEMeasurement &factor) {
+  // Check for duplicate inter-robot loop closure
+  const PoseID src_id(factor.r1, factor.p1);
+  const PoseID dst_id(factor.r2, factor.p2);
+  if (findMeasurement(shared_lcs_, src_id, dst_id))
+    return;
+
   CHECK(factor.R.rows() == d_ && factor.R.cols() == d_);
   CHECK(factor.t.rows() == d_ && factor.t.cols() == 1);
-
   if (factor.r1 == id_) {
     CHECK(factor.r2 != id_);
     n_ = std::max(n_, (unsigned int) factor.p1 + 1);
@@ -94,7 +111,7 @@ void PoseGraph::addSharedLoopClosure(const RelativeSEMeasurement &factor) {
 
 std::vector<RelativeSEMeasurement> PoseGraph::sharedLoopClosuresWithRobot(unsigned int neighbor_id) const {
   std::vector<RelativeSEMeasurement> result;
-  for (const auto &m: shared_lcs_) {
+  for (const auto &m : shared_lcs_) {
     if (m.r1 == neighbor_id || m.r2 == neighbor_id)
       result.emplace_back(m);
   }
@@ -135,15 +152,15 @@ bool PoseGraph::hasNeighborPose(const PoseID &pose_id) const {
   return nbr_shared_pose_ids_.find(pose_id) != nbr_shared_pose_ids_.end();
 }
 
-RelativeSEMeasurement &PoseGraph::findSharedLoopClosure(const PoseID &srcID, const PoseID &dstID) {
-  for (auto &m: shared_lcs_) {
+RelativeSEMeasurement *PoseGraph::findMeasurement(std::vector<RelativeSEMeasurement> &measurements,
+                                                  const PoseID &srcID,
+                                                  const PoseID &dstID) {
+  for (auto &m : measurements) {
     if (m.r1 == srcID.robot_id && m.p1 == srcID.frame_id && dstID.robot_id == m.r2 && dstID.frame_id == m.p2) {
-      return m;
+      return &m;
     }
   }
-
-  // The desired measurement is not found. Throw a runtime error.
-  throw std::runtime_error("Cannot find specified shared loop closure.");
+  return nullptr;
 }
 
 PoseGraph::Statistics PoseGraph::statistics() const {
@@ -152,7 +169,7 @@ PoseGraph::Statistics PoseGraph::statistics() const {
   double acceptCount = 0;
   double rejectCount = 0;
   // TODO: specify tolerance for rejected and accepted loop closures
-  for (const auto &m: private_lcs_) {
+  for (const auto &m : private_lcs_) {
     if (m.isKnownInlier) continue;
     if (m.weight == 1) {
       acceptCount += 1;
@@ -161,7 +178,7 @@ PoseGraph::Statistics PoseGraph::statistics() const {
     }
     totalCount += 1;
   }
-  for (const auto &m: shared_lcs_) {
+  for (const auto &m : shared_lcs_) {
     if (m.isKnownInlier) continue;
     if (m.weight == 1) {
       acceptCount += 1;
@@ -193,7 +210,7 @@ bool PoseGraph::constructQ() {
   Matrix Omega = Matrix::Zero(d_ + 1, d_ + 1);
 
   // Go through shared loop closures
-  for (const auto &m: shared_lcs_) {
+  for (const auto &m : shared_lcs_) {
     // Set relative SE matrix (homogeneous form)
     T.block(0, 0, d_, d_) = m.R;
     T.block(0, d_, d_, 1) = m.t;
@@ -247,7 +264,7 @@ bool PoseGraph::constructG() {
   unsigned n = n_;
   unsigned r = r_;
   SparseMatrix G(r, (d + 1) * n);
-  for (const auto &m: shared_lcs_) {
+  for (const auto &m : shared_lcs_) {
     // Construct relative SE matrix in homogeneous form
     Matrix T = Matrix::Zero(d + 1, d + 1);
     T.block(0, 0, d, d) = m.R;

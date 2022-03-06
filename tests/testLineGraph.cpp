@@ -22,7 +22,10 @@ TEST(testDPGO, LineGraph) {
     RelativeSEMeasurement m(id, id, i, i + 1, R, t, 1.0, 1.0);
     odometry.push_back(m);
   }
-  agent.setPoseGraph(odometry, private_loop_closures, shared_loop_closures);
+  agent.setMeasurements(odometry,
+                        private_loop_closures,
+                        shared_loop_closures);
+  agent.initializeOptimization();
   agent.iterate();
 
   ASSERT_EQ(agent.getID(), id);

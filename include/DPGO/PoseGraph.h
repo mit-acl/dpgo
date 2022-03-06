@@ -53,6 +53,21 @@ class PoseGraph {
    */
   unsigned int n() const { return n_; }
   /**
+   * @brief Return number of odometry edges
+   * @return
+   */
+  unsigned int numOdometry() const { return odometry_.size(); }
+  /**
+   * @brief Return number of private loop closures;
+   * @return
+   */
+  unsigned int numPrivateLoopClosures() const { return private_lcs_.size(); }
+  /**
+   * @brief Return number of shared loop closures
+   * @return
+   */
+  unsigned int numSharedLoopClosures() const { return shared_lcs_.size(); }
+  /**
    * @brief Clear all contents in the pose graph
    */
   void clear();
@@ -62,27 +77,27 @@ class PoseGraph {
    */
   void setMeasurements(const std::vector<RelativeSEMeasurement> &measurements);
   /**
-   * @brief Add a single measurement to this pose graph
+   * @brief Add a single measurement to this pose graph. Ignored if the input measurement already exists.
    * @param m
    */
-  void addMeasurement(const RelativeSEMeasurement& m);
+  void addMeasurement(const RelativeSEMeasurement &m);
   /**
-   * @brief Add odometry edge
+   * @brief Add odometry edge. Ignored if the input measurement already exists.
    * @param factor
    */
   void addOdometry(const RelativeSEMeasurement &factor);
   /**
-   * @brief Add private loop closure
+   * @brief Add private loop closure. Ignored if the input measurement already exists.
    * @param factor
    */
   void addPrivateLoopClosure(const RelativeSEMeasurement &factor);
   /**
-   * @brief Add shared loop closure
+   * @brief Add shared loop closure. Ignored if the input measurement already exists.
    * @param factor
    */
   void addSharedLoopClosure(const RelativeSEMeasurement &factor);
   /**
-   * @brief Return all odometry measurements
+   * @brief Return a writable reference to the list of odometry edges
    * @return
    */
   std::vector<RelativeSEMeasurement> &odometry() { return odometry_; }
@@ -103,15 +118,6 @@ class PoseGraph {
    */
   std::vector<RelativeSEMeasurement> sharedLoopClosuresWithRobot(unsigned neighbor_id) const;
   /**
-   * @brief Find and return the specified shared measurement
-   * @param srcRobotID
-   * @param srcPoseID
-   * @param dstRobotID
-   * @param dstPoseID
-   * @return
-   */
-  RelativeSEMeasurement &findSharedLoopClosure(const PoseID &srcID, const PoseID &dstID);
-  /**
    * @brief Return a vector of all measurements
    * @return
    */
@@ -127,7 +133,7 @@ class PoseGraph {
    */
   void setNeighborPoses(const PoseDict &pose_dict);
   /**
-   * @brief Initialize for optimization
+   * @brief Initialize by computing the quadratic and linear data matrix used by optimization.
    * @return
    */
   bool initialize();
@@ -186,13 +192,21 @@ class PoseGraph {
    * @return
    */
   bool hasNeighborPose(const PoseID &pose_id) const;
-
-
   /**
    * @brief Compute statistics for the current pose graph
    * @return
    */
   Statistics statistics() const;
+  /**
+   * @brief Find and return the specified measurement from a vector of measurements
+   * @param measurements
+   * @param srcID
+   * @param dstID
+   * @return writable pointer to the desired measurement (nullptr if measurement does not exists)
+   */
+  static RelativeSEMeasurement *findMeasurement(std::vector<RelativeSEMeasurement> &measurements,
+                                                const PoseID &srcID,
+                                                const PoseID &dstID);
 
  protected:
 
