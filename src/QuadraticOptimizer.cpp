@@ -50,7 +50,6 @@ Matrix QuadraticOptimizer::optimize(const Matrix &Y) {
   result.elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(counter).count();
   result.fOpt = problem->f(YOpt);
   result.gradNormOpt = problem->RieGradNorm(YOpt);
-  result.relativeChange = sqrt((YOpt - Y).squaredNorm() / problem->num_poses());
   result.success = true;
   CHECK_LE(result.fOpt, result.fInit);
 

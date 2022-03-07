@@ -646,12 +646,13 @@ void PGOAgent::iterate(bool doOptimization) {
       }
     }
 
+    // Update status after local optimization step
     if (doOptimization) {
       mStatus.agentID = getID();
       mStatus.state = mState;
       mStatus.instanceNumber = instance_number();
       mStatus.iterationNumber = iteration_number();
-      mStatus.relativeChange = sqrt((X.getData() - XPrev.getData()).squaredNorm() / num_poses());
+      mStatus.relativeChange = LiftedPoseArray::averageTranslationDistance(X, XPrev);
       // Check local termination condition
       bool readyToTerminate = true;
       if (!success) readyToTerminate = false;

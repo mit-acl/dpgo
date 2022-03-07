@@ -38,14 +38,12 @@ enum ROPTALG {
         Output statistics of Riemannian optimization
 */
 struct ROPTResult {
-  ROPTResult(bool suc = false, double f0 = 0, double gn0 = 0, double fStar = 0, double gnStar = 0,
-             double relchange = 0, double ms = 0)
+  ROPTResult(bool suc = false, double f0 = 0, double gn0 = 0, double fStar = 0, double gnStar = 0, double ms = 0)
       : success(suc),
         fInit(f0),
         gradNormInit(gn0),
         fOpt(fStar),
         gradNormOpt(gnStar),
-        relativeChange(relchange),
         elapsedMs(ms) {}
 
   bool success;           // Is the optimization successful
@@ -53,7 +51,6 @@ struct ROPTResult {
   double gradNormInit;    // Gradient norm before optimization
   double fOpt;            // Objective value after optimization
   double gradNormOpt;     // Gradient norm after optimization
-  double relativeChange;  // Relative change in solution
   double elapsedMs;       // elapsed time in milliseconds
   ROPTLIB::tCGstatusSet tCGStatus;  // status of truncated conjugate gradient (only used by trust region solver)
 };

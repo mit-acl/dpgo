@@ -72,6 +72,17 @@ Vector LiftedPoseArray::translation(unsigned int index) const {
   return Xi.col(d_);
 }
 
+double LiftedPoseArray::averageTranslationDistance(const LiftedPoseArray &poses1, const LiftedPoseArray &poses2) {
+  CHECK_EQ(poses1.d(), poses2.d());
+  CHECK_EQ(poses1.n(), poses2.n());
+  double average_distance = 0;
+  for (unsigned int i = 0; i < poses1.n(); ++i) {
+    average_distance += (poses1.translation(i) - poses2.translation(i)).norm();
+  }
+  average_distance = average_distance / (double) poses1.n();
+  return average_distance;
+}
+
 Pose::Pose(const Matrix &T)
     : Pose(T.rows()) {
   CHECK_EQ(T.rows(), d_);
