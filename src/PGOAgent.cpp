@@ -896,10 +896,6 @@ bool PGOAgent::updateX(bool doOptimization, bool acceleration) {
   } else {
     mPoseGraph->setNeighborPoses(neighborPoseDict);
   }
-  if (!mPoseGraph->initialize()) {
-    printf("Robot %u cannot initialize pose graph. Skip update...\n", getID());
-    return false;
-  }
 
   // Initialize optimizer
   QuadraticProblem problem(mPoseGraph);
@@ -946,6 +942,9 @@ bool PGOAgent::shouldUpdateLoopClosureWeights() const {
 
 void PGOAgent::updateLoopClosuresWeights() {
   CHECK(mState == PGOAgentState::INITIALIZED);
+
+  // Since edge weights change, we need to recompute the data matrices associated with the local optimization problem
+  mPoseGraph->clearDataMatrices();
 
   // Update private loop closures
   for (auto &m : mPoseGraph->privateLoopClosures()) {

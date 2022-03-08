@@ -31,77 +31,80 @@ class QuadraticOptimizer {
   /**
    * Set optimization problem
    */
-  void setProblem(QuadraticProblem *p) { problem = p; }
+  void setProblem(QuadraticProblem *p) { problem_ = p; }
 
   /**
   Turn on/off verbose output
   */
-  void setVerbose(bool v) { verbose = v; }
+  void setVerbose(bool v) { verbose_ = v; }
 
   /**
   Set optimization algorithm
   */
-  void setAlgorithm(ROPTALG alg) { algorithm = alg; }
+  void setAlgorithm(ROPTALG alg) { algorithm_ = alg; }
 
   /**
   Set maximum step size
   */
-  void setGradientDescentStepsize(double s) { gradientDescentStepsize = s; }
+  void setGradientDescentStepsize(double s) { gd_stepsize_ = s; }
 
   /**
   Set number of trust region iterations
   */
-  void setTrustRegionIterations(unsigned iter) { trustRegionIterations = iter; }
+  void setTrustRegionIterations(unsigned iter) { trust_region_iterations_ = iter; }
 
   /**
   Set tolerance of trust region
   */
-  void setTrustRegionTolerance(double tol) { trustRegionTolerance = tol; }
+  void setTrustRegionTolerance(double tol) { trust_region_gradnorm_tol_ = tol; }
 
   /**
    * @brief Set the initial trust region radius (default 1e1)
    * @param radius
    */
-  void setTrustRegionInitialRadius(double radius) { trustRegionInitialRadius = radius; }
+  void setTrustRegionInitialRadius(double radius) { trust_region_initial_radius_ = radius; }
 
   /**
    * @brief Set the maximum number of inner tCG iterations
    * @param iter
    */
-  void setTrustRegionMaxInnerIterations(int iter) { trustRegionMaxInnerIterations = iter; }
+  void setTrustRegionMaxInnerIterations(int iter) { trust_region_max_inner_iterations_ = iter; }
 
   /**
   Return optimization result
   */
-  ROPTResult getOptResult() const { return result; };
+  ROPTResult getOptResult() const { return result_; };
 
  private:
   // Underlying Riemannian Optimization Problem
-  QuadraticProblem *problem;
+  QuadraticProblem *problem_;
 
   // Optimization algorithm to be used
-  ROPTALG algorithm;
+  ROPTALG algorithm_;
 
   // Optimization result
-  ROPTResult result;
+  ROPTResult result_;
 
   // step size (only for RGD)
-  double gradientDescentStepsize;
+  double gd_stepsize_;
 
   // Number of trust-region updates
-  unsigned trustRegionIterations;
+  unsigned trust_region_iterations_;
 
   // Tolerance for trust-region updates
-  double trustRegionTolerance;
+  double trust_region_gradnorm_tol_;
 
   // Initial trust region radius
-  double trustRegionInitialRadius;
+  double trust_region_initial_radius_;
 
   // Maximum number of tCG iterations
-  int trustRegionMaxInnerIterations;
+  int trust_region_max_inner_iterations_;
 
   // Verbose flag
-  bool verbose;
+  bool verbose_;
+
+  // Timing
+  SimpleTimer timer_;
 
   // Apply RTR
   Matrix trustRegion(const Matrix &Yinit);

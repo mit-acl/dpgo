@@ -12,7 +12,7 @@
 namespace DPGO {
 
 PoseGraph::PoseGraph(unsigned int id, unsigned int r, unsigned int d)
-    : id_(id), r_(r), d_(d), n_(0), initialized_(false) {
+    : id_(id), r_(r), d_(d), n_(0) {
   CHECK(r >= d);
   clear();
 }
@@ -26,6 +26,7 @@ void PoseGraph::clear() {
   nbr_shared_pose_ids_.clear();
   nbr_robot_ids_.clear();
   neighbor_poses_.clear();
+  clearDataMatrices();
 }
 
 void PoseGraph::setMeasurements(const std::vector<RelativeSEMeasurement> &measurements) {
@@ -133,15 +134,7 @@ std::vector<RelativeSEMeasurement> PoseGraph::localMeasurements() const {
 
 void PoseGraph::setNeighborPoses(const PoseDict &pose_dict) {
   neighbor_poses_ = pose_dict;
-}
-
-bool PoseGraph::initialize() {
-  constructQ();
-  if (constructG())
-    initialized_ = true;
-  else
-    initialized_ = false;
-  return initialized_;
+  G_.reset();  // Setting neighbor poses requires re-computing linear matrix
 }
 
 bool PoseGraph::hasNeighbor(unsigned int robot_id) const {
@@ -197,6 +190,7 @@ PoseGraph::Statistics PoseGraph::statistics() const {
 }
 
 bool PoseGraph::constructQ() {
+  timer_.tic();
   std::vector<RelativeSEMeasurement> privateMeasurements = odometry_;
   privateMeasurements.insert(privateMeasurements.end(), private_lcs_.begin(), private_lcs_.end());
 
@@ -256,10 +250,13 @@ bool PoseGraph::constructQ() {
   }
 
   Q_ = Q;
+  ms_construct_Q_ = timer_.toc();
+  //LOG(INFO) << "Construct Q ms: " << ms_construct_Q_;
   return true;
 }
 
 bool PoseGraph::constructG() {
+  timer_.tic();
   unsigned d = d_;
   unsigned n = n_;
   unsigned r = r_;
@@ -330,6 +327,25 @@ bool PoseGraph::constructG() {
     }
   }
   G_ = G;
+  ms_construct_G_ = timer_.toc();
+  //LOG(INFO) << "Construct G ms: " << ms_construct_G_;
+  return true;
+}
+
+bool PoseGraph::constructPreconditioner() {
+  timer_.tic();
+  // Update preconditioner
+  SparseMatrix P = quadraticMatrix();
+  for (int i = 0; i < P.rows(); ++i) {
+    P.coeffRef(i, i) += 1e-1;
+  }
+  auto solver = std::make_shared<CholmodSolver>();
+  solver->compute(P);
+  if (solver->info() != Eigen::ComputationInfo::Success)
+    return false;
+  precon_.emplace(solver);
+  ms_construct_precon_ = timer_.toc();
+  //LOG(INFO) << "Construct precon ms: " << ms_construct_precon_;
   return true;
 }
 

@@ -9,9 +9,12 @@
 #define DPGO_INCLUDE_DPGO_POSEGRAPH_H_
 
 #include "DPGO_types.h"
+#include "DPGO_utils.h"
 #include "manifold/Poses.h"
 #include "RelativeSEMeasurement.h"
+#include <glog/logging.h>
 #include <set>
+#include <memory>
 
 namespace DPGO {
 
@@ -133,32 +136,54 @@ class PoseGraph {
    */
   void setNeighborPoses(const PoseDict &pose_dict);
   /**
-   * @brief Initialize by computing the quadratic and linear data matrix used by optimization.
+   * @brief Get quadratic cost matrix.
    * @return
    */
-  bool initialize();
-  /**
-   * @brief Return true if the graph is ready for optimization
-   * @return
-   */
-  bool isInitialized() const { return initialized_; }
-  /**
-   * @brief Get quadratic cost matrix. Pose graph must be initialized.
-   * @return
-   */
-  SparseMatrix quadraticMatrix() const {
-    if (!isInitialized())
-      throw std::runtime_error("Attempt to get quadratic matrix from uninitialized pose graph.");
-    return Q_;
+  const SparseMatrix &quadraticMatrix() {
+    if (!Q_.has_value())
+      constructQ();
+    CHECK(Q_.has_value());
+    return Q_.value();
   }
   /**
-   * @brief Get linear cost matrix. Pose graph must be initialized.
+   * @brief Clear the quadratic cost matrix
+   */
+  void clearQuadraticMatrix() {
+    Q_.reset();
+    precon_.reset();  // Also clear the preconditioner since it depends on Q
+  }
+  /**
+   * @brief Get linear cost matrix.
    * @return
    */
-  SparseMatrix linearMatrix() const {
-    if (!isInitialized())
-      throw std::runtime_error("Attempt to get quadratic matrix from uninitialized pose graph.");
-    return G_;
+  const SparseMatrix &linearMatrix() {
+    if (!G_.has_value())
+      constructG();
+    CHECK(G_.has_value());
+    return G_.value();
+  }
+  /**
+   * @brief Clear the linear cost matrix
+   */
+  void clearLinearMatrix() {
+    G_.reset();
+  }
+  /**
+   * @brief Clear data matrices
+   */
+  void clearDataMatrices() {
+    clearQuadraticMatrix();
+    clearLinearMatrix();
+  }
+  /**
+   * @brief Get preconditioner
+   * @return
+   */
+  const CholmodSolverPtr &preconditioner() {
+    if (!precon_.has_value())
+      constructPreconditioner();
+    CHECK(precon_.has_value());
+    return precon_.value();
   }
   /**
    * @brief Get the set of my pose IDs that are shared with other robots
@@ -216,9 +241,6 @@ class PoseGraph {
   // Problem dimensions
   unsigned int r_, d_, n_;
 
-  // Ready for optimization
-  bool initialized_;
-
   // Store odometry measurement of this robot
   std::vector<RelativeSEMeasurement> odometry_;
 
@@ -241,10 +263,21 @@ class PoseGraph {
   PoseDict neighbor_poses_;
 
   // Quadratic matrix in cost function
-  SparseMatrix Q_;
+  std::optional<SparseMatrix> Q_;
 
   // Linear matrix in cost function
-  SparseMatrix G_;
+  // TODO: try changing G to a dense matrix
+  std::optional<SparseMatrix> G_;
+
+  // Preconditioner
+  std::optional<CholmodSolverPtr> precon_;
+
+  // Timing
+  SimpleTimer timer_;
+  double ms_construct_Q_{};
+  double ms_construct_G_{};
+  double ms_construct_precon_{};
+
   /**
    * @brief Construct the quadratic cost matrix
    * @return
@@ -255,7 +288,11 @@ class PoseGraph {
    * @return
    */
   bool constructG();
-
+  /**
+   * @brief Construct the preconditioner for this graph
+   * @return
+   */
+  bool constructPreconditioner();
 };
 
 }

@@ -18,6 +18,28 @@
 
 namespace DPGO {
 
+void SimpleTimer::tic() {
+  t_start = std::chrono::high_resolution_clock::now();
+}
+
+double SimpleTimer::toc() {
+  t_end = std::chrono::high_resolution_clock::now();
+  std::chrono::duration<double, std::milli> t_elapsed(0);
+  t_elapsed = t_end - t_start;
+  return t_elapsed.count();
+}
+
+std::chrono::time_point<std::chrono::high_resolution_clock> SimpleTimer::Tic() {
+  return std::chrono::high_resolution_clock::now();
+}
+
+double SimpleTimer::Toc(const std::chrono::time_point<std::chrono::high_resolution_clock> &start_time) {
+  auto end_time = std::chrono::high_resolution_clock::now();
+  std::chrono::duration<double, std::milli> t_elapsed(0);
+  t_elapsed = end_time - start_time;
+  return t_elapsed.count();
+}
+
 void writeMatrixToFile(const Matrix &M, const std::string &filename) {
   std::ofstream file;
   file.open(filename);

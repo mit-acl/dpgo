@@ -10,10 +10,12 @@
 
 #include <Eigen/Core>
 #include <Eigen/SparseCore>
-#include <map>
-#include <tuple>
+#include <Eigen/CholmodSupport>
 #include <SolversTR.h>
 #include <RTRNewton.h>
+#include <map>
+#include <memory>
+#include <tuple>
 
 namespace DPGO {
 
@@ -21,6 +23,8 @@ typedef Eigen::VectorXd Vector;
 typedef Eigen::MatrixXd Matrix;
 typedef Eigen::DiagonalMatrix<double, Eigen::Dynamic> DiagonalMatrix;
 typedef Eigen::SparseMatrix<double, Eigen::RowMajor> SparseMatrix;
+typedef Eigen::CholmodDecomposition<SparseMatrix> CholmodSolver;
+typedef std::shared_ptr<CholmodSolver> CholmodSolverPtr;
 
 /**
         Riemannian optimization algorithms from ROPTLIB
