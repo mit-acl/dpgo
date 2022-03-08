@@ -897,6 +897,12 @@ bool PGOAgent::updateX(bool doOptimization, bool acceleration) {
     mPoseGraph->setNeighborPoses(neighborPoseDict);
   }
 
+  // Skip optimization if cannot construct data matrices for some reason
+  if (!mPoseGraph->constructDataMatrices()) {
+    LOG(WARNING) << "Robot " << getID() << " cannot construct data matrices... Skip optimization.";
+    return false;
+  }
+
   // Initialize optimizer
   QuadraticProblem problem(mPoseGraph);
   QuadraticOptimizer optimizer(&problem);

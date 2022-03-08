@@ -189,19 +189,45 @@ PoseGraph::Statistics PoseGraph::statistics() const {
   return statistics;
 }
 
+const SparseMatrix &PoseGraph::quadraticMatrix() {
+  if (!Q_.has_value())
+    constructQ();
+  CHECK(Q_.has_value());
+  return Q_.value();
+}
+
+const Matrix &PoseGraph::linearMatrix() {
+  if (!G_.has_value())
+    constructG();
+  CHECK(G_.has_value());
+  return G_.value();
+}
+
+bool PoseGraph::constructDataMatrices() {
+  if (!Q_.has_value() && !constructQ())
+    return false;
+  if (!G_.has_value() && !constructG())
+    return false;
+  return true;
+}
+
 bool PoseGraph::constructQ() {
   timer_.tic();
   std::vector<RelativeSEMeasurement> privateMeasurements = odometry_;
   privateMeasurements.insert(privateMeasurements.end(), private_lcs_.begin(), private_lcs_.end());
 
   // Initialize Q with private measurements
-  SparseMatrix Q = constructConnectionLaplacianSE(privateMeasurements);
+  SparseMatrix QLocal = constructConnectionLaplacianSE(privateMeasurements);
 
   // Initialize relative SE matrix in homogeneous form
   Matrix T = Matrix::Zero(d_ + 1, d_ + 1);
 
   // Initialize aggregate weight matrix
   Matrix Omega = Matrix::Zero(d_ + 1, d_ + 1);
+
+  // Shared (inter-robot) measurements only affect the diagonal blocks
+  Matrix QSharedDiag(d_ + 1, (d_ + 1) * n_);
+  QSharedDiag.setZero();
 
   // Go through shared loop closures
   for (const auto &m : shared_lcs_) {
@@ -220,47 +246,48 @@ bool PoseGraph::constructQ() {
       // First pose belongs to this robot
       // Hence, this is an outgoing edge in the pose graph
       CHECK(m.r2 != id_);
-
       // Modify quadratic cost
-      size_t idx = m.p1;
-
+      int idx = (int) m.p1;
       Matrix W = T * Omega * T.transpose();
-
-      for (size_t col = 0; col < d_ + 1; ++col) {
-        for (size_t row = 0; row < d_ + 1; ++row) {
-          Q.coeffRef(idx * (d_ + 1) + row, idx * (d_ + 1) + col) += W(row, col);
-        }
-      }
+      QSharedDiag.block(0, idx * (d_ + 1), d_ + 1, d_ + 1) += W;
 
     } else {
       // Second pose belongs to this robot
       // Hence, this is an incoming edge in the pose graph
       CHECK(m.r2 == id_);
-
       // Modify quadratic cost
-      size_t idx = m.p2;
-
-      for (size_t col = 0; col < d_ + 1; ++col) {
-        for (size_t row = 0; row < d_ + 1; ++row) {
-          Q.coeffRef(idx * (d_ + 1) + row, idx * (d_ + 1) + col) +=
-              Omega(row, col);
-        }
-      }
+      int idx = (int) m.p2;
+      QSharedDiag.block(0, idx * (d_ + 1), d_ + 1, d_ + 1) += Omega;
     }
   }
 
-  Q_ = Q;
+  // Convert QSharedDiag to a sparse matrix
+  std::vector<Eigen::Triplet<double>> tripletList;
+  tripletList.reserve((d_ + 1) * (d_ + 1) * n_);
+  for (unsigned idx = 0; idx < n_; ++idx) {
+    unsigned row_base = idx * (d_ + 1);
+    unsigned col_base = row_base;
+    for (unsigned r = 0; r < d_ + 1; ++r) {
+      for (unsigned c = 0; c < d_ + 1; ++c) {
+        double val = QSharedDiag(r, col_base + c);
+        tripletList.emplace_back(row_base + r, col_base + c, val);
+      }
+    }
+  }
+  SparseMatrix QShared(QLocal.rows(), QLocal.cols());
+  QShared.setFromTriplets(tripletList.begin(), tripletList.end());
+
+  Q_.emplace(QLocal + QShared);
   ms_construct_Q_ = timer_.toc();
-  //LOG(INFO) << "Construct Q ms: " << ms_construct_Q_;
+  // LOG(INFO) << "Robot " << id_ << " construct Q ms: " << ms_construct_Q_;
   return true;
 }
 
 bool PoseGraph::constructG() {
   timer_.tic();
   unsigned d = d_;
-  unsigned n = n_;
-  unsigned r = r_;
-  SparseMatrix G(r, (d + 1) * n);
+  Matrix G(r_, (d_ + 1) * n_);
+  G.setZero();
   for (const auto &m : shared_lcs_) {
     // Construct relative SE matrix in homogeneous form
     Matrix T = Matrix::Zero(d + 1, d + 1);
@@ -282,24 +309,17 @@ bool PoseGraph::constructG() {
 
       // Read neighbor's pose
       const PoseID nID(m.r2, m.p2);
-      auto KVpair = neighbor_poses_.find(nID);
-      if (KVpair == neighbor_poses_.end()) {
+      auto pair = neighbor_poses_.find(nID);
+      if (pair == neighbor_poses_.end()) {
         printf("constructGMatrix: robot %u cannot find neighbor pose (%u, %u)\n",
                id_, nID.robot_id, nID.frame_id);
         return false;
       }
-      Matrix Xj = KVpair->second.pose();
-
-      size_t idx = m.p1;
-
+      Matrix Xj = pair->second.pose();
+      int idx = (int) m.p1;
       // Modify linear cost
       Matrix L = -Xj * Omega * T.transpose();
-      for (size_t col = 0; col < d + 1; ++col) {
-        for (size_t row = 0; row < r; ++row) {
-          G.coeffRef(row, idx * (d + 1) + col) += L(row, col);
-        }
-      }
-
+      G.block(0, idx * (d_ + 1), r_, d_ + 1) += L;
     } else {
       // Second pose belongs to this robot
       // Hence, this is an incoming edge in the pose graph
@@ -307,28 +327,22 @@ bool PoseGraph::constructG() {
 
       // Read neighbor's pose
       const PoseID nID(m.r1, m.p1);
-      auto KVpair = neighbor_poses_.find(nID);
-      if (KVpair == neighbor_poses_.end()) {
+      auto pair = neighbor_poses_.find(nID);
+      if (pair == neighbor_poses_.end()) {
         printf("constructGMatrix: robot %u cannot find neighbor pose (%u, %u)\n",
                id_, nID.robot_id, nID.frame_id);
         return false;
       }
-      Matrix Xi = KVpair->second.pose();
-
-      size_t idx = m.p2;
-
+      Matrix Xi = pair->second.pose();
+      int idx = (int) m.p2;
       // Modify linear cost
       Matrix L = -Xi * T * Omega;
-      for (size_t col = 0; col < d + 1; ++col) {
-        for (size_t row = 0; row < r; ++row) {
-          G.coeffRef(row, idx * (d + 1) + col) += L(row, col);
-        }
-      }
+      G.block(0, idx * (d_ + 1), r_, d_ + 1) += L;
     }
   }
-  G_ = G;
+  G_.emplace(G);
   ms_construct_G_ = timer_.toc();
-  //LOG(INFO) << "Construct G ms: " << ms_construct_G_;
+  // LOG(INFO) << "Robot " << id_ << " construct G ms: " << ms_construct_G_;
   return true;
 }
 

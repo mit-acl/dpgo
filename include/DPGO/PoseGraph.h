@@ -139,12 +139,7 @@ class PoseGraph {
    * @brief Get quadratic cost matrix.
    * @return
    */
-  const SparseMatrix &quadraticMatrix() {
-    if (!Q_.has_value())
-      constructQ();
-    CHECK(Q_.has_value());
-    return Q_.value();
-  }
+  const SparseMatrix &quadraticMatrix();
   /**
    * @brief Clear the quadratic cost matrix
    */
@@ -156,18 +151,18 @@ class PoseGraph {
    * @brief Get linear cost matrix.
    * @return
    */
-  const SparseMatrix &linearMatrix() {
-    if (!G_.has_value())
-      constructG();
-    CHECK(G_.has_value());
-    return G_.value();
-  }
+  const Matrix &linearMatrix();
   /**
    * @brief Clear the linear cost matrix
    */
   void clearLinearMatrix() {
     G_.reset();
   }
+  /**
+   * @brief Construct data matrices that are needed for optimization, if they do not yet exist
+   * @return true if construction is successful
+   */
+  bool constructDataMatrices();
   /**
    * @brief Clear data matrices
    */
@@ -266,8 +261,7 @@ class PoseGraph {
   std::optional<SparseMatrix> Q_;
 
   // Linear matrix in cost function
-  // TODO: try changing G to a dense matrix
-  std::optional<SparseMatrix> G_;
+  std::optional<Matrix> G_;
 
   // Preconditioner
   std::optional<CholmodSolverPtr> precon_;
