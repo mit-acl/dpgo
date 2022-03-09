@@ -18,12 +18,7 @@ PoseGraph::PoseGraph(unsigned int id, unsigned int r, unsigned int d)
 }
 
 void PoseGraph::clear() {
-  clearMeasurements();
-  clearNeighborPoses();
-  clearDataMatrices();
-}
-
-void PoseGraph::clearMeasurements() {
+  // Reset this pose graph to be empty
   n_ = 0;
   odometry_.clear();
   private_lcs_.clear();
@@ -31,6 +26,8 @@ void PoseGraph::clearMeasurements() {
   local_shared_pose_ids_.clear();
   nbr_shared_pose_ids_.clear();
   nbr_robot_ids_.clear();
+  clearNeighborPoses();
+  clearDataMatrices();
 }
 
 void PoseGraph::clearNeighborPoses() {

@@ -71,13 +71,9 @@ class PoseGraph {
    */
   unsigned int numSharedLoopClosures() const { return shared_lcs_.size(); }
   /**
-   * @brief Clear all contents in the pose graph
+   * @brief Clear all contents and reset this pose graph to be empty
    */
   void clear();
-  /**
-   * @brief Clear all measurements in the pose graph
-   */
-  void clearMeasurements(); 
   /**
    * @brief Clear all cached neighbor poses 
    */
