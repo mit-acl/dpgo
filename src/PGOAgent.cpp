@@ -146,6 +146,12 @@ void PGOAgent::setMeasurements(
 void PGOAgent::initializeOptimization(const PoseArray *TInitPtr) {
   CHECK_EQ(mState, PGOAgentState::WAIT_FOR_DATA);
 
+  // Do nothing if local pose graph is empty
+  if (mPoseGraph->n() == 0) {
+    LOG_IF(INFO, mParams.verbose) << "Local pose graph is empty. Skip initialization.";
+    return;
+  }
+
   // Check validity of initial trajectory estimate, if provided
   bool local_init = true;
   if (TInitPtr) {
