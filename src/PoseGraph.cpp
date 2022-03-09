@@ -32,6 +32,7 @@ void PoseGraph::clear() {
 
 void PoseGraph::clearNeighborPoses() {
   neighbor_poses_.clear();
+  G_.reset();  // Clearing neighbor poses requires re-computing linear matrix
 }
 
 void PoseGraph::setMeasurements(const std::vector<RelativeSEMeasurement> &measurements) {
