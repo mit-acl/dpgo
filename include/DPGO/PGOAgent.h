@@ -42,9 +42,10 @@ using std::vector;
 namespace DPGO {
 
 /**
-This struct contains parameters for PGOAgent
+This class contains parameter settings for PGOAgent
 */
-struct PGOAgentParameters {
+class PGOAgentParameters {
+ public:
   // Problem dimension
   unsigned d;
 
@@ -223,26 +224,41 @@ class PGOAgent {
     double score;          // Score of this transformation (e.g., number of inliers in estimation)
   };
 
-  /** Constructor that creates an empty pose graph
+  /**
+   * @brief Constructor
+   * @param ID
+   * @param params
    */
   PGOAgent(unsigned ID, const PGOAgentParameters &params);
 
+  /**
+   * @brief Destructor
+   */
   ~PGOAgent();
 
   /**
-   * @brief Set the local pose graph of this robot, optionally with an initial trajectory estimate
-   * @param inputOdometry : odometry edges of this robot
-   * @param inputPrivateLoopClosures : internal loop closures of this robot
-   * @param inputSharedLoopClosures share : loop closures with other robots
-   * @param TInit : optional trajectory estimate [R1 t1 ... Rn tn] in an arbitrary frame. If the  matrix is empty or
-   * if its dimension does not match the expected dimension, the value will be discarded and internal initialization
-   * will be used instead.
+   * @brief Set measurements (pose graph) for this agent
+   * @param inputOdometry
+   * @param inputPrivateLoopClosures
+   * @param inputSharedLoopClosures
    */
-  void setPoseGraph(
-      const std::vector<RelativeSEMeasurement> &inputOdometry,
-      const std::vector<RelativeSEMeasurement> &inputPrivateLoopClosures,
-      const std::vector<RelativeSEMeasurement> &inputSharedLoopClosures,
-      const Matrix &TInit = Matrix());
+  void setMeasurements(const std::vector<RelativeSEMeasurement> &inputOdometry,
+                       const std::vector<RelativeSEMeasurement> &inputPrivateLoopClosures,
+                       const std::vector<RelativeSEMeasurement> &inputSharedLoopClosures);
+
+  /**
+   * @brief Add a single measurement to this agent's pose graph. Do nothing if the input factor already exists.
+   * @param factor
+   */
+  void addMeasurement(const RelativeSEMeasurement &factor);
+
+  /**
+   * @brief Initialize distributed optimization.
+   * @param TInitPtr an optional trajectory estimate in an arbitrary local frame. If the dimension of number of poses
+   * of the provided initial guess does not match what is expected, this initial guess will be ignored and this function
+   * will perform initialization on its own.
+   */
+  void initializeOptimization(const PoseArray *TInitPtr = nullptr);
 
   /**
    * @brief perform a single iteration
@@ -254,11 +270,6 @@ class PGOAgent {
   Reset this agent to have empty pose graph
   */
   virtual void reset();
-
-  /**
-   * @brief Reset variables used in Nesterov acceleration
-   */
-  void initializeAcceleration();
 
   /**
   Return ID of this robot
@@ -591,30 +602,17 @@ class PGOAgent {
 
   // Thread that runs optimization loop
   thread *mOptimizationThread = nullptr;
-
   /**
-  Add an odometry measurement of this robot.
-  This function automatically initialize the new pose, by propagating odometry
-  */
-  void addOdometry(const RelativeSEMeasurement &factor);
-  /**
-  Add a private loop closure of this robot
-  (Warning: this function does not check for duplicate loop closures!)
-  */
-  void addPrivateLoopClosure(const RelativeSEMeasurement &factor);
-  /**
-  Add a shared loop closure between this robot and another
-  (Warning: this function does not check for duplicate loop closures!)
-  */
-  void addSharedLoopClosure(const RelativeSEMeasurement &factor);
-  /**
-   * @brief initialize local trajectory estimate
+   * @brief Reset variables used in Nesterov acceleration
    */
-  void localInitialization();
+  void initializeAcceleration();
   /**
-  Optimize pose graph by calling optimize().
-  This function will run in a separate thread.
-  */
+   * @brief initialize local trajectory estimate in an arbitrary local frame
+   */
+  void initializeLocalTrajectory();
+  /**
+   * @brief Spawn a separate thread that optimizes the local pose graph in a loop
+   */
   void runOptimizationLoop();
   /**
    * @brief Return true if should update loop closure weights
@@ -676,13 +674,6 @@ class PGOAgent {
    * @return
    */
   Pose computeNeighborTransform(const RelativeSEMeasurement &measurement, const LiftedPose &neighbor_pose);
-  /**
-   * @brief Return True is the given measurement is already present
-   * @param m
-   * @param measurements
-   * @return
-   */
-   static bool isDuplicateMeasurement(const RelativeSEMeasurement &m, const vector<RelativeSEMeasurement> &measurements);
 };
 
 }  // namespace DPGO

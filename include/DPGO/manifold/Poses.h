@@ -92,7 +92,14 @@ class LiftedPoseArray {
    * @return
    */
   Vector translation(unsigned int index) const;
-
+  /**
+   * @brief Compute the average translation distance between two lifted pose arrays
+   * Internally check that both arrays should have same dimension and number of poses
+   * @param poses1
+   * @param poses2
+   * @return
+   */
+  static double averageTranslationDistance(const LiftedPoseArray &poses1, const LiftedPoseArray &poses2);
  protected:
   // Dimension constants
   unsigned r_, d_, n_;

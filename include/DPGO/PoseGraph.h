@@ -9,9 +9,12 @@
 #define DPGO_INCLUDE_DPGO_POSEGRAPH_H_
 
 #include "DPGO_types.h"
+#include "DPGO_utils.h"
 #include "manifold/Poses.h"
 #include "RelativeSEMeasurement.h"
+#include <glog/logging.h>
 #include <set>
+#include <memory>
 
 namespace DPGO {
 
@@ -53,36 +56,55 @@ class PoseGraph {
    */
   unsigned int n() const { return n_; }
   /**
-   * @brief Clear all contents in the pose graph
+   * @brief Return number of odometry edges
+   * @return
+   */
+  unsigned int numOdometry() const { return odometry_.size(); }
+  /**
+   * @brief Return number of private loop closures;
+   * @return
+   */
+  unsigned int numPrivateLoopClosures() const { return private_lcs_.size(); }
+  /**
+   * @brief Return number of shared loop closures
+   * @return
+   */
+  unsigned int numSharedLoopClosures() const { return shared_lcs_.size(); }
+  /**
+   * @brief Clear all contents and reset this pose graph to be empty
    */
   void clear();
+  /**
+   * @brief Clear all cached neighbor poses 
+   */
+  void clearNeighborPoses();
   /**
    * @brief Set measurements for this pose graph
    * @param measurements
    */
   void setMeasurements(const std::vector<RelativeSEMeasurement> &measurements);
   /**
-   * @brief Add a single measurement to this pose graph
+   * @brief Add a single measurement to this pose graph. Ignored if the input measurement already exists.
    * @param m
    */
-  void addMeasurement(const RelativeSEMeasurement& m);
+  void addMeasurement(const RelativeSEMeasurement &m);
   /**
-   * @brief Add odometry edge
+   * @brief Add odometry edge. Ignored if the input measurement already exists.
    * @param factor
    */
   void addOdometry(const RelativeSEMeasurement &factor);
   /**
-   * @brief Add private loop closure
+   * @brief Add private loop closure. Ignored if the input measurement already exists.
    * @param factor
    */
   void addPrivateLoopClosure(const RelativeSEMeasurement &factor);
   /**
-   * @brief Add shared loop closure
+   * @brief Add shared loop closure. Ignored if the input measurement already exists.
    * @param factor
    */
   void addSharedLoopClosure(const RelativeSEMeasurement &factor);
   /**
-   * @brief Return all odometry measurements
+   * @brief Return a writable reference to the list of odometry edges
    * @return
    */
   std::vector<RelativeSEMeasurement> &odometry() { return odometry_; }
@@ -103,15 +125,6 @@ class PoseGraph {
    */
   std::vector<RelativeSEMeasurement> sharedLoopClosuresWithRobot(unsigned neighbor_id) const;
   /**
-   * @brief Find and return the specified shared measurement
-   * @param srcRobotID
-   * @param srcPoseID
-   * @param dstRobotID
-   * @param dstPoseID
-   * @return
-   */
-  RelativeSEMeasurement &findSharedLoopClosure(const PoseID &srcID, const PoseID &dstID);
-  /**
    * @brief Return a vector of all measurements
    * @return
    */
@@ -127,32 +140,49 @@ class PoseGraph {
    */
   void setNeighborPoses(const PoseDict &pose_dict);
   /**
-   * @brief Initialize for optimization
+   * @brief Get quadratic cost matrix.
    * @return
    */
-  bool initialize();
+  const SparseMatrix &quadraticMatrix();
   /**
-   * @brief Return true if the graph is ready for optimization
-   * @return
+   * @brief Clear the quadratic cost matrix
    */
-  bool isInitialized() const { return initialized_; }
-  /**
-   * @brief Get quadratic cost matrix. Pose graph must be initialized.
-   * @return
-   */
-  SparseMatrix quadraticMatrix() const {
-    if (!isInitialized())
-      throw std::runtime_error("Attempt to get quadratic matrix from uninitialized pose graph.");
-    return Q_;
+  void clearQuadraticMatrix() {
+    Q_.reset();
+    precon_.reset();  // Also clear the preconditioner since it depends on Q
   }
   /**
-   * @brief Get linear cost matrix. Pose graph must be initialized.
+   * @brief Get linear cost matrix.
    * @return
    */
-  SparseMatrix linearMatrix() const {
-    if (!isInitialized())
-      throw std::runtime_error("Attempt to get quadratic matrix from uninitialized pose graph.");
-    return G_;
+  const Matrix &linearMatrix();
+  /**
+   * @brief Clear the linear cost matrix
+   */
+  void clearLinearMatrix() {
+    G_.reset();
+  }
+  /**
+   * @brief Construct data matrices that are needed for optimization, if they do not yet exist
+   * @return true if construction is successful
+   */
+  bool constructDataMatrices();
+  /**
+   * @brief Clear data matrices
+   */
+  void clearDataMatrices() {
+    clearQuadraticMatrix();
+    clearLinearMatrix();
+  }
+  /**
+   * @brief Get preconditioner
+   * @return
+   */
+  const CholmodSolverPtr &preconditioner() {
+    if (!precon_.has_value())
+      constructPreconditioner();
+    CHECK(precon_.has_value());
+    return precon_.value();
   }
   /**
    * @brief Get the set of my pose IDs that are shared with other robots
@@ -186,13 +216,21 @@ class PoseGraph {
    * @return
    */
   bool hasNeighborPose(const PoseID &pose_id) const;
-
-
   /**
    * @brief Compute statistics for the current pose graph
    * @return
    */
   Statistics statistics() const;
+  /**
+   * @brief Find and return the specified measurement from a vector of measurements
+   * @param measurements
+   * @param srcID
+   * @param dstID
+   * @return writable pointer to the desired measurement (nullptr if measurement does not exists)
+   */
+  static RelativeSEMeasurement *findMeasurement(std::vector<RelativeSEMeasurement> &measurements,
+                                                const PoseID &srcID,
+                                                const PoseID &dstID);
 
  protected:
 
@@ -201,9 +239,6 @@ class PoseGraph {
 
   // Problem dimensions
   unsigned int r_, d_, n_;
-
-  // Ready for optimization
-  bool initialized_;
 
   // Store odometry measurement of this robot
   std::vector<RelativeSEMeasurement> odometry_;
@@ -227,10 +262,20 @@ class PoseGraph {
   PoseDict neighbor_poses_;
 
   // Quadratic matrix in cost function
-  SparseMatrix Q_;
+  std::optional<SparseMatrix> Q_;
 
   // Linear matrix in cost function
-  SparseMatrix G_;
+  std::optional<Matrix> G_;
+
+  // Preconditioner
+  std::optional<CholmodSolverPtr> precon_;
+
+  // Timing
+  SimpleTimer timer_;
+  double ms_construct_Q_{};
+  double ms_construct_G_{};
+  double ms_construct_precon_{};
+
   /**
    * @brief Construct the quadratic cost matrix
    * @return
@@ -241,7 +286,11 @@ class PoseGraph {
    * @return
    */
   bool constructG();
-
+  /**
+   * @brief Construct the preconditioner for this graph
+   * @return
+   */
+  bool constructPreconditioner();
 };
 
 }

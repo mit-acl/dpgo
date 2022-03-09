@@ -25,7 +25,7 @@ using namespace DPGO;
 #include <stdexcept> // std::runtime_error
 #include <sstream> // std::stringstream
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
   /**
   ###########################################
   Parse input dataset
@@ -58,7 +58,7 @@ int main(int argc, char** argv) {
   vector<RelativeSEMeasurement> odometry;
   vector<RelativeSEMeasurement> private_loop_closures;
   vector<RelativeSEMeasurement> shared_loop_closure;
-  for (const auto& mIn : dataset) {
+  for (const auto &mIn : dataset) {
     unsigned srcIdx = mIn.p1;
     unsigned dstIdx = mIn.p2;
 
@@ -85,9 +85,11 @@ int main(int argc, char** argv) {
   ###########################################
   */
 
-  auto* agent = new PGOAgent(0, options);
-  agent->setPoseGraph(odometry, private_loop_closures,
-                      shared_loop_closure);
+  auto *agent = new PGOAgent(0, options);
+  agent->setMeasurements(odometry,
+                         private_loop_closures,
+                         shared_loop_closure);
+  agent->initializeOptimization();
 
   /**
   ###########################################

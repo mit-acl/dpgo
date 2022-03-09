@@ -13,11 +13,39 @@
 
 #include <Eigen/Dense>
 #include <Eigen/SVD>
+#include <chrono>
 
 // ROPTLIB includes
 #include "Manifolds/Stiefel/Stiefel.h"
 
 namespace DPGO {
+
+class SimpleTimer {
+ public:
+  /**
+   * @brief Start timer
+   */
+  void tic();
+  /**
+   * @brief Return elapsed time since last tic in ms
+   * @return
+   */
+  double toc();
+  /**
+   * @brief Start timer and return starting time
+   * @return
+   */
+  static std::chrono::time_point<std::chrono::high_resolution_clock> Tic();
+  /**
+   * @brief Return time elapsed since input start_time
+   * @param start_time
+   * @return elapsed time in ms
+   */
+  static double Toc(const std::chrono::time_point<std::chrono::high_resolution_clock> &start_time);
+ private:
+  std::chrono::time_point<std::chrono::high_resolution_clock> t_start, t_end;
+};
+
 /**
  * @brief Write a dense Eigen matrix to file
  * @param M

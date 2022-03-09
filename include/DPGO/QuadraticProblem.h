@@ -33,15 +33,6 @@ namespace DPGO {
 class QuadraticProblem : public ROPTLIB::Problem {
  public:
   /**
-   * @brief Construct a quadratic optimization problem by directly supplying the cost matrices
-   * @param nIn
-   * @param dIn
-   * @param rIn
-   * @param Q
-   * @param G
-   */
-  [[deprecated]] QuadraticProblem(size_t nIn, size_t dIn, size_t rIn, const SparseMatrix &Q, const SparseMatrix &G);
-  /**
    * @brief Construct a quadratic optimization problem from a pose graph
    * @param pose_graph input pose graph must be initialized (or can be initialized) otherwise throw an runtime error
    */
@@ -50,13 +41,13 @@ class QuadraticProblem : public ROPTLIB::Problem {
   ~QuadraticProblem() override;
 
   /** Number of pose variables */
-  unsigned int num_poses() const { return n; }
+  unsigned int num_poses() const { return pose_graph_->n(); }
 
   /** Dimension (2 or 3) of estimation problem */
-  unsigned int dimension() const { return d; }
+  unsigned int dimension() const { return pose_graph_->d(); }
 
   /** Relaxation rank in Riemannian optimization problem */
-  unsigned int relaxation_rank() const { return r; }
+  unsigned int relaxation_rank() const { return pose_graph_->r(); }
 
   /**
    * @brief Evaluate objective function
@@ -111,35 +102,12 @@ class QuadraticProblem : public ROPTLIB::Problem {
    */
   double RieGradNorm(const Matrix &Y) const;
 
-  /**
-   * @brief Construct preconditioner
-   */
-  void constructPreconditioner();
-
  private:
-  // Number of poses
-  const size_t n = 0;
-
-  // Dimensionality of the Euclidean space
-  const size_t d = 0;
-
-  // The rank of the rank-restricted relaxation
-  const size_t r = 0;
-
-  /** The quadratic component of the cost function */
-  SparseMatrix mQ;
-
-  /** The linear component of the cost function */
-  SparseMatrix mG;
-
   // The pose graph that represents the optimization problem
   std::shared_ptr<PoseGraph> pose_graph_;
 
-  // ROPTLIB objects
+  // Underlying manifold
   LiftedSEManifold *M;
-
-  // Preconditioning solver
-  Eigen::CholmodDecomposition<SparseMatrix> solver;
 
   // Helper functions to convert between ROPTLIB::Element and Eigen Matrix
   Matrix readElement(const ROPTLIB::Element *element) const;
