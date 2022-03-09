@@ -18,6 +18,12 @@ PoseGraph::PoseGraph(unsigned int id, unsigned int r, unsigned int d)
 }
 
 void PoseGraph::clear() {
+  clearMeasurements();
+  clearNeighborPoses();
+  clearDataMatrices();
+}
+
+void PoseGraph::clearMeasurements() {
   n_ = 0;
   odometry_.clear();
   private_lcs_.clear();
@@ -25,8 +31,10 @@ void PoseGraph::clear() {
   local_shared_pose_ids_.clear();
   nbr_shared_pose_ids_.clear();
   nbr_robot_ids_.clear();
+}
+
+void PoseGraph::clearNeighborPoses() {
   neighbor_poses_.clear();
-  clearDataMatrices();
 }
 
 void PoseGraph::setMeasurements(const std::vector<RelativeSEMeasurement> &measurements) {

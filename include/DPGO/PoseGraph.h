@@ -75,6 +75,14 @@ class PoseGraph {
    */
   void clear();
   /**
+   * @brief Clear all measurements in the pose graph
+   */
+  void clearMeasurements(); 
+  /**
+   * @brief Clear all cached neighbor poses 
+   */
+  void clearNeighborPoses();
+  /**
    * @brief Set measurements for this pose graph
    * @param measurements
    */
