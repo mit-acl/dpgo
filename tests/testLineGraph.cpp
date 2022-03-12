@@ -25,7 +25,7 @@ TEST(testDPGO, LineGraph) {
   agent.setMeasurements(odometry,
                         private_loop_closures,
                         shared_loop_closures);
-  agent.initializeOptimization();
+  agent.initialize();
   agent.iterate();
 
   ASSERT_EQ(agent.getID(), id);

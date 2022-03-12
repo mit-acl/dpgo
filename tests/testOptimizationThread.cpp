@@ -73,7 +73,7 @@ TEST(testDPGO, OptimizationThreadTriangleGraph) {
   agent.setMeasurements(odometry,
                         private_loop_closures,
                         shared_loop_closures);
-  agent.initializeOptimization();
+  agent.initialize();
 
   Matrix Testimated;
   agent.getTrajectoryInLocalFrame(Testimated);

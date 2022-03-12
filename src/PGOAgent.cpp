@@ -143,8 +143,9 @@ void PGOAgent::setMeasurements(
   mPoseGraph->setMeasurements(measurements);
 }
 
-void PGOAgent::initializeOptimization(const PoseArray *TInitPtr) {
+void PGOAgent::initialize(const PoseArray *TInitPtr) {
   CHECK_EQ(mState, PGOAgentState::WAIT_FOR_DATA);
+  CHECK(!mOptimizationThread) << "Optimization thread should not be running at initialization!";
 
   // Do nothing if local pose graph is empty
   if (mPoseGraph->n() == 0) {
@@ -174,20 +175,10 @@ void PGOAgent::initializeOptimization(const PoseArray *TInitPtr) {
   // Waiting for initialization in the GLOBAL frame
   mState = PGOAgentState::WAIT_FOR_INITIALIZATION;
 
-  // If I am the first robot or if cross-robot initialization is off,
-  // I will consider myself as initialized in the global frame
+  // If this robot has ID zero or if cross-robot initialization is off
+  // We can initialize iterate in the global frame
   if (mID == 0 || !mParams.multirobot_initialization) {
-    X.setData(YLift.value() * TLocalInit.value().getData());  // Lift to correct relaxation rank
-    XInit.emplace(X);
-    mState = PGOAgentState::INITIALIZED;
-    if (mParams.acceleration) {
-      initializeAcceleration();
-    }
-
-    // Save initial trajectory
-    if (mParams.logData) {
-      mLogger.logTrajectory(dimension(), num_poses(), TLocalInit.value().getData(), "trajectory_initial.csv");
-    }
+    initializeInGlobalFrame(Pose(d));
   }
 }
 
@@ -364,9 +355,9 @@ void PGOAgent::initializeInGlobalFrame(const Pose &T_world_robot) {
 
   // Change state for this agent
   if (mState == PGOAgentState::INITIALIZED) {
-    LOG(INFO) << "Robot " << getID() << " re-initializes in global frame!";
+    LOG_IF(INFO, mParams.verbose) << "Robot " << getID() << " re-initializes in global frame!";
   } else {
-    LOG(INFO) << "Robot " << getID() << " initializes in global frame!";
+    LOG_IF(INFO, mParams.verbose) << "Robot " << getID() << " initializes in global frame!";
     mState = PGOAgentState::INITIALIZED;
   }
 
@@ -587,14 +578,12 @@ void PGOAgent::reset() {
 
 void PGOAgent::iterate(bool doOptimization) {
   mIterationNumber++;
-
-  // Save early stopped solution
-  if (mIterationNumber == 50 && mParams.logData) {
-    Matrix T;
-    if (getTrajectoryInGlobalFrame(T)) {
-      mLogger.logTrajectory(dimension(), num_poses(), T, "trajectory_early_stop.csv");
-    }
-  }
+  // lock pose update
+  unique_lock<mutex> tLock(mPosesMutex);
+  // lock measurements
+  unique_lock<mutex> mLock(mMeasurementsMutex);
+  // lock neighbor pose update
+  unique_lock<mutex> nLock(mNeighborPosesMutex);
 
   // Update measurement weights (GNC)
   if (shouldUpdateLoopClosureWeights()) {
@@ -618,15 +607,6 @@ void PGOAgent::iterate(bool doOptimization) {
     // Save current iterate
     XPrev = X;
 
-    // lock pose update
-    unique_lock<mutex> tLock(mPosesMutex);
-
-    // lock measurements
-    unique_lock<mutex> mLock(mMeasurementsMutex);
-
-    // lock neighbor pose update
-    unique_lock<mutex> lock(mNeighborPosesMutex);
-
     bool success;
     if (mParams.acceleration) {
       updateGamma();
@@ -641,9 +621,8 @@ void PGOAgent::iterate(bool doOptimization) {
       mPublishPublicPosesRequested = true;
     } else {
       success = updateX(doOptimization, false);
-      if (doOptimization) {
+      if (doOptimization)
         mPublishPublicPosesRequested = true;
-      }
     }
 
     // Update status after local optimization step

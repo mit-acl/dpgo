@@ -89,7 +89,7 @@ int main(int argc, char **argv) {
   agent->setMeasurements(odometry,
                          private_loop_closures,
                          shared_loop_closure);
-  agent->initializeOptimization();
+  agent->initialize();
 
   /**
   ###########################################

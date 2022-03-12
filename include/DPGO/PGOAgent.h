@@ -247,7 +247,7 @@ class PGOAgent {
    * of the provided initial guess does not match what is expected, this initial guess will be ignored and this function
    * will perform initialization on its own.
    */
-  void initializeOptimization(const PoseArray *TInitPtr = nullptr);
+  void initialize(const PoseArray *TInitPtr = nullptr);
 
   /**
    * @brief perform a single iteration
@@ -458,30 +458,6 @@ class PGOAgent {
   Set the global anchor
   */
   void setGlobalAnchor(const Matrix &M);
-  /**
-   * @brief Compute a robust relative transform estimate between this robot and neighbor robot, using a two-stage method
-   * which first perform robust single rotation averaging, and then performs translation averaging on the inlier set.
-   * @param neighborID
-   * @param poseDict
-   * @param T_world_robot output transformation from current local (robot) frame to world frame
-   * @return true if transformation is computed successfully
-   */
-  bool computeRobustNeighborTransformTwoStage(unsigned neighborID, const PoseDict &poseDict, Pose *T_world_robot);
-
-  /**
-   * @brief Compute a robust relative transform estimate between this robot and neighbor robot, by solving a robust single
-   * pose averaging problem using GNC.
-   * @param neighborID
-   * @param poseDict
-   * @param T_world_robot output transformation from current local (robot) frame to world frame
-   * @return true if transformation is computed successfully
-   */
-  bool computeRobustNeighborTransform(unsigned neighborID, const PoseDict &poseDict, Pose *T_world_robot);
-  /**
-   * @brief Initialize this robot's trajectory estimate in the global frame
-   * @param T_world_robot d+1 by d+1 transformation from robot (local) frame to the world frame
-   */
-  void initializeInGlobalFrame(const Pose &T_world_robot);
 
   /**
    * @brief Update local copy of a neighbor agent's pose
@@ -595,6 +571,29 @@ class PGOAgent {
    * @brief initialize local trajectory estimate in an arbitrary local frame
    */
   void initializeLocalTrajectory();
+  /**
+   * @brief Initialize this robot's trajectory estimate in the global frame
+   * @param T_world_robot d+1 by d+1 transformation from robot (local) frame to the world frame
+   */
+  void initializeInGlobalFrame(const Pose &T_world_robot);
+  /**
+   * @brief Compute a robust relative transform estimate between this robot and neighbor robot, using a two-stage method
+   * which first perform robust single rotation averaging, and then performs translation averaging on the inlier set.
+   * @param neighborID
+   * @param poseDict
+   * @param T_world_robot output transformation from current local (robot) frame to world frame
+   * @return true if transformation is computed successfully
+   */
+  bool computeRobustNeighborTransformTwoStage(unsigned neighborID, const PoseDict &poseDict, Pose *T_world_robot);
+  /**
+   * @brief Compute a robust relative transform estimate between this robot and neighbor robot, by solving a robust single
+   * pose averaging problem using GNC.
+   * @param neighborID
+   * @param poseDict
+   * @param T_world_robot output transformation from current local (robot) frame to world frame
+   * @return true if transformation is computed successfully
+   */
+  bool computeRobustNeighborTransform(unsigned neighborID, const PoseDict &poseDict, Pose *T_world_robot);
   /**
    * @brief Spawn a separate thread that optimizes the local pose graph in a loop
    */

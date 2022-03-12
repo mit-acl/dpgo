@@ -51,7 +51,7 @@ TEST(testDPGO, TriangleGraph) {
   agent.setMeasurements(odometry,
                         private_loop_closures,
                         shared_loop_closures);
-  agent.initializeOptimization();
+  agent.initialize();
 
   Matrix TLocal = agent.localPoseGraphOptimization();
   ASSERT_LE((Ttrue - TLocal).norm(), 1e-4);

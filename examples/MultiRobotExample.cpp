@@ -141,7 +141,7 @@ int main(int argc, char **argv) {
     agent->setMeasurements(odometry[robot],
                            private_loop_closures[robot],
                            shared_loop_closure[robot]);
-    agent->initializeOptimization();
+    agent->initialize();
     agents.push_back(agent);
   }
 
