@@ -214,17 +214,6 @@ class PGOAgent {
  public:
 
   /**
-   * @brief A struct that stores the initial transformation from robot's local frame to the global frame,
-   * The transformation is associated with a score that reflects the quality of the estimated transformation
-   */
-  struct InitializationResult {
-   public:
-    InitializationResult() : T_world_robot(3), score(0) {}
-    Pose T_world_robot;    // A transformation in SE(d)
-    double score;          // Score of this transformation (e.g., number of inliers in estimation)
-  };
-
-  /**
    * @brief Constructor
    * @param ID
    * @param params
@@ -474,18 +463,20 @@ class PGOAgent {
    * which first perform robust single rotation averaging, and then performs translation averaging on the inlier set.
    * @param neighborID
    * @param poseDict
-   * @return
+   * @param T_world_robot output transformation from current local (robot) frame to world frame
+   * @return true if transformation is computed successfully
    */
-  bool computeRobustNeighborTransformTwoStage(unsigned neighborID, const PoseDict &poseDict);
+  bool computeRobustNeighborTransformTwoStage(unsigned neighborID, const PoseDict &poseDict, Pose *T_world_robot);
 
   /**
    * @brief Compute a robust relative transform estimate between this robot and neighbor robot, by solving a robust single
    * pose averaging problem using GNC.
    * @param neighborID
    * @param poseDict
-   * @return
+   * @param T_world_robot output transformation from current local (robot) frame to world frame
+   * @return true if transformation is computed successfully
    */
-  bool computeRobustNeighborTransform(unsigned neighborID, const PoseDict &poseDict);
+  bool computeRobustNeighborTransform(unsigned neighborID, const PoseDict &poseDict, Pose *T_world_robot);
   /**
    * @brief Initialize this robot's trajectory estimate in the global frame
    * @param T_world_robot d+1 by d+1 transformation from robot (local) frame to the world frame
@@ -556,12 +547,6 @@ class PGOAgent {
   // Store status of peer agents
   std::unordered_map<unsigned, PGOAgentStatus> mTeamStatus;
 
-  // Store initialization computed based on different neighbors
-  std::unordered_map<unsigned, InitializationResult> mCandidateInitializations;
-
-  // Current initialization result in use
-  InitializationResult mCurrentInitialization;
-
   // Request to perform single local optimization step
   bool mOptimizationRequested = false;
 
@@ -623,15 +608,6 @@ class PGOAgent {
    * @brief Update loop closure weights.
    */
   void updateLoopClosuresWeights();
-
-  /**
-   * @brief Return true if this robot has a successful initialization with the specified robot
-   * @param robotID
-   * @return
-   */
-  bool hasInitializationWithRobot(unsigned robotID) {
-    return mCandidateInitializations.find(robotID) != mCandidateInitializations.end();
-  }
 
  private:
   // Stores the auxiliary variables from neighbors (only used in acceleration)

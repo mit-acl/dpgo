@@ -227,8 +227,8 @@ Pose PGOAgent::computeNeighborTransform(const RelativeSEMeasurement &measurement
 }
 
 bool PGOAgent::computeRobustNeighborTransformTwoStage(unsigned int neighborID,
-                                                      const PoseDict &poseDict) {
-  InitializationResult result;
+                                                      const PoseDict &poseDict,
+                                                      Pose *T_world_robot) {
   std::vector<Matrix> RVec;
   std::vector<Vector> tVec;
   // Populate candidate alignments
@@ -273,17 +273,16 @@ bool PGOAgent::computeRobustNeighborTransformTwoStage(unsigned int neighborID,
   singleTranslationAveraging(tOpt, tVecInliers);
 
   // Return transformation as matrix
-  result.T_world_robot = Pose::Identity(d);
-  result.T_world_robot.rotation() = ROpt;
-  result.T_world_robot.translation() = tOpt;
-  result.score = inlierSize;
-  mCandidateInitializations[neighborID] = result;
+  CHECK_NOTNULL(T_world_robot);
+  CHECK_EQ(T_world_robot->d(), dimension());
+  T_world_robot->rotation() = ROpt;
+  T_world_robot->translation() = tOpt;
   return true;
 }
 
 bool PGOAgent::computeRobustNeighborTransform(unsigned int neighborID,
-                                              const PoseDict &poseDict) {
-  InitializationResult result;
+                                              const PoseDict &poseDict,
+                                              Pose *T_world_robot) {
   std::vector<Matrix> RVec;
   std::vector<Vector> tVec;
   // Populate candidate alignments
@@ -320,11 +319,10 @@ bool PGOAgent::computeRobustNeighborTransform(unsigned int neighborID,
   if (inlierIndices.size() < mParams.robustInitMinInliers) return false;
 
   // Return transformation as matrix
-  result.T_world_robot = Pose::Identity(d);
-  result.T_world_robot.rotation() = ROpt;
-  result.T_world_robot.translation() = tOpt;
-  result.score = inlierSize;
-  mCandidateInitializations[neighborID] = result;
+  CHECK_NOTNULL(T_world_robot);
+  CHECK_EQ(T_world_robot->d(), dimension());
+  T_world_robot->rotation() = ROpt;
+  T_world_robot->translation() = tOpt;
   return true;
 }
 
@@ -390,11 +388,9 @@ void PGOAgent::updateNeighborPoses(unsigned neighborID, const PoseDict &poseDict
   if (!hasNeighborStatus(neighborID)) return;
   const auto neighborState = getNeighborStatus(neighborID).state;
   if (mState == PGOAgentState::WAIT_FOR_INITIALIZATION) {
-    if (computeRobustNeighborTransformTwoStage(neighborID, poseDict)) {
-      auto result = mCandidateInitializations.at(neighborID);
-      // Initialize this robot in the global frame if this robot is not yet initialized
-      mCurrentInitialization = result;
-      initializeInGlobalFrame(result.T_world_robot);
+    Pose T_world_robot(dimension());
+    if (computeRobustNeighborTransformTwoStage(neighborID, poseDict, &T_world_robot)) {
+      initializeInGlobalFrame(T_world_robot);
     }
   }
   // Save neighbor public poses in local cache
@@ -575,8 +571,6 @@ void PGOAgent::reset() {
   neighborPoseDict.clear();
   neighborAuxPoseDict.clear();
   mTeamStatus.clear();
-  mCandidateInitializations.clear();
-  mCurrentInitialization = PGOAgent::InitializationResult();
 
   mRobustCost.reset();
   globalAnchor.reset();
