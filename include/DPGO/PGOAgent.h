@@ -613,11 +613,19 @@ class PGOAgent {
    * @brief Return true if should update loop closure weights
    * @return bool
    */
-  bool shouldUpdateLoopClosureWeights() const;
+  bool shouldUpdateMeasurementWeights() const;
   /**
    * @brief Update loop closure weights.
    */
-  void updateLoopClosuresWeights();
+  void updateMeasurementWeights();
+  /**
+   * @brief Set weight for a public measurement.
+   * @param src_ID
+   * @param dst_ID
+   * @param weight
+   * @return false if the specified public measurement does not exist
+   */
+  bool setPublicMeasurementWeight(const PoseID &src_ID, const PoseID &dst_ID, double weight);
 
  private:
   // Stores the auxiliary variables from neighbors (only used in acceleration)

@@ -194,8 +194,8 @@ void PGOAgent::iterate(bool doOptimization) {
   unique_lock<mutex> nLock(mNeighborPosesMutex);
 
   // Update measurement weights (GNC)
-  if (shouldUpdateLoopClosureWeights()) {
-    updateLoopClosuresWeights();
+  if (shouldUpdateMeasurementWeights()) {
+    updateMeasurementWeights();
     mRobustCost.update();
     // If warm start is disabled, reset trajectory estimate to initial guess
     if (!mParams.robustOptWarmStart) {
@@ -896,14 +896,14 @@ bool PGOAgent::updateX(bool doOptimization, bool acceleration) {
   return true;
 }
 
-bool PGOAgent::shouldUpdateLoopClosureWeights() const {
+bool PGOAgent::shouldUpdateMeasurementWeights() const {
   // No need to update weight if using L2 cost
   if (mParams.robustCostParams.costType == RobustCostParameters::Type::L2) return false;
 
   return ((mIterationNumber + 1) % mParams.robustOptInnerIters == 0);
 }
 
-void PGOAgent::updateLoopClosuresWeights() {
+void PGOAgent::updateMeasurementWeights() {
   CHECK(mState == PGOAgentState::INITIALIZED);
 
   // Since edge weights change, we need to recompute the data matrices associated with the local optimization problem
@@ -970,6 +970,16 @@ void PGOAgent::updateLoopClosuresWeights() {
     }
   }
   mPublishWeightsRequested = true;
+}
+
+bool PGOAgent::setPublicMeasurementWeight(const PoseID &src_ID, const PoseID &dst_ID, double weight) {
+  RelativeSEMeasurement *m = PoseGraph::findMeasurement(mPoseGraph->sharedLoopClosures(), src_ID, dst_ID);
+  if (m) {
+    unique_lock<mutex> lock(mMeasurementsMutex);
+    m->weight = weight;
+    return true;
+  }
+  return false;
 }
 
 }  // namespace DPGO
