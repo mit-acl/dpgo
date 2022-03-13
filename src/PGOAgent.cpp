@@ -189,9 +189,6 @@ void PGOAgent::initialize(const PoseArray *TInitPtr) {
 
 void PGOAgent::iterate(bool doOptimization) {
   mIterationNumber++;
-  unique_lock<mutex> tLock(mPosesMutex);
-  unique_lock<mutex> mLock(mMeasurementsMutex);
-  unique_lock<mutex> nLock(mNeighborPosesMutex);
 
   // Update measurement weights (GNC)
   if (shouldUpdateMeasurementWeights()) {
@@ -200,21 +197,20 @@ void PGOAgent::iterate(bool doOptimization) {
     // If warm start is disabled, reset trajectory estimate to initial guess
     if (!mParams.robustOptWarmStart) {
       CHECK(XInit);
+      LOG(INFO) << "Warm start is disabled. Robot " << getID() << " resets trajectory estimates.";
+      unique_lock<mutex> tLock(mPosesMutex);
       X = XInit.value();
-      printf("Warm start is disabled. Robot %u resets trajectory estimates.\n", getID());
     }
     // Reset acceleration
     if (mParams.acceleration) {
       initializeAcceleration();
     }
-
   }
 
   // Perform iteration
   if (mState == PGOAgentState::INITIALIZED) {
     // Save current iterate
     XPrev = X;
-
     bool success;
     if (mParams.acceleration) {
       updateGamma();
@@ -223,9 +219,8 @@ void PGOAgent::iterate(bool doOptimization) {
       success = updateX(doOptimization, true);
       updateV();
       // Check restart condition
-      if (shouldRestart()) {
+      if (shouldRestart())
         restartNesterovAcceleration(doOptimization);
-      }
     } else {
       success = updateX(doOptimization, false);
     }
@@ -753,7 +748,7 @@ void PGOAgent::setGlobalAnchor(const Matrix &M) {
 bool PGOAgent::shouldTerminate() {
   // terminate if reached maximum iterations
   if (iteration_number() > mParams.maxNumIters) {
-    printf("Reached maximum iterations.\n");
+    LOG(INFO) << "Reached maximum iterations.";
     return true;
   }
 
@@ -785,9 +780,7 @@ bool PGOAgent::shouldRestart() const {
 
 void PGOAgent::restartNesterovAcceleration(bool doOptimization) {
   if (mParams.acceleration && mState == PGOAgentState::INITIALIZED) {
-    if (mParams.verbose) {
-      printf("Robot %u restarts Nesteorv acceleration.\n", getID());
-    }
+    LOG_IF(INFO, mParams.verbose) << "Robot " << getID() << " restarts acceleration.";
     X = XPrev;
     updateX(doOptimization, false);
     V = X;
@@ -837,6 +830,10 @@ void PGOAgent::updateV() {
 }
 
 bool PGOAgent::updateX(bool doOptimization, bool acceleration) {
+  // Lock during local optimization
+  unique_lock<mutex> tLock(mPosesMutex);
+  unique_lock<mutex> mLock(mMeasurementsMutex);
+  unique_lock<mutex> nLock(mNeighborPosesMutex);
   if (!doOptimization) {
     if (acceleration) {
       X = Y;
@@ -905,6 +902,7 @@ bool PGOAgent::shouldUpdateMeasurementWeights() const {
 
 void PGOAgent::updateMeasurementWeights() {
   CHECK(mState == PGOAgentState::INITIALIZED);
+  unique_lock<mutex> lock(mMeasurementsMutex);
 
   // Since edge weights change, we need to recompute the data matrices associated with the local optimization problem
   mPoseGraph->clearDataMatrices();
