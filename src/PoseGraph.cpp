@@ -317,8 +317,8 @@ bool PoseGraph::constructG() {
       const PoseID nID(m.r2, m.p2);
       auto pair = neighbor_poses_.find(nID);
       if (pair == neighbor_poses_.end()) {
-        printf("constructGMatrix: robot %u cannot find neighbor pose (%u, %u)\n",
-               id_, nID.robot_id, nID.frame_id);
+        LOG(WARNING) << "Robot " << id_ << " cannot find neighbor pose "
+                     << nID.robot_id << ", " << nID.frame_id;
         return false;
       }
       Matrix Xj = pair->second.pose();
@@ -335,8 +335,8 @@ bool PoseGraph::constructG() {
       const PoseID nID(m.r1, m.p1);
       auto pair = neighbor_poses_.find(nID);
       if (pair == neighbor_poses_.end()) {
-        printf("constructGMatrix: robot %u cannot find neighbor pose (%u, %u)\n",
-               id_, nID.robot_id, nID.frame_id);
+        LOG(WARNING) << "Robot " << id_ << " cannot find neighbor pose "
+                     << nID.robot_id << ", " << nID.frame_id;
         return false;
       }
       Matrix Xi = pair->second.pose();

@@ -32,7 +32,7 @@ PGOAgent::PGOAgent(unsigned ID, const PGOAgentParameters &params)
       mStatus(ID, mState, 0, 0, false, 0),
       mRobustCost(params.robustCostParams),
       mPoseGraph(std::make_shared<PoseGraph>(mID, r, d)),
-      mRate(10), mInstanceNumber(0), mIterationNumber(0), mNumPosesReceived(0),
+      mInstanceNumber(0), mIterationNumber(0), mNumPosesReceived(0),
       mLogger(params.logDirectory),
       gamma(0), alpha(0), Y(X), V(X), XPrev(X) {
   if (mParams.verbose) {
@@ -145,7 +145,8 @@ void PGOAgent::setMeasurements(
 
 void PGOAgent::initialize(const PoseArray *TInitPtr) {
   CHECK_EQ(mState, PGOAgentState::WAIT_FOR_DATA);
-  CHECK(!mOptimizationThread) << "Optimization thread should not be running at initialization!";
+  // Optimization loop should not be running
+  endOptimizationLoop();
 
   // Do nothing if local pose graph is empty
   if (mPoseGraph->n() == 0) {
@@ -177,9 +178,171 @@ void PGOAgent::initialize(const PoseArray *TInitPtr) {
 
   // If this robot has ID zero or if cross-robot initialization is off
   // We can initialize iterate in the global frame
-  if (mID == 0 || !mParams.multirobot_initialization) {
+  if (mID == 0 || !mParams.multirobotInitialization) {
     initializeInGlobalFrame(Pose(d));
   }
+
+  // Start optimization thread in asynchronous mode
+  if (mParams.asynchronous)
+    startOptimizationLoop();
+}
+
+void PGOAgent::iterate(bool doOptimization) {
+  mIterationNumber++;
+  unique_lock<mutex> tLock(mPosesMutex);
+  unique_lock<mutex> mLock(mMeasurementsMutex);
+  unique_lock<mutex> nLock(mNeighborPosesMutex);
+
+  // Update measurement weights (GNC)
+  if (shouldUpdateLoopClosureWeights()) {
+    updateLoopClosuresWeights();
+    mRobustCost.update();
+    // If warm start is disabled, reset trajectory estimate to initial guess
+    if (!mParams.robustOptWarmStart) {
+      CHECK(XInit);
+      X = XInit.value();
+      printf("Warm start is disabled. Robot %u resets trajectory estimates.\n", getID());
+    }
+    // Reset acceleration
+    if (mParams.acceleration) {
+      initializeAcceleration();
+    }
+
+  }
+
+  // Perform iteration
+  if (mState == PGOAgentState::INITIALIZED) {
+    // Save current iterate
+    XPrev = X;
+
+    bool success;
+    if (mParams.acceleration) {
+      updateGamma();
+      updateAlpha();
+      updateY();
+      success = updateX(doOptimization, true);
+      updateV();
+      // Check restart condition
+      if (shouldRestart()) {
+        restartNesterovAcceleration(doOptimization);
+      }
+    } else {
+      success = updateX(doOptimization, false);
+    }
+
+    // Update status after local optimization step
+    if (doOptimization) {
+      mStatus.agentID = getID();
+      mStatus.state = mState;
+      mStatus.instanceNumber = instance_number();
+      mStatus.iterationNumber = iteration_number();
+      mStatus.relativeChange = LiftedPoseArray::averageTranslationDistance(X, XPrev);
+      // Check local termination condition
+      bool readyToTerminate = true;
+      if (!success) readyToTerminate = false;
+      if (mStatus.relativeChange > mParams.relChangeTol) readyToTerminate = false;
+      // Compute percentage of converged loop closures (i.e., either accepted or rejected)
+      const auto stat = mPoseGraph->statistics();
+      double ratio = (stat.accept_loop_closures + stat.reject_loop_closures) / stat.total_loop_closures;
+      if (mParams.verbose) {
+        printf("Robot %u :\n "
+               "accepted loop closures: %f\n "
+               "rejected loop closures: %f\n "
+               "undecided loop closures: %f\n",
+               mID,
+               stat.accept_loop_closures,
+               stat.reject_loop_closures,
+               stat.total_loop_closures - stat.reject_loop_closures - stat.accept_loop_closures);
+      }
+      if (ratio < mParams.robustOptMinConvergenceRatio) readyToTerminate = false;
+      mStatus.readyToTerminate = readyToTerminate;
+    }
+
+    // Request to publish public poses
+    if (doOptimization || mParams.acceleration)
+      mPublishPublicPosesRequested = true;
+
+    mPublishAsynchronousRequested = true;
+  }
+}
+
+void PGOAgent::reset() {
+  // Terminate optimization thread if running
+  endOptimizationLoop();
+
+  if (mParams.logData) {
+    // Save measurements (including final weights)
+    std::vector<RelativeSEMeasurement> measurements = mPoseGraph->measurements();
+    mLogger.logMeasurements(measurements, "measurements.csv");
+
+    // Save trajectory estimates after rounding
+    Matrix T;
+    if (getTrajectoryInGlobalFrame(T)) {
+      mLogger.logTrajectory(dimension(), num_poses(), T, "trajectory_optimized.csv");
+      std::cout << "Saved optimized trajectory to " << mParams.logDirectory << std::endl;
+    }
+
+    // Save solution before rounding
+    writeMatrixToFile(X.getData(), mParams.logDirectory + "X.txt");
+  }
+
+  mInstanceNumber++;
+  mIterationNumber = 0;
+  mNumPosesReceived = 0;
+  mState = PGOAgentState::WAIT_FOR_DATA;
+  mStatus = PGOAgentStatus(getID(), mState, mInstanceNumber, mIterationNumber, false, 0);
+  neighborPoseDict.clear();
+  neighborAuxPoseDict.clear();
+  mTeamStatus.clear();
+  mRobustCost.reset();
+  globalAnchor.reset();
+  TLocalInit.reset();
+  XInit.reset();
+  mPublishPublicPosesRequested = false;
+  mPublishWeightsRequested = false;
+  mPublishAsynchronousRequested = false;
+  X = LiftedPoseArray(r, d, 1);
+  mPoseGraph = std::make_shared<PoseGraph>(mID, r, d);
+}
+
+void PGOAgent::startOptimizationLoop() {
+  // Asynchronous updates currently restricted to non-accelerated updates
+  CHECK(!mParams.acceleration) << "Asynchronous mode does not support acceleration!";
+  if (isOptimizationRunning()) {
+    return;
+  }
+  LOG_IF(INFO, mParams.verbose) << "Robot " << getID()
+                                << " spins optimization thread at " << mParams.asynchronousOptimizationRate << " Hz.";
+  mOptimizationThread = std::make_unique<thread>(&PGOAgent::runOptimizationLoop, this);
+}
+
+void PGOAgent::runOptimizationLoop() {
+  // Create exponential distribution with the desired rate
+  std::random_device rd;  // Will be used to obtain a seed for the random number engine
+  std::mt19937 rng(rd());  // Standard mersenne_twister_engine seeded with rd()
+  std::exponential_distribution<double> ExponentialDistribution(mParams.asynchronousOptimizationRate);
+  while (true) {
+    iterate(true);
+    usleep(1e6 * ExponentialDistribution(rng));
+    // Check if finish requested
+    if (mEndLoopRequested) {
+      break;
+    }
+  }
+}
+
+void PGOAgent::endOptimizationLoop() {
+  if (!isOptimizationRunning()) return;
+  mEndLoopRequested = true;
+  // wait for thread to finish
+  mOptimizationThread->join();
+  mOptimizationThread.reset(nullptr);
+  mEndLoopRequested = false;  // reset request flag
+  LOG_IF(INFO, mParams.verbose) << "Robot " << getID() << " optimization thread exits.";
+}
+
+bool PGOAgent::isOptimizationRunning() {
+  return mOptimizationThread != nullptr;
 }
 
 Pose PGOAgent::computeNeighborTransform(const RelativeSEMeasurement &measurement, const LiftedPose &neighbor_pose) {
@@ -325,7 +488,7 @@ void PGOAgent::initializeInGlobalFrame(const Pose &T_world_robot) {
   // Halt optimization
   bool optimizationHalted = false;
   if (isOptimizationRunning()) {
-    LOG_IF(INFO, mParams.verbose) << "Robot " << getID() << "halting optimization thread...";
+    LOG_IF(INFO, mParams.verbose) << "Robot " << getID() << " halting optimization thread...";
     optimizationHalted = true;
     endOptimizationLoop();
   }
@@ -371,7 +534,7 @@ void PGOAgent::initializeInGlobalFrame(const Pose &T_world_robot) {
     mLogger.logTrajectory(dimension(), num_poses(), T.getData(), "trajectory_initial.csv");
   }
 
-  if (optimizationHalted) startOptimizationLoop(mRate);
+  if (optimizationHalted) startOptimizationLoop();
 }
 
 void PGOAgent::updateNeighborPoses(unsigned neighborID, const PoseDict &poseDict) {
@@ -529,191 +692,6 @@ std::vector<unsigned> PGOAgent::getNeighbors() const {
   std::vector<unsigned> v(neighborRobotIDs.size());
   std::copy(neighborRobotIDs.begin(), neighborRobotIDs.end(), v.begin());
   return v;
-}
-
-void PGOAgent::reset() {
-  // Terminate optimization thread if running
-  endOptimizationLoop();
-
-  if (mParams.logData) {
-    // Save measurements (including final weights)
-    std::vector<RelativeSEMeasurement> measurements = mPoseGraph->measurements();
-    mLogger.logMeasurements(measurements, "measurements.csv");
-
-    // Save trajectory estimates after rounding
-    Matrix T;
-    if (getTrajectoryInGlobalFrame(T)) {
-      mLogger.logTrajectory(dimension(), num_poses(), T, "trajectory_optimized.csv");
-      std::cout << "Saved optimized trajectory to " << mParams.logDirectory << std::endl;
-    }
-
-    // Save solution before rounding
-    writeMatrixToFile(X.getData(), mParams.logDirectory + "X.txt");
-  }
-
-  mInstanceNumber++;
-  mIterationNumber = 0;
-  mNumPosesReceived = 0;
-
-  // Assume that the old lifting matrix can still be used
-  mState = PGOAgentState::WAIT_FOR_DATA;
-  mStatus = PGOAgentStatus(getID(), mState, mInstanceNumber, mIterationNumber, false, 0);
-
-  neighborPoseDict.clear();
-  neighborAuxPoseDict.clear();
-  mTeamStatus.clear();
-
-  mRobustCost.reset();
-  globalAnchor.reset();
-  TLocalInit.reset();
-  XInit.reset();
-
-  mOptimizationRequested = false;
-  mPublishPublicPosesRequested = false;
-  mPublishWeightsRequested = false;
-
-  X = LiftedPoseArray(r, d, 1);
-  mPoseGraph = std::make_shared<PoseGraph>(mID, r, d);
-}
-
-void PGOAgent::iterate(bool doOptimization) {
-  mIterationNumber++;
-  // lock pose update
-  unique_lock<mutex> tLock(mPosesMutex);
-  // lock measurements
-  unique_lock<mutex> mLock(mMeasurementsMutex);
-  // lock neighbor pose update
-  unique_lock<mutex> nLock(mNeighborPosesMutex);
-
-  // Update measurement weights (GNC)
-  if (shouldUpdateLoopClosureWeights()) {
-    updateLoopClosuresWeights();
-    mRobustCost.update();
-    // If warm start is disabled, reset trajectory estimate to initial guess
-    if (!mParams.robustOptWarmStart) {
-      CHECK(XInit);
-      X = XInit.value();
-      printf("Warm start is disabled. Robot %u resets trajectory estimates.\n", getID());
-    }
-    // Reset acceleration
-    if (mParams.acceleration) {
-      initializeAcceleration();
-    }
-
-  }
-
-  // Perform iteration
-  if (mState == PGOAgentState::INITIALIZED) {
-    // Save current iterate
-    XPrev = X;
-
-    bool success;
-    if (mParams.acceleration) {
-      updateGamma();
-      updateAlpha();
-      updateY();
-      success = updateX(doOptimization, true);
-      updateV();
-      // Check restart condition
-      if (shouldRestart()) {
-        restartNesterovAcceleration(doOptimization);
-      }
-      mPublishPublicPosesRequested = true;
-    } else {
-      success = updateX(doOptimization, false);
-      if (doOptimization)
-        mPublishPublicPosesRequested = true;
-    }
-
-    // Update status after local optimization step
-    if (doOptimization) {
-      mStatus.agentID = getID();
-      mStatus.state = mState;
-      mStatus.instanceNumber = instance_number();
-      mStatus.iterationNumber = iteration_number();
-      mStatus.relativeChange = LiftedPoseArray::averageTranslationDistance(X, XPrev);
-      // Check local termination condition
-      bool readyToTerminate = true;
-      if (!success) readyToTerminate = false;
-      if (mStatus.relativeChange > mParams.relChangeTol) readyToTerminate = false;
-      // Compute percentage of converged loop closures (i.e., either accepted or rejected)
-      const auto stat = mPoseGraph->statistics();
-      double ratio = (stat.accept_loop_closures + stat.reject_loop_closures) / stat.total_loop_closures;
-      if (mParams.verbose) {
-        printf("Robot %u :\n "
-               "accepted loop closures: %f\n "
-               "rejected loop closures: %f\n "
-               "undecided loop closures: %f\n",
-               mID,
-               stat.accept_loop_closures,
-               stat.reject_loop_closures,
-               stat.total_loop_closures - stat.reject_loop_closures - stat.accept_loop_closures);
-      }
-      if (ratio < mParams.robustOptMinConvergenceRatio) readyToTerminate = false;
-      mStatus.readyToTerminate = readyToTerminate;
-    }
-  }
-}
-
-void PGOAgent::startOptimizationLoop(double freq) {
-  // Asynchronous updates currently restricted to non-accelerated updates
-  CHECK(!mParams.acceleration);
-
-  if (isOptimizationRunning()) {
-    if (mParams.verbose)
-      printf("startOptimizationLoop: optimization thread already running! \n");
-    return;
-  }
-
-  mRate = freq;
-
-  mOptimizationThread = new thread(&PGOAgent::runOptimizationLoop, this);
-}
-
-void PGOAgent::runOptimizationLoop() {
-  if (mParams.verbose)
-    printf("Robot %u optimization thread running at %f Hz.\n", getID(), mRate);
-
-  // Create exponential distribution with the desired rate
-  std::random_device rd;  // Will be used to obtain a seed for the random number engine
-  std::mt19937 rng(rd());  // Standard mersenne_twister_engine seeded with rd()
-  std::exponential_distribution<double> ExponentialDistribution(mRate);
-
-  while (true) {
-    double sleepUs =
-        1e6 * ExponentialDistribution(rng);  // sleeping time in microsecond
-
-    usleep(sleepUs);
-
-    iterate(true);
-
-    // Check if finish requested
-    if (mEndLoopRequested) {
-      break;
-    }
-  }
-}
-
-void PGOAgent::endOptimizationLoop() {
-  if (!isOptimizationRunning()) return;
-
-  mEndLoopRequested = true;
-
-  // wait for thread to finish
-  mOptimizationThread->join();
-
-  delete mOptimizationThread;
-
-  mOptimizationThread = nullptr;
-
-  mEndLoopRequested = false;  // reset request flag
-
-  if (mParams.verbose)
-    printf("Robot %u optimization thread exited. \n", getID());
-}
-
-bool PGOAgent::isOptimizationRunning() {
-  return mOptimizationThread != nullptr;
 }
 
 void PGOAgent::initializeLocalTrajectory() {

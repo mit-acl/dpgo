@@ -18,7 +18,7 @@ TEST(testDPGO, OptimizationThreadBasic) {
   ASSERT_FALSE(agent.isOptimizationRunning());
 
   for (unsigned trial = 0; trial < 3; ++trial) {
-    agent.startOptimizationLoop(5.0);
+    agent.startOptimizationLoop();
     sleep(1);
     ASSERT_TRUE(agent.isOptimizationRunning());
     agent.endOptimizationLoop();
@@ -79,7 +79,7 @@ TEST(testDPGO, OptimizationThreadTriangleGraph) {
   agent.getTrajectoryInLocalFrame(Testimated);
   ASSERT_LE((Ttrue - Testimated).norm(), 1e-4);
 
-  agent.startOptimizationLoop(5.0);
+  agent.startOptimizationLoop();
   sleep(3);
   agent.endOptimizationLoop();
 
