@@ -58,8 +58,14 @@ class PGOAgentParameters {
   // Riemannian optimization algorithm used when solving local subproblem
   ROPTALG algorithm;
 
+  // Run in asynchronous mode
+  bool asynchronous;
+
+  // Frequency of optimization loop in asynchronous mode
+  double asynchronousOptimizationRate;
+
   // Cross-robot initialization
-  bool multirobot_initialization;
+  bool multirobotInitialization;
 
   // Use Nesterov acceleration
   bool acceleration;
@@ -115,15 +121,22 @@ class PGOAgentParameters {
                      bool log = false,
                      std::string logDir = "")
       : d(dIn), r(rIn), numRobots(numRobotsIn),
-        algorithm(algorithmIn), multirobot_initialization(true),
-        acceleration(accel), restartInterval(restartInt),
+        algorithm(algorithmIn),
+        asynchronous(false),
+        asynchronousOptimizationRate(1),
+        multirobotInitialization(true),
+        acceleration(accel),
+        restartInterval(restartInt),
         robustCostParams(costParams),
         robustOptWarmStart(robust_opt_warm_start),
         robustOptInnerIters(robust_opt_inner_iters),
         robustOptMinConvergenceRatio(robust_opt_min_convergence_ratio),
         robustInitMinInliers(robust_init_min_inliers),
-        maxNumIters(maxIters), relChangeTol(changeTol),
-        verbose(v), logData(log), logDirectory(std::move(logDir)) {}
+        maxNumIters(maxIters),
+        relChangeTol(changeTol),
+        verbose(v),
+        logData(log),
+        logDirectory(std::move(logDir)) {}
 
   inline friend std::ostream &operator<<(
       std::ostream &os, const PGOAgentParameters &params) {
@@ -131,7 +144,9 @@ class PGOAgentParameters {
     os << "Dimension: " << params.d << std::endl;
     os << "Relaxation rank: " << params.r << std::endl;
     os << "Number of robots: " << params.numRobots << std::endl;
-    os << "Use multi-robot initialization: " << params.multirobot_initialization << std::endl;
+    os << "Asynchronous: " << params.asynchronous << std::endl;
+    os << "Asynchronous optimization rate: " << params.asynchronousOptimizationRate << std::endl;
+    os << "Use multi-robot initialization: " << params.multirobotInitialization << std::endl;
     os << "Use Nesterov acceleration: " << params.acceleration << std::endl;
     os << "Fixed restart interval: " << params.restartInterval << std::endl;
     os << "Robust optimization warm start: " << params.robustOptWarmStart << std::endl;
@@ -431,7 +446,7 @@ class PGOAgent {
   /**
   Initiate a new thread that runs runOptimizationLoop()
   */
-  void startOptimizationLoop(double freq);
+  void startOptimizationLoop();
 
   /**
   Request to terminate optimization loop, if running
@@ -505,9 +520,6 @@ class PGOAgent {
   // Pointer to pose graph
   std::shared_ptr<PoseGraph> mPoseGraph;
 
-  // Rate in Hz of the optimization loop (only used in asynchronous mode)
-  double mRate;
-
   // Current PGO instance
   unsigned mInstanceNumber;
 
@@ -523,14 +535,14 @@ class PGOAgent {
   // Store status of peer agents
   std::unordered_map<unsigned, PGOAgentStatus> mTeamStatus;
 
-  // Request to perform single local optimization step
-  bool mOptimizationRequested = false;
-
   // Request to publish public poses
   bool mPublishPublicPosesRequested = false;
 
   // Request to publish measurement weights
   bool mPublishWeightsRequested = false;
+
+  // Request to publish in asynchronous mode
+  bool mPublishAsynchronousRequested = false;
 
   // Request to terminate optimization thread
   bool mEndLoopRequested = false;
@@ -547,22 +559,21 @@ class PGOAgent {
   // Anchor matrix shared by all agents
   std::optional<LiftedPose> globalAnchor;
 
-  // This dictionary stores poses owned by other robots that is connected to
-  // this robot by loop closure
+  // This dictionary stores poses owned by other robots that is connected to this robot by loop closure
   PoseDict neighborPoseDict;
 
   // Implement locking to synchronize read & write of trajectory estimate
   mutex mPosesMutex;
 
-  // Implement locking to synchronize read & write of shared poses from
-  // neighbors
+  // Implement locking to synchronize read & write of shared poses from neighbors
   mutex mNeighborPosesMutex;
 
   // Implement locking on measurements
   mutex mMeasurementsMutex;
 
-  // Thread that runs optimization loop
-  thread *mOptimizationThread = nullptr;
+  // Thread that runs optimization loop in asynchronous mode
+  std::unique_ptr<thread> mOptimizationThread;
+
   /**
    * @brief Reset variables used in Nesterov acceleration
    */
@@ -602,11 +613,19 @@ class PGOAgent {
    * @brief Return true if should update loop closure weights
    * @return bool
    */
-  bool shouldUpdateLoopClosureWeights() const;
+  bool shouldUpdateMeasurementWeights() const;
   /**
    * @brief Update loop closure weights.
    */
-  void updateLoopClosuresWeights();
+  void updateMeasurementWeights();
+  /**
+   * @brief Set weight for a public measurement.
+   * @param src_ID
+   * @param dst_ID
+   * @param weight
+   * @return false if the specified public measurement does not exist
+   */
+  bool setPublicMeasurementWeight(const PoseID &src_ID, const PoseID &dst_ID, double weight);
 
  private:
   // Stores the auxiliary variables from neighbors (only used in acceleration)
