@@ -175,6 +175,15 @@ class PoseGraph {
     clearLinearMatrix();
   }
   /**
+   * @brief Return true if preconditioner is available.
+   * @return
+   */
+  bool hasPreconditioner() {
+    if (!precon_.has_value())
+      constructPreconditioner();
+    return precon_.has_value();
+  }
+  /**
    * @brief Get preconditioner
    * @return
    */

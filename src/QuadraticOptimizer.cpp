@@ -49,7 +49,7 @@ Matrix QuadraticOptimizer::optimize(const Matrix &Y) {
   result_.fOpt = problem_->f(YOpt);
   result_.gradNormOpt = problem_->RieGradNorm(YOpt);
   result_.success = true;
-  CHECK_LE(result_.fOpt, result_.fInit);
+  CHECK_LE(result_.fOpt, result_.fInit + 1e-5);
 
   return YOpt;
 }
