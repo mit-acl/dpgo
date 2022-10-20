@@ -7,7 +7,7 @@
  * -------------------------------------------------------------------------- */
 
 #include <DPGO/DPGO_types.h>
-#include <DPGO/DPGO_utils.h>
+#include <DPGO/DPGO_solver.h>
 #include <DPGO/PGOAgent.h>
 #include <DPGO/QuadraticProblem.h>
 
@@ -150,8 +150,8 @@ int main(int argc, char **argv) {
   For this demo, we initialize each robot's estimate from the centralized chordal relaxation
   ##########################################################################################
   */
-  Matrix TChordal = chordalInitialization(d, n, dataset);
-  Matrix XChordal = fixedStiefelVariable(d, r) * TChordal; // Lift estimate to the correct relaxation rank
+  auto TChordal = chordalInitialization(dataset);
+  Matrix XChordal = fixedStiefelVariable(d, r) * TChordal.getData(); // Lift estimate to the correct relaxation rank
   for (unsigned robot = 0; robot < (unsigned) num_robots; ++robot) {
     unsigned startIdx = robot * num_poses_per_robot;
     unsigned endIdx = (robot + 1) * num_poses_per_robot;  // non-inclusive

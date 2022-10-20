@@ -7,7 +7,7 @@
  * -------------------------------------------------------------------------- */
 
 #include <DPGO/DPGO_types.h>
-#include <DPGO/DPGO_utils.h>
+#include <DPGO/DPGO_solver.h>
 #include <DPGO/PGOAgent.h>
 #include <DPGO/QuadraticProblem.h>
 
