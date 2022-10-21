@@ -299,8 +299,9 @@ PoseArray solvePGO(const std::vector<RelativeSEMeasurement> &measurements,
                    const solvePGOParams &params,
                    const PoseArray *T0) {
 
-  size_t dimension, num_poses;
+  size_t dimension, num_poses, robot_id;
   get_dimension_and_num_poses(measurements, dimension, num_poses);
+  robot_id = measurements[0].r1;
   PoseArray T(dimension, num_poses);
   if (T0) {
     T = *T0;
@@ -311,7 +312,7 @@ PoseArray solvePGO(const std::vector<RelativeSEMeasurement> &measurements,
   CHECK_EQ(T.n(), num_poses);
 
   // Form optimization problem
-  auto pose_graph = std::make_shared<PoseGraph>(0, dimension, dimension);
+  auto pose_graph = std::make_shared<PoseGraph>(robot_id, dimension, dimension);
   pose_graph->setMeasurements(measurements);
   QuadraticProblem problem(pose_graph);
 
@@ -354,7 +355,7 @@ PoseArray solveRobustPGO(std::vector<RelativeSEMeasurement> &mutable_measurement
   double muInit = barcSq / (2 * rSqVec.maxCoeff() - barcSq);
   // muInit = std::min(muInit, 1e-5);
   if (params.verbose)
-    LOG(INFO) << "Initial value for mu: " << muInit;
+    LOG(INFO) << "[solveRobustPGO] Initial value for mu: " << muInit;
   // Negative values of initial mu corresponds to small residual errors. In this case skip applying GNC.
   if (muInit > 0) {
     RobustCostParameters params_gnc;

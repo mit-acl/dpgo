@@ -699,10 +699,10 @@ void PGOAgent::initializeLocalTrajectory() {
     solveRobustPGOParams params;
     params.verbose = mParams.verbose;
     params.error_threshold = mParams.robustCostParams.GNCBarc;
-    params.max_gnc_iterations = 20;
+    params.max_gnc_iterations = 10;
     params.pgo_params.verbose = false;
     params.pgo_params.gradnorm_tol = 1;
-    params.pgo_params.max_iterations = 50;
+    params.pgo_params.max_iterations = 20;
     PoseArray TOdom = odometryInitialization(mPoseGraph->odometry());
     std::vector<RelativeSEMeasurement> mutable_local_measurements = mPoseGraph->localMeasurements();
     T = solveRobustPGO(mutable_local_measurements, params, &TOdom);
