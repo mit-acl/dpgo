@@ -27,6 +27,10 @@ TEST(testDPGO, testLiftedPoseArray) {
     // Test copy constructor
     LiftedPoseArray var2(var);
     ASSERT_LE((var.getData() - var2.getData()).norm(), 1e-6);
+    // Test assignment
+    LiftedPoseArray var3(r, d, n);
+    var3 = var;
+    ASSERT_LE((var.getData() - var3.getData()).norm(), 1e-6);
   }
 }
 

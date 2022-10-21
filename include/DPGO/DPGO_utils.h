@@ -67,6 +67,16 @@ std::vector<RelativeSEMeasurement> read_g2o_file(const std::string &filename,
                                                  size_t &num_poses);
 
 /**
+ * @brief
+ * @param measurements
+ * @param dimension
+ * @param num_poses
+ */
+void get_dimension_and_num_poses(const std::vector<RelativeSEMeasurement> &measurements,
+                                 size_t &dimension,
+                                 size_t &num_poses);
+
+/**
 Helper function to construct connection laplacian matrix in SE(d)
 */
 void constructOrientedConnectionIncidenceMatrixSE(
@@ -85,26 +95,6 @@ the B matrices defined in equation (69) of the tech report
 */
 void constructBMatrices(const std::vector<RelativeSEMeasurement> &measurements,
                         SparseMatrix &B1, SparseMatrix &B2, SparseMatrix &B3);
-
-/**
- * @brief Initialize local trajectory estimate from chordal relaxation
- * @param dimension
- * @param num_poses
- * @param measurements
- * @return trajectory estimate in matrix form T = [R1 t1 ... Rn tn] in an arbitrary frame
- */
-Matrix chordalInitialization(size_t dimension,
-                             size_t num_poses,
-                             const std::vector<RelativeSEMeasurement> &measurements);
-
-/**
- * @brief Initialize local trajectory estimate from odometry
- * @param dimension
- * @param num_poses
- * @param odometry A vector of odometry measurement
- * @return trajectory estimate in matrix form T = [R1 t1 ... Rn tn] in an arbitrary frame
- */
-Matrix odometryInitialization(size_t dimension, size_t num_poses, const std::vector<RelativeSEMeasurement> &odometry);
 
 /**
 Given the measurement matrices B1 and B2 and a matrix R of rotational state
@@ -180,74 +170,6 @@ void checkRotationMatrix(const Matrix &R);
  * @param Y
  */
 void checkStiefelMatrix(const Matrix &Y);
-
-/**
- * @brief Single translation averaging using the Euclidean distance
- * @param tOpt
- * @param tVec
- * @param tau
- */
-void singleTranslationAveraging(Vector &tOpt,
-                                const std::vector<Vector> &tVec,
-                                const Vector &tau = Vector::Ones(0));
-
-/**
- * @brief Single rotation averaging with the chordal distance
- * @param ROpt
- * @param RVec
- * @param kappa
- */
-void singleRotationAveraging(Matrix &ROpt,
-                             const std::vector<Matrix> &RVec,
-                             const Vector &kappa = Vector::Ones(0));
-
-/**
- * @brief Single pose averaging with chordal distance
- * @param ROpt
- * @param tOpt
- * @param RVec
- * @param tVec
- * @param kappa
- * @param tau
- */
-void singlePoseAveraging(Matrix &ROpt, Vector &tOpt,
-                         const std::vector<Matrix> &RVec,
-                         const std::vector<Vector> &tVec,
-                         const Vector &kappa = Vector::Ones(0),
-                         const Vector &tau = Vector::Ones(0));
-
-/**
- * @brief Robust single rotation averaging using GNC
- * @param ROpt output rotation matrix
- * @param inlierIndices output inlier indices
- * @param RVec input rotation matrices
- * @param kappaVec weights associated with rotation matrices
- * @param errorThreshold max error threshold under Langevin noise distribution
- */
-void robustSingleRotationAveraging(Matrix &ROpt,
-                                   std::vector<size_t> &inlierIndices,
-                                   const std::vector<Matrix> &RVec,
-                                   const Vector &kappa = Vector::Ones(0),
-                                   double errorThreshold = 0.1);
-
-/**
- * @brief Robust single pose averaging using GNC
- * @param ROpt
- * @param tOpt
- * @param inlierIndices
- * @param RVec
- * @param tVec
- * @param kappa
- * @param tau
- * @param errorThreshold max error threshold under Langevin noise distribution
- */
-void robustSinglePoseAveraging(Matrix &ROpt, Vector &tOpt,
-                               std::vector<size_t> &inlierIndices,
-                               const std::vector<Matrix> &RVec,
-                               const std::vector<Vector> &tVec,
-                               const Vector &kappa = Vector::Ones(0),
-                               const Vector &tau = Vector::Ones(0),
-                               double errorThreshold = 0.1);
 
 }  // namespace DPGO
 

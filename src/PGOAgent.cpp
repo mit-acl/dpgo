@@ -5,8 +5,8 @@
  * See LICENSE for the license information
  * -------------------------------------------------------------------------- */
 
-#include <DPGO/DPGO_utils.h>
 #include <DPGO/PGOAgent.h>
+#include <DPGO/DPGO_solver.h>
 #include <DPGO/QuadraticOptimizer.h>
 #include <glog/logging.h>
 
@@ -690,42 +690,33 @@ std::vector<unsigned> PGOAgent::getNeighbors() const {
 }
 
 void PGOAgent::initializeLocalTrajectory() {
-  Matrix T0;
+  PoseArray T(dimension(), num_poses());
   if (mParams.robustCostParams.costType == RobustCostParameters::Type::L2) {
-    T0 = chordalInitialization(dimension(), num_poses(), mPoseGraph->localMeasurements());
+    T = chordalInitialization(mPoseGraph->localMeasurements());
   } else {
-    // In robust mode, we do not trust the loop closures and hence initialize from odometry
-    T0 = odometryInitialization(dimension(), num_poses(), mPoseGraph->odometry());
+    // In robust mode, we do not trust the loop closures and hence initialize
+    // using single-robot GNC
+    solveRobustPGOParams params;
+    params.verbose = mParams.verbose;
+    params.error_threshold = mParams.robustCostParams.GNCBarc;
+    params.max_gnc_iterations = 10;
+    params.pgo_params.verbose = false;
+    params.pgo_params.gradnorm_tol = 1;
+    params.pgo_params.max_iterations = 20;
+    PoseArray TOdom = odometryInitialization(mPoseGraph->odometry());
+    std::vector<RelativeSEMeasurement> mutable_local_measurements = mPoseGraph->localMeasurements();
+    T = solveRobustPGO(mutable_local_measurements, params, &TOdom);
   }
-  CHECK(T0.rows() == d);
-  CHECK(T0.cols() == (d + 1) * num_poses());
-  PoseArray T(d, num_poses());
-  T.setData(T0);
+  CHECK_EQ(T.d(), dimension());
+  CHECK_EQ(T.n(), num_poses());
   TLocalInit.emplace(T);
 }
 
 Matrix PGOAgent::localPoseGraphOptimization() {
-  // Compute initialization if necessary
-  if (!TLocalInit)
-    initializeLocalTrajectory();
-
-  // Form optimization problem
-  auto local_graph = std::make_shared<PoseGraph>(mID, d, d);
-  local_graph->setMeasurements(mPoseGraph->localMeasurements());
-  QuadraticProblem problem(local_graph);
-
-  // Initialize optimizer object
-  QuadraticOptimizer optimizer(&problem);
-  optimizer.setVerbose(mParams.verbose);
-  optimizer.setTrustRegionInitialRadius(10);
-  optimizer.setTrustRegionIterations(10);
-  optimizer.setTrustRegionTolerance(1e-1);
-  optimizer.setTrustRegionMaxInnerIterations(50);
-
-  // Optimize
-  Matrix Topt = optimizer.optimize(TLocalInit.value().getData());
-  if (mParams.verbose) printf("Optimization time: %f sec.\n", optimizer.getOptResult().elapsedMs / 1e3);
-  return Topt;
+  solvePGOParams pgo_params;
+  pgo_params.verbose = true;
+  const auto T = solvePGO(mPoseGraph->localMeasurements(),pgo_params);
+  return T.getData();
 }
 
 bool PGOAgent::getLiftingMatrix(Matrix &M) const {

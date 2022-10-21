@@ -81,6 +81,7 @@ add_library(DPGO SHARED
 	src/QuadraticProblem.cpp
 	src/QuadraticOptimizer.cpp
 	src/DPGO_utils.cpp
+	src/DPGO_solver.cpp
     src/DPGO_robust.cpp
 	src/PGOLogger.cpp)
 
@@ -117,6 +118,10 @@ target_link_libraries(chordal-initialization-example DPGO)
 add_executable(single-robot-example
 	examples/SingleRobotExample.cpp)
 target_link_libraries(single-robot-example DPGO)
+
+add_executable(single-robot-gnc-example
+		examples/SingleRobotGNCExample.cpp)
+target_link_libraries(single-robot-gnc-example DPGO)
 
 ############################### TESTS ##########################################
 ### Add testing
@@ -157,6 +162,7 @@ if(BUILD_DPGO_TESTS)
 	add_executable(
 			testDPGO
 			tests/testUtils.cpp
+			tests/testPGO.cpp
             tests/testPoses.cpp
 			tests/testEigenMap.cpp
 			tests/testConstruction.cpp

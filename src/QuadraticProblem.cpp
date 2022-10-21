@@ -60,7 +60,11 @@ void QuadraticProblem::PreConditioner(ROPTLIB::Variable *x,
       INVEC((double *) inVec->ObtainReadData(), relaxation_rank(), (dimension() + 1) * num_poses());
   Eigen::Map<Matrix>
       OUTVEC((double *) outVec->ObtainWriteEntireData(), relaxation_rank(), (dimension() + 1) * num_poses());
-  OUTVEC = pose_graph_->preconditioner()->solve(INVEC.transpose()).transpose();
+  if (pose_graph_->hasPreconditioner()) {
+    OUTVEC = pose_graph_->preconditioner()->solve(INVEC.transpose()).transpose();
+  } else {
+    LOG(WARNING) << "Failed to compute preconditioner.";
+  }
   M->getManifold()->Projection(x, outVec, outVec);  // Project output to the tangent space at x
 }
 

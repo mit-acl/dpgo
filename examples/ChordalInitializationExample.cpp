@@ -7,7 +7,7 @@
  * -------------------------------------------------------------------------- */
 
 #include <DPGO/DPGO_types.h>
-#include <DPGO/DPGO_utils.h>
+#include <DPGO/DPGO_solver.h>
 #include <DPGO/QuadraticProblem.h>
 
 #include <cstdlib>
@@ -44,10 +44,8 @@ int main(int argc, char **argv) {
   QuadraticProblem problemCentral(pose_graph);
 
   // Compute chordal relaxation
-  Matrix TChordal = chordalInitialization(d, n, dataset);
-  assert((unsigned) TChordal.rows() == d);
-  assert((unsigned) TChordal.cols() == (d + 1) * n);
-  std::cout << "Chordal initialization cost: " << 2 * problemCentral.f(TChordal) << std::endl;
+  auto TChordal = chordalInitialization(dataset);
+  std::cout << "Chordal initialization cost: " << 2 * problemCentral.f(TChordal.getData()) << std::endl;
 
   exit(0);
 }
