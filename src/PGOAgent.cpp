@@ -194,8 +194,10 @@ void PGOAgent::iterate(bool doOptimization) {
   if (shouldUpdateMeasurementWeights()) {
     updateMeasurementWeights();
     mRobustCost.update();
-    // If warm start is disabled, reset trajectory estimate to initial guess
-    if (!mParams.robustOptWarmStart) {
+    // If optimization is to continue and warm start is disabled,
+    // reset trajectory estimate to initial guess
+    if (iteration_number() + mParams.robustOptInnerIters < mParams.maxNumIters
+        && !mParams.robustOptWarmStart) {
       CHECK(XInit);
       LOG(INFO) << "Warm start is disabled. Robot " << getID() << " resets trajectory estimates.";
       unique_lock<mutex> tLock(mPosesMutex);
@@ -701,20 +703,20 @@ void PGOAgent::initializeLocalTrajectory() {
       break;
     }
     case (InitializationMethod::GNC_TLS): {
-       solveRobustPGOParams params;
-       params.verbose = mParams.verbose;
-       // Standard L2 PGO params (GNC inner iters)
-       params.opt_params.verbose = false;
-       params.opt_params.gradnorm_tol = 1;
-       params.opt_params.RTR_iterations = 20;
-       // Robust optimization params (GNC outer iters)
-       params.robust_params.costType = RobustCostParameters::Type::GNC_TLS;
-       params.robust_params.GNCMaxNumIters = 20;
-       params.robust_params.GNCBarc = 5.0;
-       params.robust_params.GNCMuStep = 1.4;
-       PoseArray TOdom = odometryInitialization(mPoseGraph->odometry());
-       std::vector<RelativeSEMeasurement> mutable_local_measurements = mPoseGraph->localMeasurements();
-       T = solveRobustPGO(mutable_local_measurements, params, &TOdom);
+      solveRobustPGOParams params;
+      params.verbose = mParams.verbose;
+      // Standard L2 PGO params (GNC inner iters)
+      params.opt_params.verbose = false;
+      params.opt_params.gradnorm_tol = 1;
+      params.opt_params.RTR_iterations = 20;
+      // Robust optimization params (GNC outer iters)
+      params.robust_params.costType = RobustCostParameters::Type::GNC_TLS;
+      params.robust_params.GNCMaxNumIters = 20;
+      params.robust_params.GNCBarc = 5.0;
+      params.robust_params.GNCMuStep = 1.4;
+      PoseArray TOdom = odometryInitialization(mPoseGraph->odometry());
+      std::vector<RelativeSEMeasurement> mutable_local_measurements = mPoseGraph->localMeasurements();
+      T = solveRobustPGO(mutable_local_measurements, params, &TOdom);
       break;
     }
   }
