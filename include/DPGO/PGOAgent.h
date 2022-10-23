@@ -55,14 +55,17 @@ class PGOAgentParameters {
   // Total number of robots
   unsigned numRobots;
 
-  // Riemannian optimization algorithm used when solving local subproblem
-  ROPTALG algorithm;
-
   // Run in asynchronous mode
   bool asynchronous;
 
   // Frequency of optimization loop in asynchronous mode
   double asynchronousOptimizationRate;
+
+  // Riemannian optimization algorithm used when solving local subproblem
+  ROptMethod localOptimizationMethod;
+
+  // Method to use to initialize single-robot trajectory estimates
+  InitializationMethod localInitializationMethod;
 
   // Cross-robot initialization
   bool multirobotInitialization;
@@ -107,7 +110,7 @@ class PGOAgentParameters {
   PGOAgentParameters(unsigned dIn,
                      unsigned rIn,
                      unsigned numRobotsIn = 1,
-                     ROPTALG algorithmIn = ROPTALG::RTR,
+                     ROptMethod r_opt_method = ROptMethod::RTR,
                      bool accel = false,
                      unsigned restartInt = 30,
                      RobustCostParameters costParams = RobustCostParameters(),
@@ -121,9 +124,10 @@ class PGOAgentParameters {
                      bool log = false,
                      std::string logDir = "")
       : d(dIn), r(rIn), numRobots(numRobotsIn),
-        algorithm(algorithmIn),
         asynchronous(false),
         asynchronousOptimizationRate(1),
+        localOptimizationMethod(r_opt_method),
+        localInitializationMethod(InitializationMethod::Odometry),
         multirobotInitialization(true),
         acceleration(accel),
         restartInterval(restartInt),
@@ -146,6 +150,8 @@ class PGOAgentParameters {
     os << "Number of robots: " << params.numRobots << std::endl;
     os << "Asynchronous: " << params.asynchronous << std::endl;
     os << "Asynchronous optimization rate: " << params.asynchronousOptimizationRate << std::endl;
+    os << "Local optimization method: " << ROptMethodToString(params.localOptimizationMethod) << std::endl;
+    os << "Local initialization method: " << InitializationMethodToString(params.localInitializationMethod) << std::endl;
     os << "Use multi-robot initialization: " << params.multirobotInitialization << std::endl;
     os << "Use Nesterov acceleration: " << params.acceleration << std::endl;
     os << "Fixed restart interval: " << params.restartInterval << std::endl;
@@ -153,7 +159,6 @@ class PGOAgentParameters {
     os << "Robust optimization inner iterations: " << params.robustOptInnerIters << std::endl;
     os << "Robust optimization weight convergence min ratio: " << params.robustOptMinConvergenceRatio << std::endl;
     os << "Robust initialization minimum inliers: " << params.robustInitMinInliers << std::endl;
-    os << "Local optimization algorithm: " << params.algorithm << std::endl;
     os << "Max iterations: " << params.maxNumIters << std::endl;
     os << "Relative change tol: " << params.relChangeTol << std::endl;
     os << "Verbose: " << params.verbose << std::endl;

@@ -18,6 +18,33 @@
 
 namespace DPGO {
 
+std::string ROptMethodToString(ROptMethod method) {
+  switch (method) {
+    case ROptMethod::RTR: {
+      return "RTR";
+    }
+    case ROptMethod::RGD: {
+      return "RGD";
+    }
+  }
+  return "";
+}
+
+std::string InitializationMethodToString(InitializationMethod method) {
+  switch (method) {
+    case InitializationMethod::Odometry: {
+      return "Odometry";
+    }
+    case InitializationMethod::Chordal: {
+      return "Chordal";
+    }
+    case InitializationMethod::GNC_TLS: {
+      return "GNC_TLS";
+    }
+  }
+  return "";
+}
+
 void SimpleTimer::tic() {
   t_start = std::chrono::high_resolution_clock::now();
 }

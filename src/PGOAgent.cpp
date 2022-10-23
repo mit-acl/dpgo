@@ -231,7 +231,7 @@ void PGOAgent::iterate(bool doOptimization) {
       mStatus.state = mState;
       mStatus.instanceNumber = instance_number();
       mStatus.iterationNumber = iteration_number();
-      mStatus.relativeChange = LiftedPoseArray::averageTranslationDistance(X, XPrev);
+      mStatus.relativeChange = LiftedPoseArray::maxTranslationDistance(X, XPrev);
       // Check local termination condition
       bool readyToTerminate = true;
       if (!success) readyToTerminate = false;
@@ -691,25 +691,32 @@ std::vector<unsigned> PGOAgent::getNeighbors() const {
 
 void PGOAgent::initializeLocalTrajectory() {
   PoseArray T(dimension(), num_poses());
-  if (mParams.robustCostParams.costType == RobustCostParameters::Type::L2) {
-    T = chordalInitialization(mPoseGraph->localMeasurements());
-  } else {
-    // In robust mode, we do not trust the loop closures and hence initialize
-    // using single-robot GNC
-    solveRobustPGOParams params;
-    params.verbose = mParams.verbose;
-    // Standard L2 PGO params (GNC inner iters)
-    params.pgo_params.verbose = false;
-    params.pgo_params.gradnorm_tol = 1;
-    params.pgo_params.max_iterations = 20;
-    // Robust optimization params (GNC outer iters)
-    params.robust_params.costType = RobustCostParameters::Type::GNC_TLS;
-    params.robust_params.GNCMaxNumIters = 20;
-    params.robust_params.GNCBarc = 5.0;
-    params.robust_params.GNCMuStep = 1.4;
-    PoseArray TOdom = odometryInitialization(mPoseGraph->odometry());
-    std::vector<RelativeSEMeasurement> mutable_local_measurements = mPoseGraph->localMeasurements();
-    T = solveRobustPGO(mutable_local_measurements, params, &TOdom);
+  switch (mParams.localInitializationMethod) {
+    case (InitializationMethod::Odometry): {
+      T = odometryInitialization(mPoseGraph->odometry());
+      break;
+    }
+    case (InitializationMethod::Chordal): {
+      T = chordalInitialization(mPoseGraph->localMeasurements());
+      break;
+    }
+    case (InitializationMethod::GNC_TLS): {
+       solveRobustPGOParams params;
+       params.verbose = mParams.verbose;
+       // Standard L2 PGO params (GNC inner iters)
+       params.pgo_params.verbose = false;
+       params.pgo_params.gradnorm_tol = 1;
+       params.pgo_params.max_iterations = 20;
+       // Robust optimization params (GNC outer iters)
+       params.robust_params.costType = RobustCostParameters::Type::GNC_TLS;
+       params.robust_params.GNCMaxNumIters = 20;
+       params.robust_params.GNCBarc = 5.0;
+       params.robust_params.GNCMuStep = 1.4;
+       PoseArray TOdom = odometryInitialization(mPoseGraph->odometry());
+       std::vector<RelativeSEMeasurement> mutable_local_measurements = mPoseGraph->localMeasurements();
+       T = solveRobustPGO(mutable_local_measurements, params, &TOdom);
+      break;
+    }
   }
   CHECK_EQ(T.d(), dimension());
   CHECK_EQ(T.n(), num_poses());
@@ -719,7 +726,7 @@ void PGOAgent::initializeLocalTrajectory() {
 Matrix PGOAgent::localPoseGraphOptimization() {
   solvePGOParams pgo_params;
   pgo_params.verbose = true;
-  const auto T = solvePGO(mPoseGraph->localMeasurements(),pgo_params);
+  const auto T = solvePGO(mPoseGraph->localMeasurements(), pgo_params);
   return T.getData();
 }
 
@@ -856,10 +863,10 @@ bool PGOAgent::updateX(bool doOptimization, bool acceleration) {
   QuadraticProblem problem(mPoseGraph);
   QuadraticOptimizer optimizer(&problem);
   optimizer.setVerbose(mParams.verbose);
-  optimizer.setAlgorithm(mParams.algorithm);
+  optimizer.setAlgorithm(mParams.localOptimizationMethod);
   optimizer.setTrustRegionTolerance(1e-2); // Force optimizer to make progress
-  optimizer.setTrustRegionIterations(1);
-  optimizer.setTrustRegionMaxInnerIterations(10);
+  optimizer.setTrustRegionIterations(3);
+  optimizer.setTrustRegionMaxInnerIterations(50);
   optimizer.setTrustRegionInitialRadius(100);
 
   // Starting solution

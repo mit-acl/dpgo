@@ -41,7 +41,7 @@ class QuadraticOptimizer {
   /**
   Set optimization algorithm
   */
-  void setAlgorithm(ROPTALG alg) { algorithm_ = alg; }
+  void setAlgorithm(ROptMethod alg) { algorithm_ = alg; }
 
   /**
   Set maximum step size
@@ -80,7 +80,7 @@ class QuadraticOptimizer {
   QuadraticProblem *problem_;
 
   // Optimization algorithm to be used
-  ROPTALG algorithm_;
+  ROptMethod algorithm_;
 
   // Optimization result
   ROPTResult result_;

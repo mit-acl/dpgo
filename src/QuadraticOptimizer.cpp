@@ -17,7 +17,7 @@ namespace DPGO {
 
 QuadraticOptimizer::QuadraticOptimizer(QuadraticProblem *p)
     : problem_(p),
-      algorithm_(ROPTALG::RTR),
+      algorithm_(ROptMethod::RTR),
       gd_stepsize_(1e-3),
       trust_region_iterations_(1),
       trust_region_gradnorm_tol_(1e-2),
@@ -37,10 +37,9 @@ Matrix QuadraticOptimizer::optimize(const Matrix &Y) {
 
   // Optimize!
   Matrix YOpt;
-  if (algorithm_ == ROPTALG::RTR) {
+  if (algorithm_ == ROptMethod::RTR) {
     YOpt = trustRegion(Y);
   } else {
-    CHECK_EQ(algorithm_, ROPTALG::RGD);
     YOpt = gradientDescent(Y);
   }
 

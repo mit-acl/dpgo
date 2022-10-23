@@ -83,6 +83,16 @@ double LiftedPoseArray::averageTranslationDistance(const LiftedPoseArray &poses1
   return average_distance;
 }
 
+double LiftedPoseArray::maxTranslationDistance(const LiftedPoseArray &poses1, const LiftedPoseArray &poses2) {
+  CHECK_EQ(poses1.d(), poses2.d());
+  CHECK_EQ(poses1.n(), poses2.n());
+  double max_distance = 0;
+  for (unsigned int i = 0; i < poses1.n(); ++i) {
+    max_distance = std::max(max_distance, (poses1.translation(i) - poses2.translation(i)).norm());
+  }
+  return max_distance;
+}
+
 Pose::Pose(const Matrix &T)
     : Pose(T.rows()) {
   CHECK_EQ(T.rows(), d_);

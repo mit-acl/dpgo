@@ -30,13 +30,26 @@ typedef std::shared_ptr<CholmodSolver> CholmodSolverPtr;
         Riemannian optimization algorithms from ROPTLIB
         to be used as solver.
 */
-enum ROPTALG {
+enum class ROptMethod {
   // Riemannian Trust-Region (RTRNewton in ROPTLIB)
   RTR,
 
   // Riemannian gradient descent (RSD in ROPTLIB)
   RGD
 };
+
+std::string ROptMethodToString(ROptMethod method);
+
+/**
+ * @brief Algorithms for initialize PGO
+ */
+enum class InitializationMethod {
+  Odometry,
+  Chordal,
+  GNC_TLS
+};
+
+std::string InitializationMethodToString(InitializationMethod method);
 
 /**
         Output statistics of Riemannian optimization
