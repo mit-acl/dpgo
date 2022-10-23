@@ -15,15 +15,9 @@
 
 namespace DPGO {
 
-QuadraticOptimizer::QuadraticOptimizer(QuadraticProblem *p)
+QuadraticOptimizer::QuadraticOptimizer(QuadraticProblem *p, ROptParameters params)
     : problem_(p),
-      algorithm_(ROptMethod::RTR),
-      gd_stepsize_(1e-3),
-      trust_region_iterations_(1),
-      trust_region_gradnorm_tol_(1e-2),
-      trust_region_initial_radius_(1e1),
-      trust_region_max_inner_iterations_(50),
-      verbose_(false) {
+      params_(params) {
   result_.success = false;
 }
 
@@ -37,7 +31,7 @@ Matrix QuadraticOptimizer::optimize(const Matrix &Y) {
 
   // Optimize!
   Matrix YOpt;
-  if (algorithm_ == ROptMethod::RTR) {
+  if (params_.method == ROptParameters::ROptMethod::RTR) {
     YOpt = trustRegion(Y);
   } else {
     YOpt = gradientDescent(Y);
@@ -60,7 +54,7 @@ Matrix QuadraticOptimizer::trustRegion(const Matrix &Yinit) {
   const double gn0 = problem_->RieGradNorm(Yinit);
 
   // No optimization if gradient norm already below threshold
-  if (gn0 < trust_region_gradnorm_tol_) {
+  if (gn0 < params_.gradnorm_tol) {
     return Yinit;
   }
 
@@ -70,17 +64,17 @@ Matrix QuadraticOptimizer::trustRegion(const Matrix &Yinit) {
   ROPTLIB::RTRNewton Solver(problem_, VarInit.var());
   Solver.Stop_Criterion =
       ROPTLIB::StopCrit::GRAD_F;                                               // Stopping criterion based on absolute gradient norm
-  Solver.Tolerance = trust_region_gradnorm_tol_;                               // Tolerance associated with stopping criterion
-  Solver.initial_Delta = trust_region_initial_radius_;                         // Trust-region radius
+  Solver.Tolerance = params_.gradnorm_tol;                               // Tolerance associated with stopping criterion
+  Solver.initial_Delta = params_.RTR_initial_radius;                         // Trust-region radius
   Solver.maximum_Delta = 5 * Solver.initial_Delta;                             // Maximum trust-region radius
-  if (verbose_) {
+  if (params_.verbose) {
     Solver.Debug = ROPTLIB::DEBUGINFO::ITERRESULT;
   } else {
     Solver.Debug = ROPTLIB::DEBUGINFO::NOOUTPUT;
   }
-  Solver.Max_Iteration = (int) trust_region_iterations_;
+  Solver.Max_Iteration = params_.RTR_iterations;
   Solver.Min_Inner_Iter = 0;
-  Solver.Max_Inner_Iter = trust_region_max_inner_iterations_;
+  Solver.Max_Inner_Iter = params_.RTR_tCG_iterations;
   Solver.TimeBound = 5.0;
 
   if (Solver.Max_Iteration == 1) {
@@ -134,7 +128,7 @@ Matrix QuadraticOptimizer::gradientDescent(const Matrix &Yinit) {
   // problem->PreConditioner(VarInit.var(), RGrad.vec(), RGrad.vec());
 
   // Update
-  M.getManifold()->ScaleTimesVector(VarInit.var(), -gd_stepsize_, RGrad.vec(), RGrad.vec());
+  M.getManifold()->ScaleTimesVector(VarInit.var(), -params_.RGD_stepsize, RGrad.vec(), RGrad.vec());
   M.getManifold()->Retraction(VarInit.var(), RGrad.vec(), VarNext.var());
 
   return VarNext.getData();
@@ -153,7 +147,7 @@ Matrix QuadraticOptimizer::gradientDescentLS(const Matrix &Yinit) {
   Solver.Tolerance = 1e-2;
   Solver.Max_Iteration = 10;
   Solver.Debug =
-      (verbose_ ? ROPTLIB::DEBUGINFO::DETAILED : ROPTLIB::DEBUGINFO::NOOUTPUT);
+      (params_.verbose ? ROPTLIB::DEBUGINFO::DETAILED : ROPTLIB::DEBUGINFO::NOOUTPUT);
   Solver.Run();
 
   const auto *Yopt = dynamic_cast<const ROPTLIB::ProductElement *>(Solver.GetXopt());

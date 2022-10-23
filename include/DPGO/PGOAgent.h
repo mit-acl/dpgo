@@ -61,8 +61,8 @@ class PGOAgentParameters {
   // Frequency of optimization loop in asynchronous mode
   double asynchronousOptimizationRate;
 
-  // Riemannian optimization algorithm used when solving local subproblem
-  ROptMethod localOptimizationMethod;
+  // Riemannian optimization settings for solving local subproblem
+  ROptParameters localOptimizationParams;
 
   // Method to use to initialize single-robot trajectory estimates
   InitializationMethod localInitializationMethod;
@@ -110,7 +110,7 @@ class PGOAgentParameters {
   PGOAgentParameters(unsigned dIn,
                      unsigned rIn,
                      unsigned numRobotsIn = 1,
-                     ROptMethod r_opt_method = ROptMethod::RTR,
+                     ROptParameters local_opt_params = ROptParameters(),
                      bool accel = false,
                      unsigned restartInt = 30,
                      RobustCostParameters costParams = RobustCostParameters(),
@@ -126,7 +126,7 @@ class PGOAgentParameters {
       : d(dIn), r(rIn), numRobots(numRobotsIn),
         asynchronous(false),
         asynchronousOptimizationRate(1),
-        localOptimizationMethod(r_opt_method),
+        localOptimizationParams(local_opt_params),
         localInitializationMethod(InitializationMethod::Odometry),
         multirobotInitialization(true),
         acceleration(accel),
@@ -150,7 +150,6 @@ class PGOAgentParameters {
     os << "Number of robots: " << params.numRobots << std::endl;
     os << "Asynchronous: " << params.asynchronous << std::endl;
     os << "Asynchronous optimization rate: " << params.asynchronousOptimizationRate << std::endl;
-    os << "Local optimization method: " << ROptMethodToString(params.localOptimizationMethod) << std::endl;
     os << "Local initialization method: " << InitializationMethodToString(params.localInitializationMethod) << std::endl;
     os << "Use multi-robot initialization: " << params.multirobotInitialization << std::endl;
     os << "Use Nesterov acceleration: " << params.acceleration << std::endl;
@@ -164,6 +163,9 @@ class PGOAgentParameters {
     os << "Verbose: " << params.verbose << std::endl;
     os << "Log data: " << params.logData << std::endl;
     os << "Log directory: " << params.logDirectory << std::endl;
+    os << std::endl;
+    os << params.localOptimizationParams << std::endl;
+    os << std::endl;
     os << params.robustCostParams << std::endl;
     return os;
   }

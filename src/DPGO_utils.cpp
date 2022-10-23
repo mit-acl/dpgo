@@ -18,12 +18,12 @@
 
 namespace DPGO {
 
-std::string ROptMethodToString(ROptMethod method) {
+std::string ROptParameters::ROptMethodToString(ROptParameters::ROptMethod method) {
   switch (method) {
-    case ROptMethod::RTR: {
+    case ROptParameters::ROptMethod::RTR: {
       return "RTR";
     }
-    case ROptMethod::RGD: {
+    case ROptParameters::ROptMethod::RGD: {
       return "RGD";
     }
   }

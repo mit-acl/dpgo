@@ -704,9 +704,9 @@ void PGOAgent::initializeLocalTrajectory() {
        solveRobustPGOParams params;
        params.verbose = mParams.verbose;
        // Standard L2 PGO params (GNC inner iters)
-       params.pgo_params.verbose = false;
-       params.pgo_params.gradnorm_tol = 1;
-       params.pgo_params.max_iterations = 20;
+       params.opt_params.verbose = false;
+       params.opt_params.gradnorm_tol = 1;
+       params.opt_params.RTR_iterations = 20;
        // Robust optimization params (GNC outer iters)
        params.robust_params.costType = RobustCostParameters::Type::GNC_TLS;
        params.robust_params.GNCMaxNumIters = 20;
@@ -724,7 +724,7 @@ void PGOAgent::initializeLocalTrajectory() {
 }
 
 Matrix PGOAgent::localPoseGraphOptimization() {
-  solvePGOParams pgo_params;
+  ROptParameters pgo_params;
   pgo_params.verbose = true;
   const auto T = solvePGO(mPoseGraph->localMeasurements(), pgo_params);
   return T.getData();
@@ -861,13 +861,8 @@ bool PGOAgent::updateX(bool doOptimization, bool acceleration) {
 
   // Initialize optimizer
   QuadraticProblem problem(mPoseGraph);
-  QuadraticOptimizer optimizer(&problem);
+  QuadraticOptimizer optimizer(&problem, mParams.localOptimizationParams);
   optimizer.setVerbose(mParams.verbose);
-  optimizer.setAlgorithm(mParams.localOptimizationMethod);
-  optimizer.setTrustRegionTolerance(1e-2); // Force optimizer to make progress
-  optimizer.setTrustRegionIterations(3);
-  optimizer.setTrustRegionMaxInnerIterations(50);
-  optimizer.setTrustRegionInitialRadius(100);
 
   // Starting solution
   Matrix X0;

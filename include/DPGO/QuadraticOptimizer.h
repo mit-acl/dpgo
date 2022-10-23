@@ -19,7 +19,12 @@ namespace DPGO {
 
 class QuadraticOptimizer {
  public:
-  QuadraticOptimizer(QuadraticProblem *p);
+  /**
+   * @brief
+   * @param p
+   * @param params
+   */
+  QuadraticOptimizer(QuadraticProblem *p, ROptParameters params = ROptParameters());
 
   ~QuadraticOptimizer();
 
@@ -36,39 +41,39 @@ class QuadraticOptimizer {
   /**
   Turn on/off verbose output
   */
-  void setVerbose(bool v) { verbose_ = v; }
+  void setVerbose(bool v) { params_.verbose = v; }
 
   /**
   Set optimization algorithm
   */
-  void setAlgorithm(ROptMethod alg) { algorithm_ = alg; }
+  void setAlgorithm(ROptParameters::ROptMethod alg) { params_.method = alg; }
 
   /**
   Set maximum step size
   */
-  void setGradientDescentStepsize(double s) { gd_stepsize_ = s; }
+  void setRGDStepsize(double s) { params_.RGD_stepsize = s; }
 
   /**
   Set number of trust region iterations
   */
-  void setTrustRegionIterations(unsigned iter) { trust_region_iterations_ = iter; }
+  void setRTRIterations(int iter) { params_.RTR_iterations = iter; }
 
   /**
   Set tolerance of trust region
   */
-  void setTrustRegionTolerance(double tol) { trust_region_gradnorm_tol_ = tol; }
+  void setGradientNormTolerance(double tol) { params_.gradnorm_tol = tol; }
 
   /**
    * @brief Set the initial trust region radius (default 1e1)
    * @param radius
    */
-  void setTrustRegionInitialRadius(double radius) { trust_region_initial_radius_ = radius; }
+  void setRTRInitialRadius(double radius) { params_.RTR_initial_radius = radius; }
 
   /**
    * @brief Set the maximum number of inner tCG iterations
    * @param iter
    */
-  void setTrustRegionMaxInnerIterations(int iter) { trust_region_max_inner_iterations_ = iter; }
+  void setRTRtCGIterations(int iter) { params_.RTR_tCG_iterations = iter; }
 
   /**
   Return optimization result
@@ -80,28 +85,10 @@ class QuadraticOptimizer {
   QuadraticProblem *problem_;
 
   // Optimization algorithm to be used
-  ROptMethod algorithm_;
+  ROptParameters params_;
 
   // Optimization result
   ROPTResult result_;
-
-  // step size (only for RGD)
-  double gd_stepsize_;
-
-  // Number of trust-region updates
-  unsigned trust_region_iterations_;
-
-  // Tolerance for trust-region updates
-  double trust_region_gradnorm_tol_;
-
-  // Initial trust region radius
-  double trust_region_initial_radius_;
-
-  // Maximum number of tCG iterations
-  int trust_region_max_inner_iterations_;
-
-  // Verbose flag
-  bool verbose_;
 
   // Timing
   SimpleTimer timer_;

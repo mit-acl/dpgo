@@ -33,9 +33,9 @@ int main(int argc, char **argv) {
   pose_graph->setMeasurements(measurements);
 
   solveRobustPGOParams params;
-  params.pgo_params.verbose = false;
-  params.pgo_params.gradnorm_tol = 1;
-  params.pgo_params.max_iterations = 50;
+  params.opt_params.verbose = false;
+  params.opt_params.gradnorm_tol = 1;
+  params.opt_params.RTR_iterations = 50;
   params.verbose = true;
   PoseArray TOdom = odometryInitialization(pose_graph->odometry());
   PoseArray T = solveRobustPGO(measurements, params, &TOdom);

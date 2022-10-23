@@ -296,7 +296,7 @@ PoseArray odometryInitialization(const std::vector<RelativeSEMeasurement> &odome
 }
 
 PoseArray solvePGO(const std::vector<RelativeSEMeasurement> &measurements,
-                   const solvePGOParams &params,
+                   const ROptParameters &params,
                    const PoseArray *T0) {
 
   size_t dimension, num_poses, robot_id;
@@ -317,12 +317,7 @@ PoseArray solvePGO(const std::vector<RelativeSEMeasurement> &measurements,
   QuadraticProblem problem(pose_graph);
 
   // Initialize optimizer object
-  QuadraticOptimizer optimizer(&problem);
-  optimizer.setVerbose(params.verbose);
-  optimizer.setTrustRegionInitialRadius(10);
-  optimizer.setTrustRegionIterations(params.max_iterations);
-  optimizer.setTrustRegionTolerance(params.gradnorm_tol);
-  optimizer.setTrustRegionMaxInnerIterations(50);
+  QuadraticOptimizer optimizer(&problem, params);
 
   // Optimize
   auto Topt_mat = optimizer.optimize(T.getData());
@@ -338,7 +333,7 @@ PoseArray solveRobustPGO(std::vector<RelativeSEMeasurement> &mutable_measurement
   const double w_tol = 1e-8;
   const int m = (int) mutable_measurements.size();
   // Initialize estimate
-  PoseArray T = solvePGO(mutable_measurements, params.pgo_params, T0);
+  PoseArray T = solvePGO(mutable_measurements, params.opt_params, T0);
   Vector rSqVec = Vector::Zero(m);
   for (int i = 0; i < m; ++i) {
     RelativeSEMeasurement &meas = mutable_measurements[i];
@@ -367,7 +362,7 @@ PoseArray solveRobustPGO(std::vector<RelativeSEMeasurement> &mutable_measurement
     unsigned iter = 0;
     for (iter = 0; iter < params_gnc.GNCMaxNumIters; ++iter) {
       // Update solution
-      T = solvePGO(mutable_measurements, params.pgo_params, T0);
+      T = solvePGO(mutable_measurements, params.opt_params, T0);
       // Update weight
       for (int i = 0; i < m; ++i) {
         RelativeSEMeasurement &meas = mutable_measurements[i];
@@ -405,7 +400,7 @@ PoseArray solveRobustPGO(std::vector<RelativeSEMeasurement> &mutable_measurement
       cost.update();
     }
   }
-  T = solvePGO(mutable_measurements, params.pgo_params, T0);
+  T = solvePGO(mutable_measurements, params.opt_params, T0);
   return T;
 }
 

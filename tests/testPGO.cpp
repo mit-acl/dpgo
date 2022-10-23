@@ -189,9 +189,9 @@ TEST(testDPGO, testRobustPGO) {
   pose_graph->setMeasurements(measurements);
   solveRobustPGOParams params;
   params.verbose = false;
-  params.pgo_params.verbose = false;
-  params.pgo_params.gradnorm_tol = 1e-1;
-  params.pgo_params.max_iterations = 50;
+  params.opt_params.verbose = false;
+  params.opt_params.gradnorm_tol = 1e-1;
+  params.opt_params.RTR_iterations = 50;
   params.robust_params.GNCBarc = 7.0;
   PoseArray TOdom = odometryInitialization(pose_graph->odometry());
   auto mutable_measurements = measurements;

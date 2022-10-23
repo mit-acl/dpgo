@@ -95,15 +95,6 @@ PoseArray chordalInitialization(const std::vector<RelativeSEMeasurement> &measur
  */
 PoseArray odometryInitialization(const std::vector<RelativeSEMeasurement> &odometry);
 
-struct solvePGOParams {
- public:
-  bool verbose;
-  unsigned max_iterations;
-  double gradnorm_tol;
-  solvePGOParams() :
-      verbose(false), max_iterations(10), gradnorm_tol(0.1) {}
-};
-
 /**
  * @brief Perform single-robot pose graph optimization using the L2 cost function
  * @param measurements
@@ -112,16 +103,16 @@ struct solvePGOParams {
  * @return
  */
 PoseArray solvePGO(const std::vector<RelativeSEMeasurement> &measurements,
-                   const solvePGOParams &params,
+                   const ROptParameters &params,
                    const PoseArray *T0 = nullptr);
 
 struct solveRobustPGOParams {
  public:
-  solvePGOParams pgo_params;
+  ROptParameters opt_params;
   RobustCostParameters robust_params;
   bool verbose;
   solveRobustPGOParams() :
-      pgo_params(),
+      opt_params(),
       robust_params(RobustCostParameters::Type::GNC_TLS),
       verbose(true) {}
 };
