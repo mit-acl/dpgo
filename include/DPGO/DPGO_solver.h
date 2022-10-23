@@ -9,6 +9,7 @@
 #define DPGO_INCLUDE_DPGO_PGOSOLVER_H_
 
 #include <DPGO/DPGO_utils.h>
+#include <DPGO/DPGO_robust.h>
 #include <DPGO/manifold/Poses.h>
 
 namespace DPGO {
@@ -117,11 +118,12 @@ PoseArray solvePGO(const std::vector<RelativeSEMeasurement> &measurements,
 struct solveRobustPGOParams {
  public:
   solvePGOParams pgo_params;
+  RobustCostParameters robust_params;
   bool verbose;
-  unsigned max_gnc_iterations;
-  double error_threshold;
   solveRobustPGOParams() :
-      pgo_params(), verbose(true), max_gnc_iterations(50), error_threshold(5) {}
+      pgo_params(),
+      robust_params(RobustCostParameters::Type::GNC_TLS),
+      verbose(true) {}
 };
 
 /**

@@ -147,8 +147,8 @@ Matrix PGOLogger::loadTrajectory(const std::string &filename) {
 
 std::vector<RelativeSEMeasurement> PGOLogger::loadMeasurements(const std::string &filename, bool load_weight) {
   std::vector<RelativeSEMeasurement> measurements;
-  std::cout << "Loading measurements from " << logDirectory + filename << "..." << std::endl;
-  std::ifstream infile(logDirectory + filename);
+  std::cout << "Loading measurements from " << filename << "..." << std::endl;
+  std::ifstream infile(filename);
 
   if (!infile.is_open()) {
     std::cout << "Could not open specified file!" << std::endl;

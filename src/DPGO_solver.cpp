@@ -350,19 +350,19 @@ PoseArray solveRobustPGO(std::vector<RelativeSEMeasurement> &mutable_measurement
                                         T.translation(meas.p2));
   }
   // Initialize robust cost
-  double barc = params.error_threshold;
+  CHECK(params.robust_params.costType == RobustCostParameters::Type::GNC_TLS);
+  double barc = params.robust_params.GNCBarc;
   double barcSq = barc * barc;
   double muInit = barcSq / (2 * rSqVec.maxCoeff() - barcSq);
+
+  RobustCostParameters params_gnc;
+  params_gnc = params.robust_params;
+  params_gnc.GNCInitMu = muInit;
   // muInit = std::min(muInit, 1e-5);
   if (params.verbose)
     LOG(INFO) << "[solveRobustPGO] Initial value for mu: " << muInit;
   // Negative values of initial mu corresponds to small residual errors. In this case skip applying GNC.
   if (muInit > 0) {
-    RobustCostParameters params_gnc;
-    params_gnc.costType = RobustCostParameters::Type::GNC_TLS;
-    params_gnc.GNCBarc = barc;
-    params_gnc.GNCMaxNumIters = params.max_gnc_iterations;
-    params_gnc.GNCInitMu = muInit;
     RobustCost cost(params_gnc);
     unsigned iter = 0;
     for (iter = 0; iter < params_gnc.GNCMaxNumIters; ++iter) {
@@ -405,6 +405,7 @@ PoseArray solveRobustPGO(std::vector<RelativeSEMeasurement> &mutable_measurement
       cost.update();
     }
   }
+  T = solvePGO(mutable_measurements, params.pgo_params, T0);
   return T;
 }
 

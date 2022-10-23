@@ -47,8 +47,8 @@ class RobustCostParameters {
 
   // Default constructor
   explicit RobustCostParameters(Type type = Type::L2,
-                                unsigned gncMaxIters = 100,
-                                double gncBarc = 10,
+                                unsigned gncMaxIters = 20,
+                                double gncBarc = 5.0,
                                 double gncMuStep = 1.4,
                                 double gncInitMu = 1e-4,
                                 double huberThresh = 3,

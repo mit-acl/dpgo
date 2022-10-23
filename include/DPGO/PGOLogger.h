@@ -56,7 +56,7 @@ class PGOLogger {
    * @param load_weight
    * @return
    */
-  std::vector<RelativeSEMeasurement> loadMeasurements(const std::string &filename, bool load_weight = false);
+  static std::vector<RelativeSEMeasurement> loadMeasurements(const std::string &filename, bool load_weight = false);
 
  private:
   std::string logDirectory;
