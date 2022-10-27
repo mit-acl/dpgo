@@ -237,6 +237,7 @@ void PGOAgent::iterate(bool doOptimization) {
       // Check local termination condition
       bool readyToTerminate = true;
       if (!success) readyToTerminate = false;
+      if (mParams.robustCostParams.costType != RobustCostParameters::Type::L2) readyToTerminate = false;
       if (mStatus.relativeChange > mParams.relChangeTol) readyToTerminate = false;
       // Compute percentage of converged loop closures (i.e., either accepted or rejected)
       const auto stat = mPoseGraph->statistics();
