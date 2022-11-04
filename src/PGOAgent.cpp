@@ -100,6 +100,23 @@ bool PGOAgent::getSharedPoseDict(PoseDict &map) {
   return true;
 }
 
+bool PGOAgent::getSharedPoseDictWithNeighbor(PoseDict &map, unsigned neighborID) {
+  if (mState != PGOAgentState::INITIALIZED)
+    return false;
+  map.clear();
+  lock_guard<mutex> lock(mPosesMutex);
+  std::vector<RelativeSEMeasurement> measurements = mPoseGraph->sharedLoopClosuresWithRobot(neighborID);
+  for (const auto& m: measurements) {
+    if (m.r1 == getID()) {
+      LiftedPose Xi(X.pose(m.p1));
+      map.emplace(m.p1, Xi);
+    } else if (m.r2 == getID()) {
+      LiftedPose Xi(X.pose(m.p2));
+      map.emplace(m.p2, Xi);
+    }
+  }
+}
+
 bool PGOAgent::getAuxSharedPoseDict(PoseDict &map) {
   CHECK(mParams.acceleration);
   if (mState != PGOAgentState::INITIALIZED)
@@ -114,6 +131,23 @@ bool PGOAgent::getAuxSharedPoseDict(PoseDict &map) {
     map.emplace(pose_id, Yi);
   }
   return true;
+}
+
+bool PGOAgent::getAuxSharedPoseDictWithNeighbor(PoseDict &map, unsigned neighborID) {
+  if (mState != PGOAgentState::INITIALIZED)
+    return false;
+  map.clear();
+  lock_guard<mutex> lock(mPosesMutex);
+  std::vector<RelativeSEMeasurement> measurements = mPoseGraph->sharedLoopClosuresWithRobot(neighborID);
+  for (const auto& m: measurements) {
+    if (m.r1 == getID()) {
+      LiftedPose Yi(Y.pose(m.p1));
+      map.emplace(m.p1, Yi);
+    } else if (m.r2 == getID()) {
+      LiftedPose Yi(Y.pose(m.p2));
+      map.emplace(m.p2, Yi);
+    }
+  }
 }
 
 void PGOAgent::setLiftingMatrix(const Matrix &M) {
