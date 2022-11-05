@@ -108,13 +108,16 @@ bool PGOAgent::getSharedPoseDictWithNeighbor(PoseDict &map, unsigned neighborID)
   std::vector<RelativeSEMeasurement> measurements = mPoseGraph->sharedLoopClosuresWithRobot(neighborID);
   for (const auto& m: measurements) {
     if (m.r1 == getID()) {
+      PoseID pose_id(m.r1, m.p1);
       LiftedPose Xi(X.pose(m.p1));
-      map.emplace(m.p1, Xi);
+      map.emplace(pose_id, Xi);
     } else if (m.r2 == getID()) {
+      PoseID pose_id(m.r2, m.p2);
       LiftedPose Xi(X.pose(m.p2));
-      map.emplace(m.p2, Xi);
+      map.emplace(pose_id, Xi);
     }
   }
+  return true;
 }
 
 bool PGOAgent::getAuxSharedPoseDict(PoseDict &map) {
@@ -141,13 +144,16 @@ bool PGOAgent::getAuxSharedPoseDictWithNeighbor(PoseDict &map, unsigned neighbor
   std::vector<RelativeSEMeasurement> measurements = mPoseGraph->sharedLoopClosuresWithRobot(neighborID);
   for (const auto& m: measurements) {
     if (m.r1 == getID()) {
+      PoseID pose_id(m.r1, m.p1);
       LiftedPose Yi(Y.pose(m.p1));
-      map.emplace(m.p1, Yi);
+      map.emplace(pose_id, Yi);
     } else if (m.r2 == getID()) {
+      PoseID pose_id(m.r2, m.p2);
       LiftedPose Yi(Y.pose(m.p2));
-      map.emplace(m.p2, Yi);
+      map.emplace(pose_id, Yi);
     }
   }
+  return true;
 }
 
 void PGOAgent::setLiftingMatrix(const Matrix &M) {
