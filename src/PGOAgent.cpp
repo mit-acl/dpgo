@@ -792,7 +792,7 @@ void PGOAgent::setGlobalAnchor(const Matrix &M) {
 
 bool PGOAgent::shouldTerminate() {
   // terminate if reached maximum iterations
-  if (iteration_number() > mParams.maxNumIters) {
+  if (iteration_number() >= mParams.maxNumIters) {
     LOG(INFO) << "Reached maximum iterations.";
     return true;
   }
