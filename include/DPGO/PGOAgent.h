@@ -413,11 +413,21 @@ class PGOAgent {
   bool getSharedPoseDict(PoseDict &map);
 
   /**
+   * Get a map of all public poses of this robot with the specified neighbor
+   */
+  bool getSharedPoseDictWithNeighbor(PoseDict &map, unsigned neighborID);
+
+  /**
    * @brief Get a map of all auxiliary variables associated with public poses of this robot
    * @param map
    * @return true if agent is initialized
    */
   bool getAuxSharedPoseDict(PoseDict &map);
+
+  /**
+   * Get a map of all auxiliary public poses of this robot with the specified neighbor
+   */
+  bool getAuxSharedPoseDictWithNeighbor(PoseDict &map, unsigned neighborID);
 
   /**
    * @brief Helper function to reset internal solution. Currently only for debugging.

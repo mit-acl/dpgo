@@ -100,6 +100,26 @@ bool PGOAgent::getSharedPoseDict(PoseDict &map) {
   return true;
 }
 
+bool PGOAgent::getSharedPoseDictWithNeighbor(PoseDict &map, unsigned neighborID) {
+  if (mState != PGOAgentState::INITIALIZED)
+    return false;
+  map.clear();
+  lock_guard<mutex> lock(mPosesMutex);
+  std::vector<RelativeSEMeasurement> measurements = mPoseGraph->sharedLoopClosuresWithRobot(neighborID);
+  for (const auto& m: measurements) {
+    if (m.r1 == getID()) {
+      PoseID pose_id(m.r1, m.p1);
+      LiftedPose Xi(X.pose(m.p1));
+      map.emplace(pose_id, Xi);
+    } else if (m.r2 == getID()) {
+      PoseID pose_id(m.r2, m.p2);
+      LiftedPose Xi(X.pose(m.p2));
+      map.emplace(pose_id, Xi);
+    }
+  }
+  return true;
+}
+
 bool PGOAgent::getAuxSharedPoseDict(PoseDict &map) {
   CHECK(mParams.acceleration);
   if (mState != PGOAgentState::INITIALIZED)
@@ -112,6 +132,26 @@ bool PGOAgent::getAuxSharedPoseDict(PoseDict &map) {
     CHECK_EQ(robot_id, getID());
     LiftedPose Yi(Y.pose(frame_id));
     map.emplace(pose_id, Yi);
+  }
+  return true;
+}
+
+bool PGOAgent::getAuxSharedPoseDictWithNeighbor(PoseDict &map, unsigned neighborID) {
+  if (mState != PGOAgentState::INITIALIZED)
+    return false;
+  map.clear();
+  lock_guard<mutex> lock(mPosesMutex);
+  std::vector<RelativeSEMeasurement> measurements = mPoseGraph->sharedLoopClosuresWithRobot(neighborID);
+  for (const auto& m: measurements) {
+    if (m.r1 == getID()) {
+      PoseID pose_id(m.r1, m.p1);
+      LiftedPose Yi(Y.pose(m.p1));
+      map.emplace(pose_id, Yi);
+    } else if (m.r2 == getID()) {
+      PoseID pose_id(m.r2, m.p2);
+      LiftedPose Yi(Y.pose(m.p2));
+      map.emplace(pose_id, Yi);
+    }
   }
   return true;
 }
@@ -752,7 +792,7 @@ void PGOAgent::setGlobalAnchor(const Matrix &M) {
 
 bool PGOAgent::shouldTerminate() {
   // terminate if reached maximum iterations
-  if (iteration_number() > mParams.maxNumIters) {
+  if (iteration_number() >= mParams.maxNumIters) {
     LOG(INFO) << "Reached maximum iterations.";
     return true;
   }
