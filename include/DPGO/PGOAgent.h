@@ -543,6 +543,9 @@ class PGOAgent {
   // Current global iteration counter (this is only meaningful in synchronous mode)
   unsigned mIterationNumber;
 
+  // Number of times measurement weights are updated
+  unsigned mWeightUpdateCount;
+
   // Total number of neighbor poses received
   unsigned mNumPosesReceived;
 

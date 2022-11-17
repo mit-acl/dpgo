@@ -32,7 +32,10 @@ PGOAgent::PGOAgent(unsigned ID, const PGOAgentParameters &params)
       mStatus(ID, mState, 0, 0, false, 0),
       mRobustCost(params.robustCostParams),
       mPoseGraph(std::make_shared<PoseGraph>(mID, r, d)),
-      mInstanceNumber(0), mIterationNumber(0), mNumPosesReceived(0),
+      mInstanceNumber(0), 
+      mIterationNumber(0), 
+      mWeightUpdateCount(0), 
+      mNumPosesReceived(0),
       mLogger(params.logDirectory),
       gamma(0), alpha(0), Y(X), V(X), XPrev(X) {
   if (mParams.verbose) {
@@ -234,12 +237,12 @@ void PGOAgent::iterate(bool doOptimization) {
   if (shouldUpdateMeasurementWeights()) {
     updateMeasurementWeights();
     mRobustCost.update();
-    // If optimization is to continue and warm start is disabled,
-    // reset trajectory estimate to initial guess
-    if (iteration_number() + mParams.robustOptInnerIters < mParams.maxNumIters
-        && !mParams.robustOptWarmStart) {
+    // Reset trajectory estimate to initial guess 
+    // after the first round of GNC variable update
+    // or if warm start is disabled
+    if (mWeightUpdateCount == 0 || !mParams.robustOptWarmStart) {
       CHECK(XInit);
-      LOG(INFO) << "Warm start is disabled. Robot " << getID() << " resets trajectory estimates.";
+      LOG(INFO) << "Robot " << getID() << " resets trajectory estimates after weight updates.";
       unique_lock<mutex> tLock(mPosesMutex);
       X = XInit.value();
     }
@@ -247,6 +250,7 @@ void PGOAgent::iterate(bool doOptimization) {
     if (mParams.acceleration) {
       initializeAcceleration();
     }
+    mWeightUpdateCount++;
   }
 
   // Perform iteration
@@ -326,6 +330,7 @@ void PGOAgent::reset() {
 
   mInstanceNumber++;
   mIterationNumber = 0;
+  mWeightUpdateCount = 0;
   mNumPosesReceived = 0;
   mState = PGOAgentState::WAIT_FOR_DATA;
   mStatus = PGOAgentStatus(getID(), mState, mInstanceNumber, mIterationNumber, false, 0);
@@ -937,7 +942,7 @@ bool PGOAgent::shouldUpdateMeasurementWeights() const {
   // No need to update weight if using L2 cost
   if (mParams.robustCostParams.costType == RobustCostParameters::Type::L2) return false;
 
-  return ((mIterationNumber + 1) % mParams.robustOptInnerIters == 0);
+  return (mIterationNumber % mParams.robustOptInnerIters == 0);
 }
 
 void PGOAgent::updateMeasurementWeights() {
