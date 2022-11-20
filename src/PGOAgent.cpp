@@ -40,7 +40,6 @@ PGOAgent::PGOAgent(unsigned ID, const PGOAgentParameters &params)
       gamma(0), alpha(0), Y(X), V(X), XPrev(X) {
   LOG(INFO) << "Initializing PGOAgent " << mID; 
   if (mParams.verbose) {
-    std::cout << "Initializing PGO agent..." << std::endl;
     std::cout << params << std::endl;
   }
   if (mID == 0) setLiftingMatrix(fixedStiefelVariable(d, r));
@@ -245,9 +244,11 @@ void PGOAgent::iterate(bool doOptimization) {
       CHECK(XInit);
       LOG(INFO) << "Robot " << getID() << " resets trajectory estimates after weight updates.";
       unique_lock<mutex> tLock(mPosesMutex);
+      lock_guard<mutex> nLock(mNeighborPosesMutex);
       X = XInit.value();
       neighborPoseDict.clear();
       neighborAuxPoseDict.clear();
+      mPublishPublicPosesRequested = true;
     }
     // Reset acceleration
     if (mParams.acceleration) {
@@ -760,7 +761,7 @@ void PGOAgent::initializeLocalTrajectory() {
       params.opt_params.RTR_iterations = 20;
       // Robust optimization params (GNC outer iters)
       params.robust_params.costType = RobustCostParameters::Type::GNC_TLS;
-      params.robust_params.GNCMaxNumIters = 20;
+      params.robust_params.GNCMaxNumIters = 10;
       params.robust_params.GNCBarc = 5.0;
       params.robust_params.GNCMuStep = 1.4;
       PoseArray TOdom = odometryInitialization(mPoseGraph->odometry());
