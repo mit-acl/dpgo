@@ -38,6 +38,7 @@ PGOAgent::PGOAgent(unsigned ID, const PGOAgentParameters &params)
       mNumPosesReceived(0),
       mLogger(params.logDirectory),
       gamma(0), alpha(0), Y(X), V(X), XPrev(X) {
+  LOG(INFO) << "Initializing PGOAgent " << mID; 
   if (mParams.verbose) {
     std::cout << "Initializing PGO agent..." << std::endl;
     std::cout << params << std::endl;
@@ -563,9 +564,9 @@ void PGOAgent::initializeInGlobalFrame(const Pose &T_world_robot) {
 
   // Change state for this agent
   if (mState == PGOAgentState::INITIALIZED) {
-    LOG_IF(INFO, mParams.verbose) << "Robot " << getID() << " re-initializes in global frame!";
+    LOG(INFO) << "Robot " << getID() << " re-initializes in global frame!";
   } else {
-    LOG_IF(INFO, mParams.verbose) << "Robot " << getID() << " initializes in global frame!";
+    LOG(INFO) << "Robot " << getID() << " initializes in global frame!";
     mState = PGOAgentState::INITIALIZED;
   }
 
