@@ -245,6 +245,8 @@ void PGOAgent::iterate(bool doOptimization) {
       LOG(INFO) << "Robot " << getID() << " resets trajectory estimates after weight updates.";
       unique_lock<mutex> tLock(mPosesMutex);
       X = XInit.value();
+      neighborPoseDict.clear();
+      neighborAuxPoseDict.clear();
     }
     // Reset acceleration
     if (mParams.acceleration) {
