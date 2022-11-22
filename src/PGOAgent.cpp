@@ -187,7 +187,8 @@ void PGOAgent::setMeasurements(
 }
 
 void PGOAgent::initialize(const PoseArray *TInitPtr) {
-  CHECK_EQ(mState, PGOAgentState::WAIT_FOR_DATA);
+  if (mState != PGOAgentState::WAIT_FOR_DATA)
+    return;
   // Optimization loop should not be running
   endOptimizationLoop();
 
@@ -198,23 +199,26 @@ void PGOAgent::initialize(const PoseArray *TInitPtr) {
   }
 
   // Check validity of initial trajectory estimate, if provided
-  bool local_init = true;
-  if (TInitPtr) {
-    if (TInitPtr->d() == dimension() && TInitPtr->n() == num_poses())
-      local_init = false;
+  bool initialization_successful = false;
+  if (TInitPtr && TInitPtr->d() == dimension() && TInitPtr->n() == num_poses()) {
+    LOG(INFO) << "Using provided trajectory initialization.";
+    TLocalInit.emplace(*TInitPtr);
+    initialization_successful = true;
+  }
+
+  // Initialize trajectory estimate in an arbitrary frame
+  if (!initialization_successful) {
+    LOG(INFO) << "Using internal trajectory initialization.";
+    initialization_successful = initializeLocalTrajectory();
+  }
+
+  if (!initialization_successful) {
+    LOG(WARNING) << "Robot " << getID() << " fails to initialize local trajectory!";
+    return;
   }
 
   // Update dimension for internal iterate
   X = LiftedPoseArray(relaxation_rank(), dimension(), num_poses());
-
-  // Initialize trajectory estimate in an arbitrary frame
-  if (!local_init) {
-    LOG_IF(INFO, mParams.verbose) << "Using provided trajectory initialization.";
-    TLocalInit.emplace(*TInitPtr);
-  } else {
-    LOG_IF(INFO, mParams.verbose) << "Using internal trajectory initialization.";
-    initializeLocalTrajectory();
-  }
 
   // Waiting for initialization in the GLOBAL frame
   mState = PGOAgentState::WAIT_FOR_INITIALIZATION;
@@ -586,14 +590,20 @@ void PGOAgent::initializeInGlobalFrame(const Pose &T_world_robot) {
 
 void PGOAgent::updateNeighborPoses(unsigned neighborID, const PoseDict &poseDict) {
   CHECK(neighborID != mID);
-  if (!hasNeighborStatus(neighborID)) return;
-  const auto neighborState = getNeighborStatus(neighborID).state;
+  if (!YLift)
+    return;
+  if (!hasNeighborStatus(neighborID))
+    return;
+  if (getNeighborStatus(neighborID).state != PGOAgentState::INITIALIZED)
+    return;
   if (mState == PGOAgentState::WAIT_FOR_INITIALIZATION) {
     Pose T_world_robot(dimension());
     if (computeRobustNeighborTransformTwoStage(neighborID, poseDict, &T_world_robot)) {
       initializeInGlobalFrame(T_world_robot);
     }
   }
+  if (mState != PGOAgentState::INITIALIZED)
+    return;
   // Save neighbor public poses in local cache
   lock_guard<mutex> lock(mNeighborPosesMutex);
   for (const auto &it : poseDict) {
@@ -605,19 +615,21 @@ void PGOAgent::updateNeighborPoses(unsigned neighborID, const PoseDict &poseDict
     mNumPosesReceived++;
     if (!mPoseGraph->hasNeighborPose(nID))
       continue;
-    // Only save poses from neighbors if this agent is initialized
-    // and if the sending agent is also initialized
-    if (mState == PGOAgentState::INITIALIZED && neighborState == PGOAgentState::INITIALIZED) {
-      neighborPoseDict[nID] = var;
-    }
+    neighborPoseDict[nID] = var;
   }
 }
 
 void PGOAgent::updateAuxNeighborPoses(unsigned neighborID, const PoseDict &poseDict) {
   CHECK(mParams.acceleration);
   CHECK(neighborID != mID);
-  if (!hasNeighborStatus(neighborID)) return;
-  const auto neighborState = getNeighborStatus(neighborID).state;
+  if (!YLift)
+    return;
+  if (!hasNeighborStatus(neighborID))
+    return;
+  if (getNeighborStatus(neighborID).state != PGOAgentState::INITIALIZED)
+    return;
+  if (mState != PGOAgentState::INITIALIZED)
+    return;
   lock_guard<mutex> lock(mNeighborPosesMutex);
   for (const auto &it : poseDict) {
     const auto nID = it.first;
@@ -628,11 +640,7 @@ void PGOAgent::updateAuxNeighborPoses(unsigned neighborID, const PoseDict &poseD
     mNumPosesReceived++;
     if (!mPoseGraph->hasNeighborPose(nID))
       continue;
-    // Only save poses from neighbors if this agent is initialized
-    // and if the sending agent is also initialized
-    if (mState == PGOAgentState::INITIALIZED && neighborState == PGOAgentState::INITIALIZED) {
-      neighborAuxPoseDict[nID] = var;
-    }
+    neighborAuxPoseDict[nID] = var;
   }
 }
 
@@ -741,7 +749,7 @@ std::vector<unsigned> PGOAgent::getNeighbors() const {
   return v;
 }
 
-void PGOAgent::initializeLocalTrajectory() {
+bool PGOAgent::initializeLocalTrajectory() {
   PoseArray T(dimension(), num_poses());
   switch (mParams.localInitializationMethod) {
     case (InitializationMethod::Odometry): {
@@ -771,8 +779,13 @@ void PGOAgent::initializeLocalTrajectory() {
     }
   }
   CHECK_EQ(T.d(), dimension());
-  CHECK_EQ(T.n(), num_poses());
+  if (T.n() != num_poses()) {
+    LOG(WARNING) << "Local trajectory initialization has wrong number of poses! "
+                 << T.n() << " vs. " << num_poses() << " expected.";
+    return false;
+  }
   TLocalInit.emplace(T);
+  return true;
 }
 
 Matrix PGOAgent::localPoseGraphOptimization() {

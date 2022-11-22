@@ -600,8 +600,9 @@ class PGOAgent {
   void initializeAcceleration();
   /**
    * @brief initialize local trajectory estimate in an arbitrary local frame
+   * @return true if local initialization is successful
    */
-  void initializeLocalTrajectory();
+  bool initializeLocalTrajectory();
   /**
    * @brief Initialize this robot's trajectory estimate in the global frame
    * @param T_world_robot d+1 by d+1 transformation from robot (local) frame to the world frame
