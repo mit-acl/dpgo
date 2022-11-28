@@ -665,6 +665,15 @@ bool PGOAgent::getTrajectoryInLocalFrame(Matrix &Trajectory) {
 }
 
 bool PGOAgent::getTrajectoryInGlobalFrame(Matrix &Trajectory) {
+  PoseArray T(d, num_poses());
+  if (!getTrajectoryInGlobalFrame(T)) {
+    return false;
+  }
+  Trajectory = T.getData();
+  return true;
+}
+
+bool PGOAgent::getTrajectoryInGlobalFrame(PoseArray &Trajectory) {
   if (!globalAnchor) return false;
   auto Xa = globalAnchor.value();
   CHECK(Xa.r() == relaxation_rank());
@@ -682,7 +691,7 @@ bool PGOAgent::getTrajectoryInGlobalFrame(Matrix &Trajectory) {
     T.translation(i) = T.translation(i) - t0;
   }
 
-  Trajectory = T.getData();
+  Trajectory = T;
   return true;
 }
 

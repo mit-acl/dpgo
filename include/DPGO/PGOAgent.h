@@ -372,6 +372,12 @@ class PGOAgent {
   bool getTrajectoryInGlobalFrame(Matrix &Trajectory);
 
   /**
+  Return trajectory estimate of this robot in global frame, with the first pose
+  of robot 0 set to identity
+  */
+  bool getTrajectoryInGlobalFrame(PoseArray &Trajectory);
+
+  /**
    * @brief Return a single pose in the global frame
    * @param poseID
    * @param T
