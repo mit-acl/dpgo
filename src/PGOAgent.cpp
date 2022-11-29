@@ -33,9 +33,8 @@ PGOAgent::PGOAgent(unsigned ID, const PGOAgentParameters &params)
       mRobustCost(params.robustCostParams),
       mPoseGraph(std::make_shared<PoseGraph>(mID, r, d)),
       mInstanceNumber(0), 
-      mIterationNumber(0), 
-      mWeightUpdateCount(0), 
-      mNumPosesReceived(0),
+      mIterationNumber(0),
+      mTrajectoryResetCount(0),
       mLogger(params.logDirectory),
       gamma(0), alpha(0), Y(X), V(X), XPrev(X) {
   LOG(INFO) << "Initializing PGOAgent " << mID; 
@@ -244,7 +243,9 @@ void PGOAgent::iterate(bool doOptimization) {
     // Reset trajectory estimate to initial guess 
     // after the first round of GNC variable update
     // or if warm start is disabled
-    if (mWeightUpdateCount == 0 || !mParams.robustOptWarmStart) {
+    if (mTrajectoryResetCount < mParams.robustOptNumResets) {
+      mTrajectoryResetCount++;
+      mLatestIterationRequested = true;
       CHECK(XInit);
       LOG(INFO) << "Robot " << getID() << " resets trajectory estimates after weight updates.";
       unique_lock<mutex> tLock(mPosesMutex);
@@ -258,7 +259,6 @@ void PGOAgent::iterate(bool doOptimization) {
     if (mParams.acceleration) {
       initializeAcceleration();
     }
-    mWeightUpdateCount++;
   }
 
   // Perform iteration
@@ -338,8 +338,7 @@ void PGOAgent::reset() {
 
   mInstanceNumber++;
   mIterationNumber = 0;
-  mWeightUpdateCount = 0;
-  mNumPosesReceived = 0;
+  mTrajectoryResetCount = 0;
   mState = PGOAgentState::WAIT_FOR_DATA;
   mStatus = PGOAgentStatus(getID(), mState, mInstanceNumber, mIterationNumber, false, 0);
   neighborPoseDict.clear();
@@ -612,7 +611,6 @@ void PGOAgent::updateNeighborPoses(unsigned neighborID, const PoseDict &poseDict
     CHECK_EQ(nID.robot_id, neighborID);
     CHECK_EQ(var.r(), r);
     CHECK_EQ(var.d(), d);
-    mNumPosesReceived++;
     if (!mPoseGraph->hasNeighborPose(nID))
       continue;
     neighborPoseDict[nID] = var;
@@ -637,7 +635,6 @@ void PGOAgent::updateAuxNeighborPoses(unsigned neighborID, const PoseDict &poseD
     CHECK(nID.robot_id == neighborID);
     CHECK(var.r() == r);
     CHECK(var.d() == d);
-    mNumPosesReceived++;
     if (!mPoseGraph->hasNeighborPose(nID))
       continue;
     neighborAuxPoseDict[nID] = var;
@@ -952,13 +949,12 @@ bool PGOAgent::updateX(bool doOptimization, bool acceleration) {
   X.setData(optimizer.optimize(X0));
 
   // Print optimization statistics
-  const auto &result = optimizer.getOptResult();
+  ROPTResult result = optimizer.getOptResult();
   if (mParams.verbose) {
-    printf("df: %f, gn0: %f, gn1: %f, df/gn0: %f\n",
+    printf("df: %f, init_gradnorm: %f, opt_gradnorm: %f. \n",
            result.fInit - result.fOpt,
            result.gradNormInit,
-           result.gradNormOpt,
-           (result.fInit - result.fOpt) / result.gradNormInit);
+           result.gradNormOpt);
   }
 
   return true;

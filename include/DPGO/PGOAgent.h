@@ -80,7 +80,7 @@ class PGOAgentParameters {
   RobustCostParameters robustCostParams;
 
   // Warm start iterate during robust optimization
-  bool robustOptWarmStart;
+  int robustOptNumResets;
 
   // Number of inner iterations to apply before updating measurement weights during robust optimization
   unsigned robustOptInnerIters;
@@ -114,7 +114,7 @@ class PGOAgentParameters {
                      bool accel = false,
                      unsigned restartInt = 30,
                      RobustCostParameters costParams = RobustCostParameters(),
-                     bool robust_opt_warm_start = true,
+                     int robust_opt_num_resets = 0,
                      unsigned robust_opt_inner_iters = 30,
                      double robust_opt_min_convergence_ratio = 0.8,
                      unsigned robust_init_min_inliers = 2,
@@ -132,7 +132,7 @@ class PGOAgentParameters {
         acceleration(accel),
         restartInterval(restartInt),
         robustCostParams(costParams),
-        robustOptWarmStart(robust_opt_warm_start),
+        robustOptNumResets(robust_opt_num_resets),
         robustOptInnerIters(robust_opt_inner_iters),
         robustOptMinConvergenceRatio(robust_opt_min_convergence_ratio),
         robustInitMinInliers(robust_init_min_inliers),
@@ -154,7 +154,7 @@ class PGOAgentParameters {
     os << "Use multi-robot initialization: " << params.multirobotInitialization << std::endl;
     os << "Use Nesterov acceleration: " << params.acceleration << std::endl;
     os << "Fixed restart interval: " << params.restartInterval << std::endl;
-    os << "Robust optimization warm start: " << params.robustOptWarmStart << std::endl;
+    os << "Robust optimization num resets: " << params.robustOptNumResets << std::endl;
     os << "Robust optimization inner iterations: " << params.robustOptInnerIters << std::endl;
     os << "Robust optimization weight convergence min ratio: " << params.robustOptMinConvergenceRatio << std::endl;
     os << "Robust initialization minimum inliers: " << params.robustInitMinInliers << std::endl;
@@ -550,10 +550,7 @@ class PGOAgent {
   unsigned mIterationNumber;
 
   // Number of times measurement weights are updated
-  unsigned mWeightUpdateCount;
-
-  // Total number of neighbor poses received
-  unsigned mNumPosesReceived;
+  int mTrajectoryResetCount;
 
   // Logging
   PGOLogger mLogger;
@@ -572,6 +569,9 @@ class PGOAgent {
 
   // Request to terminate optimization thread
   bool mEndLoopRequested = false;
+
+  // Request to get latest iteration from neighbors
+  bool mLatestIterationRequested = false;
 
   // Initial iterate
   std::optional<LiftedPoseArray> XInit;
