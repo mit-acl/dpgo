@@ -652,7 +652,7 @@ class PGOAgent {
    * @param weight
    * @return false if the specified public measurement does not exist
    */
-  bool setPublicMeasurementWeight(const PoseID &src_ID, const PoseID &dst_ID, double weight);
+  bool setMeasurementWeight(const PoseID &src_ID, const PoseID &dst_ID, double weight);
 
  private:
   // Stores the auxiliary variables from neighbors (only used in acceleration)

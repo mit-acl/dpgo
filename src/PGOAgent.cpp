@@ -780,7 +780,19 @@ bool PGOAgent::initializeLocalTrajectory() {
       params.robust_params.GNCMuStep = 1.4;
       PoseArray TOdom = odometryInitialization(mPoseGraph->odometry());
       std::vector<RelativeSEMeasurement> mutable_local_measurements = mPoseGraph->localMeasurements();
+      // Solve for trajectory
       T = solveRobustPGO(mutable_local_measurements, params, &TOdom);
+      // Reject outlier local loop closures
+      int reject_count = 0;
+      for (const auto& m: mutable_local_measurements) {
+        if (m.weight < 1e-8) {
+          PoseID srcID(m.r1, m.p1);
+          PoseID dstID(m.r2, m.p2);
+          setMeasurementWeight(srcID, dstID, 0);
+          reject_count++;
+        }
+      }
+      LOG(INFO) << "Reject " << reject_count << " local loop closures.";
       break;
     }
   }
@@ -1037,13 +1049,20 @@ void PGOAgent::updateMeasurementWeights() {
   mPublishWeightsRequested = true;
 }
 
-bool PGOAgent::setPublicMeasurementWeight(const PoseID &src_ID, const PoseID &dst_ID, double weight) {
-  RelativeSEMeasurement *m = PoseGraph::findMeasurement(mPoseGraph->sharedLoopClosures(), src_ID, dst_ID);
+bool PGOAgent::setMeasurementWeight(const PoseID &src_ID, const PoseID &dst_ID, double weight) {
+  RelativeSEMeasurement *m = mPoseGraph->findMeasurement(src_ID, dst_ID);
   if (m) {
+    // Check that m is not an known inlier (e.g. odometry)
+    if (m->isKnownInlier) {
+      LOG(WARNING) << "[setMeasurementWeight] Ignore known inlier!";
+      return false;
+    }
+
     unique_lock<mutex> lock(mMeasurementsMutex);
     m->weight = weight;
     return true;
   }
+  LOG(WARNING) << "[setMeasurementWeight] Measurement does not exist!";
   return false;
 }
 

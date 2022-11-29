@@ -231,15 +231,13 @@ class PoseGraph {
    */
   Statistics statistics() const;
   /**
-   * @brief Find and return the specified measurement from a vector of measurements
+   * @brief Find and return the specified measurement within this pose graph
    * @param measurements
    * @param srcID
    * @param dstID
    * @return writable pointer to the desired measurement (nullptr if measurement does not exists)
    */
-  static RelativeSEMeasurement *findMeasurement(std::vector<RelativeSEMeasurement> &measurements,
-                                                const PoseID &srcID,
-                                                const PoseID &dstID);
+  RelativeSEMeasurement *findMeasurement(const PoseID &srcID, const PoseID &dstID);
 
  protected:
 

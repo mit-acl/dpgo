@@ -61,7 +61,7 @@ void PoseGraph::addOdometry(const RelativeSEMeasurement &factor) {
   // Check for duplicate inter-robot loop closure
   const PoseID src_id(factor.r1, factor.p1);
   const PoseID dst_id(factor.r2, factor.p2);
-  if (findMeasurement(odometry_, src_id, dst_id))
+  if (findMeasurement(src_id, dst_id))
     return;
 
   // Check that this is an odometry measurement
@@ -78,7 +78,7 @@ void PoseGraph::addPrivateLoopClosure(const RelativeSEMeasurement &factor) {
   // Check for duplicate inter-robot loop closure
   const PoseID src_id(factor.r1, factor.p1);
   const PoseID dst_id(factor.r2, factor.p2);
-  if (findMeasurement(private_lcs_, src_id, dst_id))
+  if (findMeasurement(src_id, dst_id))
     return;
 
   CHECK(factor.r1 == id_);
@@ -94,7 +94,7 @@ void PoseGraph::addSharedLoopClosure(const RelativeSEMeasurement &factor) {
   // Check for duplicate inter-robot loop closure
   const PoseID src_id(factor.r1, factor.p1);
   const PoseID dst_id(factor.r2, factor.p2);
-  if (findMeasurement(shared_lcs_, src_id, dst_id))
+  if (findMeasurement(src_id, dst_id))
     return;
 
   CHECK(factor.R.rows() == d_ && factor.R.cols() == d_);
@@ -151,10 +151,18 @@ bool PoseGraph::hasNeighborPose(const PoseID &pose_id) const {
   return nbr_shared_pose_ids_.find(pose_id) != nbr_shared_pose_ids_.end();
 }
 
-RelativeSEMeasurement *PoseGraph::findMeasurement(std::vector<RelativeSEMeasurement> &measurements,
-                                                  const PoseID &srcID,
-                                                  const PoseID &dstID) {
-  for (auto &m : measurements) {
+RelativeSEMeasurement *PoseGraph::findMeasurement(const PoseID &srcID, const PoseID &dstID) {
+  for (auto &m : odometry_) {
+    if (m.r1 == srcID.robot_id && m.p1 == srcID.frame_id && dstID.robot_id == m.r2 && dstID.frame_id == m.p2) {
+      return &m;
+    }
+  }
+  for (auto &m : private_lcs_) {
+    if (m.r1 == srcID.robot_id && m.p1 == srcID.frame_id && dstID.robot_id == m.r2 && dstID.frame_id == m.p2) {
+      return &m;
+    }
+  }
+  for (auto &m : shared_lcs_) {
     if (m.r1 == srcID.robot_id && m.p1 == srcID.frame_id && dstID.robot_id == m.r2 && dstID.frame_id == m.p2) {
       return &m;
     }
