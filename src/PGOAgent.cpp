@@ -996,7 +996,7 @@ void PGOAgent::updateMeasurementWeights() {
     if (m.isKnownInlier) continue;
     Matrix Y1, Y2, p1, p2;
     if (m.r1 == getID()) {
-      if (m.r2 < getID()) continue;
+      // if (m.r2 < getID()) continue;
 
       Y1 = X.rotation(m.p1);
       p1 = X.translation(m.p1);
@@ -1011,7 +1011,7 @@ void PGOAgent::updateMeasurementWeights() {
       Y2 = X2.rotation();
       p2 = X2.translation();
     } else {
-      if (m.r1 < getID()) continue;
+      // if (m.r1 < getID()) continue;
 
       Y2 = X.rotation(m.p2);
       p2 = X.translation(m.p2);
