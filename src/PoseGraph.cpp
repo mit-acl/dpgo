@@ -419,7 +419,7 @@ void PoseGraph::removeNeighbor(unsigned int robot_id) {
   int num_lcs_removed = 0;
   auto it = shared_lcs_.begin();
   while (it != shared_lcs_.end()) {
-    if (it->r1 == robot_id || it->r1 == robot_id) {
+    if (it->r1 == robot_id || it->r2 == robot_id) {
       it = shared_lcs_.erase(it);
       num_lcs_removed++;
     } else {
