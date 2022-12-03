@@ -355,9 +355,21 @@ class PGOAgent {
       const unsigned &neighborID) const;
 
   /**
+   * Return true if the input robot is a neighbor 
+   * (i.e., has inter-robot loop closure with this robot)
+   */
+  bool hasNeighbor(unsigned neighborID) const;
+
+  /**
   Get vector of neighbor robot IDs.
   */
   std::vector<unsigned> getNeighbors() const;
+
+  /**
+   * Remove the specified neighbor.
+   * No effect if the input robot is not a neighbor
+   */
+  void removeNeighbor(unsigned neighborID);
 
   /**
   Return trajectory estimate of this robot in local frame, with its first pose

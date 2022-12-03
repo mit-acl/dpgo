@@ -147,10 +147,7 @@ class PoseGraph {
   /**
    * @brief Clear the quadratic cost matrix
    */
-  void clearQuadraticMatrix() {
-    Q_.reset();
-    precon_.reset();  // Also clear the preconditioner since it depends on Q
-  }
+  void clearQuadraticMatrix();
   /**
    * @brief Get linear cost matrix.
    * @return
@@ -159,9 +156,7 @@ class PoseGraph {
   /**
    * @brief Clear the linear cost matrix
    */
-  void clearLinearMatrix() {
-    G_.reset();
-  }
+  void clearLinearMatrix();
   /**
    * @brief Construct data matrices that are needed for optimization, if they do not yet exist
    * @return true if construction is successful
@@ -170,36 +165,24 @@ class PoseGraph {
   /**
    * @brief Clear data matrices
    */
-  void clearDataMatrices() {
-    clearQuadraticMatrix();
-    clearLinearMatrix();
-  }
+  void clearDataMatrices();
   /**
    * @brief Return true if preconditioner is available.
    * @return
    */
-  bool hasPreconditioner() {
-    if (!precon_.has_value())
-      constructPreconditioner();
-    return precon_.has_value();
-  }
+  bool hasPreconditioner();
   /**
    * @brief Get preconditioner
    * @return
    */
-  const CholmodSolverPtr &preconditioner() {
-    if (!precon_.has_value())
-      constructPreconditioner();
-    CHECK(precon_.has_value());
-    return precon_.value();
-  }
+  const CholmodSolverPtr &preconditioner();
   /**
    * @brief Get the set of my pose IDs that are shared with other robots
    * @return
    */
   PoseSet myPublicPoseIDs() const { return local_shared_pose_ids_; }
   /**
-   * @brief Get the set of Pose IDs that my neighbors need to share with me
+   * @brief Get the set of Pose IDs that ALL neighbors need to share with me
    * @return
    */
   PoseSet neighborPublicPoseIDs() const { return nbr_shared_pose_ids_; }
@@ -225,6 +208,12 @@ class PoseGraph {
    * @return
    */
   bool hasNeighborPose(const PoseID &pose_id) const;
+  /**
+   * @brief Remove all measurements and associated info of the specified robot
+   * This method has no effect if the input robot is not a neighbor
+   * @param 
+   */
+  void removeNeighbor(unsigned int robot_id);
   /**
    * @brief Compute statistics for the current pose graph
    * @return
@@ -298,6 +287,12 @@ class PoseGraph {
    * @return
    */
   bool constructPreconditioner();
+  /**
+   * @brief Based on the current list of inter-robot (shared) 
+   * loop closures, update the list of public pose IDs of myself 
+   * and my neighbors.
+  */ 
+  void updatePublicPoseIDs();
 };
 
 }

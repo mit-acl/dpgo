@@ -210,11 +210,20 @@ const SparseMatrix &PoseGraph::quadraticMatrix() {
   return Q_.value();
 }
 
+void PoseGraph::clearQuadraticMatrix() {
+  Q_.reset();
+  precon_.reset();  // Also clear the preconditioner since it depends on Q
+}
+
 const Matrix &PoseGraph::linearMatrix() {
   if (!G_.has_value())
     constructG();
   CHECK(G_.has_value());
   return G_.value();
+}
+
+void PoseGraph::clearLinearMatrix() {
+  G_.reset();
 }
 
 bool PoseGraph::constructDataMatrices() {
@@ -223,6 +232,11 @@ bool PoseGraph::constructDataMatrices() {
   if (!G_.has_value() && !constructG())
     return false;
   return true;
+}
+
+void PoseGraph::clearDataMatrices() {
+  clearQuadraticMatrix();
+  clearLinearMatrix();
 }
 
 bool PoseGraph::constructQ() {
@@ -360,6 +374,22 @@ bool PoseGraph::constructG() {
   return true;
 }
 
+bool PoseGraph::hasPreconditioner() {
+  if (!precon_.has_value())
+    constructPreconditioner();
+  return precon_.has_value();
+}
+/**
+ * @brief Get preconditioner
+ * @return
+ */
+const CholmodSolverPtr & PoseGraph::preconditioner() {
+  if (!precon_.has_value())
+    constructPreconditioner();
+  CHECK(precon_.has_value());
+  return precon_.value();
+}
+
 bool PoseGraph::constructPreconditioner() {
   timer_.tic();
   // Update preconditioner
@@ -375,6 +405,48 @@ bool PoseGraph::constructPreconditioner() {
   ms_construct_precon_ = timer_.toc();
   //LOG(INFO) << "Construct precon ms: " << ms_construct_precon_;
   return true;
+}
+
+void PoseGraph::removeNeighbor(unsigned int robot_id) {
+  if (!hasNeighbor(robot_id))
+    return;
+  nbr_robot_ids_.erase(nbr_robot_ids_.find(robot_id));
+
+  // clear cached data
+  clearDataMatrices();
+  
+  // Remove all shared loop closures with this robot
+  int num_lcs_removed = 0;
+  auto it = shared_lcs_.begin();
+  while (it != shared_lcs_.end()) {
+    if (it->r1 == robot_id || it->r2 == robot_id) {
+      it = shared_lcs_.erase(it);
+      num_lcs_removed++;
+    } else {
+      it++;
+    }
+  }
+  LOG(INFO) << "Removed " << num_lcs_removed << " loop closures with robot " << robot_id;
+
+  // Update records of public poses from myself and my neighbors
+  updatePublicPoseIDs();
+}
+
+void PoseGraph::updatePublicPoseIDs() {
+  local_shared_pose_ids_.clear();
+  nbr_shared_pose_ids_.clear();
+
+  for (const auto& m: shared_lcs_) {
+    if (m.r1 == id_) {
+      CHECK(m.r2 != id_);
+      local_shared_pose_ids_.emplace(m.r1, m.p1);
+      nbr_shared_pose_ids_.emplace(m.r2, m.p2);
+    } else {
+      CHECK(m.r2 == id_);
+      local_shared_pose_ids_.emplace(m.r2, m.p2);
+      nbr_shared_pose_ids_.emplace(m.r1, m.p1);
+    }
+  }
 }
 
 }

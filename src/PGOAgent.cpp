@@ -748,11 +748,29 @@ std::vector<unsigned> PGOAgent::getNeighborPublicPoses(
   return poseIndices;
 }
 
+bool PGOAgent::hasNeighbor(unsigned neighborID) const {
+  return mPoseGraph->hasNeighbor(neighborID);
+}
+
 std::vector<unsigned> PGOAgent::getNeighbors() const {
   auto neighborRobotIDs = mPoseGraph->neighborIDs();
   std::vector<unsigned> v(neighborRobotIDs.size());
   std::copy(neighborRobotIDs.begin(), neighborRobotIDs.end(), v.begin());
   return v;
+}
+
+void PGOAgent::removeNeighbor(unsigned neighborID) {
+  if (!mPoseGraph->hasNeighbor(neighborID))
+    return;
+  LOG_IF(INFO, mParams.verbose) << "Removing neighbor " << neighborID << ".";
+
+  // Halt insertion of new poses
+  lock_guard<mutex> tLock(mPosesMutex);
+
+  // Halt insertion of new measurements
+  lock_guard<mutex> mLock(mMeasurementsMutex);
+
+  mPoseGraph->removeNeighbor(neighborID);
 }
 
 bool PGOAgent::initializeLocalTrajectory() {
