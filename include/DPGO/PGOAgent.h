@@ -587,6 +587,9 @@ class PGOAgent {
   // Number of times solutions are reset to initial guess
   int mTrajectoryResetCount;
 
+  // Latest local optimization result
+  ROPTResult mLocalOptResult;
+
   // Logging
   PGOLogger mLogger;
 
@@ -596,17 +599,11 @@ class PGOAgent {
   // Request to publish public poses
   bool mPublishPublicPosesRequested = false;
 
-  // Request to publish measurement weights
-  bool mPublishWeightsRequested = false;
-
   // Request to publish in asynchronous mode
   bool mPublishAsynchronousRequested = false;
 
   // Request to terminate optimization thread
   bool mEndLoopRequested = false;
-
-  // Request to get latest iteration from neighbors
-  bool mLatestIterationRequested = false;
 
   // Initial iterate
   std::optional<LiftedPoseArray> XInit;

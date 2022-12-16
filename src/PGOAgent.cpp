@@ -276,7 +276,13 @@ void PGOAgent::iterate(bool doOptimization) {
       // Check local termination condition
       bool readyToTerminate = true;
       if (!success) readyToTerminate = false;
-      if (mStatus.relativeChange > mParams.relChangeTol) readyToTerminate = false;
+      double relative_change_tol = mParams.relChangeTol;
+      // Use loose threshold during initial inner iters of robust opt
+      if (mParams.robustCostParams.costType != RobustCostParameters::Type::L2 && 
+          mWeightUpdateCount == 0) {
+        relative_change_tol = 5;
+      }
+      if (mStatus.relativeChange > relative_change_tol) readyToTerminate = false;
       // Compute percentage of converged loop closures (i.e., either accepted or rejected)
       const auto stat = mPoseGraph->statistics();
       double ratio = (stat.accept_loop_closures + stat.reject_loop_closures) / stat.total_loop_closures;
@@ -337,7 +343,6 @@ void PGOAgent::reset() {
   TLocalInit.reset();
   XInit.reset();
   mPublishPublicPosesRequested = false;
-  mPublishWeightsRequested = false;
   mPublishAsynchronousRequested = false;
   X = LiftedPoseArray(r, d, 1);
   mPoseGraph = std::make_shared<PoseGraph>(mID, r, d);
@@ -979,12 +984,12 @@ bool PGOAgent::updateX(bool doOptimization, bool acceleration) {
   X.setData(optimizer.optimize(X0));
 
   // Print optimization statistics
-  ROPTResult result = optimizer.getOptResult();
+  mLocalOptResult = optimizer.getOptResult();
   if (mParams.verbose) {
     printf("df: %f, init_gradnorm: %f, opt_gradnorm: %f. \n",
-           result.fInit - result.fOpt,
-           result.gradNormInit,
-           result.gradNormOpt);
+           mLocalOptResult.fInit - mLocalOptResult.fOpt,
+           mLocalOptResult.gradNormInit,
+           mLocalOptResult.gradNormOpt);
   }
 
   return true;
@@ -1050,10 +1055,10 @@ void PGOAgent::updateMeasurementWeights() {
     double residual = std::sqrt(computeMeasurementError(m, Y1, p1, Y2, p2));
     double weight = mRobustCost.weight(residual);
     m.weight = weight;
-    if (mParams.verbose) {
-      printf("Agent %u update edge: (%zu, %zu) -> (%zu, %zu), residual = %f, weight = %f \n",
-             getID(), m.r1, m.p1, m.r2, m.p2, residual, weight);
-    }
+    //if (mParams.verbose) {
+    //  printf("Agent %u update edge: (%zu, %zu) -> (%zu, %zu), residual = %f, weight = %f \n",
+    //         getID(), m.r1, m.p1, m.r2, m.p2, residual, weight);
+    //}
   }
 
   // Update shared loop closures
@@ -1095,27 +1100,25 @@ void PGOAgent::updateMeasurementWeights() {
     double residual = std::sqrt(computeMeasurementError(m, Y1, p1, Y2, p2));
     double weight = mRobustCost.weight(residual);
     m.weight = weight;
-    if (mParams.verbose) {
-      printf("Agent %u update edge: (%zu, %zu) -> (%zu, %zu), residual = %f, weight = %f \n",
-             getID(), m.r1, m.p1, m.r2, m.p2, residual, weight);
-    }
+    //if (mParams.verbose) {
+    //  printf("Agent %u update edge: (%zu, %zu) -> (%zu, %zu), residual = %f, weight = %f \n",
+    //         getID(), m.r1, m.p1, m.r2, m.p2, residual, weight);
+    //}
   }
-  mPublishWeightsRequested = true;
   mWeightUpdateCount++;
   mRobustOptInnerIter = 0;
   mPoseGraph->clearDataMatrices();
   mRobustCost.update();
+  mTeamStatus.clear();
 
   // Reset trajectory estimate to initial guess
   // after the first round of GNC variable update
   // or if warm start is disabled
   if (mTrajectoryResetCount < mParams.robustOptNumResets) {
     mTrajectoryResetCount++;
-    mLatestIterationRequested = true;
     LOG(INFO) << "Robot " << getID() << " resets trajectory estimates after weight updates.";
     setXToInitialGuess();
     clearNeighborPoses();
-    mPublishPublicPosesRequested = true;
   }
 
   // Reset acceleration
