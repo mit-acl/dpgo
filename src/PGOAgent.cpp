@@ -32,12 +32,14 @@ PGOAgent::PGOAgent(unsigned ID, const PGOAgentParameters &params)
       mStatus(ID, mState, 0, 0, false, 0),
       mRobustCost(params.robustCostParams),
       mPoseGraph(std::make_shared<PoseGraph>(mID, r, d)),
-      mInstanceNumber(0), 
+      mInstanceNumber(0),
       mIterationNumber(0),
+      mRobustOptInnerIter(0),
+      mWeightUpdateCount(0),
       mTrajectoryResetCount(0),
       mLogger(params.logDirectory),
       gamma(0), alpha(0), Y(X), V(X), XPrev(X) {
-  LOG(INFO) << "Initializing PGOAgent " << mID; 
+  LOG(INFO) << "Initializing PGOAgent " << mID;
   if (mParams.verbose) {
     std::cout << params << std::endl;
   }
@@ -60,6 +62,13 @@ void PGOAgent::setX(const Matrix &Xin) {
     initializeAcceleration();
   }
   LOG_IF(INFO, mParams.verbose) << "Robot " << getID() << " resets trajectory with length " << num_poses();
+}
+
+void PGOAgent::setXToInitialGuess() {
+  CHECK_NE(mState, PGOAgentState::WAIT_FOR_DATA);
+  CHECK(XInit.has_value());
+  lock_guard<mutex> lock(mPosesMutex);
+  X = XInit.value();
 }
 
 bool PGOAgent::getX(Matrix &Mout) {
@@ -108,7 +117,7 @@ bool PGOAgent::getSharedPoseDictWithNeighbor(PoseDict &map, unsigned neighborID)
   map.clear();
   lock_guard<mutex> lock(mPosesMutex);
   std::vector<RelativeSEMeasurement> measurements = mPoseGraph->sharedLoopClosuresWithRobot(neighborID);
-  for (const auto& m: measurements) {
+  for (const auto &m : measurements) {
     if (m.r1 == getID()) {
       PoseID pose_id(m.r1, m.p1);
       LiftedPose Xi(X.pose(m.p1));
@@ -144,7 +153,7 @@ bool PGOAgent::getAuxSharedPoseDictWithNeighbor(PoseDict &map, unsigned neighbor
   map.clear();
   lock_guard<mutex> lock(mPosesMutex);
   std::vector<RelativeSEMeasurement> measurements = mPoseGraph->sharedLoopClosuresWithRobot(neighborID);
-  for (const auto& m: measurements) {
+  for (const auto &m : measurements) {
     if (m.r1 == getID()) {
       PoseID pose_id(m.r1, m.p1);
       LiftedPose Yi(Y.pose(m.p1));
@@ -235,30 +244,8 @@ void PGOAgent::initialize(const PoseArray *TInitPtr) {
 
 void PGOAgent::iterate(bool doOptimization) {
   mIterationNumber++;
-
-  // Update measurement weights (GNC)
-  if (shouldUpdateMeasurementWeights()) {
-    updateMeasurementWeights();
-    mRobustCost.update();
-    // Reset trajectory estimate to initial guess 
-    // after the first round of GNC variable update
-    // or if warm start is disabled
-    if (mTrajectoryResetCount < mParams.robustOptNumResets) {
-      mTrajectoryResetCount++;
-      mLatestIterationRequested = true;
-      CHECK(XInit);
-      LOG(INFO) << "Robot " << getID() << " resets trajectory estimates after weight updates.";
-      unique_lock<mutex> tLock(mPosesMutex);
-      lock_guard<mutex> nLock(mNeighborPosesMutex);
-      X = XInit.value();
-      neighborPoseDict.clear();
-      neighborAuxPoseDict.clear();
-      mPublishPublicPosesRequested = true;
-    }
-    // Reset acceleration
-    if (mParams.acceleration) {
-      initializeAcceleration();
-    }
+  if (mParams.robustCostParams.costType != RobustCostParameters::Type::L2) {
+    mRobustOptInnerIter++;
   }
 
   // Perform iteration
@@ -289,7 +276,6 @@ void PGOAgent::iterate(bool doOptimization) {
       // Check local termination condition
       bool readyToTerminate = true;
       if (!success) readyToTerminate = false;
-      if (mParams.robustCostParams.costType != RobustCostParameters::Type::L2) readyToTerminate = false;
       if (mStatus.relativeChange > mParams.relChangeTol) readyToTerminate = false;
       // Compute percentage of converged loop closures (i.e., either accepted or rejected)
       const auto stat = mPoseGraph->statistics();
@@ -338,6 +324,8 @@ void PGOAgent::reset() {
 
   mInstanceNumber++;
   mIterationNumber = 0;
+  mRobustOptInnerIter = 0;
+  mWeightUpdateCount = 0;
   mTrajectoryResetCount = 0;
   mState = PGOAgentState::WAIT_FOR_DATA;
   mStatus = PGOAgentStatus(getID(), mState, mInstanceNumber, mIterationNumber, false, 0);
@@ -641,6 +629,12 @@ void PGOAgent::updateAuxNeighborPoses(unsigned neighborID, const PoseDict &poseD
   }
 }
 
+void PGOAgent::clearNeighborPoses() {
+  lock_guard<mutex> lock(mNeighborPosesMutex);
+  neighborPoseDict.clear();
+  neighborAuxPoseDict.clear();
+}
+
 bool PGOAgent::getTrajectoryInLocalFrame(Matrix &Trajectory) {
   if (mState != PGOAgentState::INITIALIZED) {
     return false;
@@ -802,7 +796,7 @@ bool PGOAgent::initializeLocalTrajectory() {
       T = solveRobustPGO(mutable_local_measurements, params, &TOdom);
       // Reject outlier local loop closures
       int reject_count = 0;
-      for (const auto& m: mutable_local_measurements) {
+      for (const auto &m : mutable_local_measurements) {
         if (m.weight < 1e-8) {
           PoseID srcID(m.r1, m.p1);
           PoseID dstID(m.r2, m.p2);
@@ -853,6 +847,12 @@ bool PGOAgent::shouldTerminate() {
   if (iteration_number() >= mParams.maxNumIters) {
     LOG(INFO) << "Reached maximum iterations.";
     return true;
+  }
+
+  // Do not terminate if not update measurement weights for sufficiently many times
+  if (mParams.robustCostParams.costType != RobustCostParameters::Type::L2) {
+    if (mWeightUpdateCount < mParams.robustOptNumWeightUpdates)
+      return false;
   }
 
   // terminate only if all robots meet conditions
@@ -992,17 +992,53 @@ bool PGOAgent::updateX(bool doOptimization, bool acceleration) {
 
 bool PGOAgent::shouldUpdateMeasurementWeights() const {
   // No need to update weight if using L2 cost
-  if (mParams.robustCostParams.costType == RobustCostParameters::Type::L2) return false;
+  if (mParams.robustCostParams.costType == RobustCostParameters::Type::L2)
+    return false;
 
-  return (mIterationNumber % mParams.robustOptInnerIters == 0);
+  // Only agent 0 decides
+  if (mID != 0)
+    return false;
+
+  // Return true if number of inner iterations exceeds threshold
+  if (mRobustOptInnerIter > mParams.robustOptInnerIters) {
+    LOG_IF(INFO, mParams.verbose) << "Exceeds max inner iterations: update weights.";
+    return true;
+  }
+
+  // Only update if all agents sufficiently converged
+  bool should_update = true;
+  for (size_t robot_id = 0; robot_id < mParams.numRobots; ++robot_id) {
+    const auto &it = mTeamStatus.find(robot_id);
+    if (it == mTeamStatus.end()) {
+      should_update = false;
+      break;
+    }
+    const auto &robot_status = it->second;
+    CHECK_EQ(robot_status.agentID, robot_id);
+    if (robot_status.state != PGOAgentState::INITIALIZED) {
+      should_update = false;
+      break;
+    }
+    // return false if this robot is not ready to terminate
+    if (!robot_status.readyToTerminate) {
+      should_update = false;
+      break;
+    }
+  }
+
+  if (should_update) {
+    LOG_IF(INFO, mParams.verbose) << "Ready to update weights.";
+  }
+
+  return should_update;
 }
 
 void PGOAgent::updateMeasurementWeights() {
-  CHECK(mState == PGOAgentState::INITIALIZED);
+  if (mState != PGOAgentState::INITIALIZED) {
+    LOG(WARNING) << "Robot " << getID() << " attempts to update weights but is not initialized.";
+    return;
+  }
   unique_lock<mutex> lock(mMeasurementsMutex);
-
-  // Since edge weights change, we need to recompute the data matrices associated with the local optimization problem
-  mPoseGraph->clearDataMatrices();
 
   // Update private loop closures
   for (auto &m : mPoseGraph->privateLoopClosures()) {
@@ -1065,6 +1101,27 @@ void PGOAgent::updateMeasurementWeights() {
     }
   }
   mPublishWeightsRequested = true;
+  mWeightUpdateCount++;
+  mRobustOptInnerIter = 0;
+  mPoseGraph->clearDataMatrices();
+  mRobustCost.update();
+
+  // Reset trajectory estimate to initial guess
+  // after the first round of GNC variable update
+  // or if warm start is disabled
+  if (mTrajectoryResetCount < mParams.robustOptNumResets) {
+    mTrajectoryResetCount++;
+    mLatestIterationRequested = true;
+    LOG(INFO) << "Robot " << getID() << " resets trajectory estimates after weight updates.";
+    setXToInitialGuess();
+    clearNeighborPoses();
+    mPublishPublicPosesRequested = true;
+  }
+
+  // Reset acceleration
+  if (mParams.acceleration) {
+    initializeAcceleration();
+  }
 }
 
 bool PGOAgent::setMeasurementWeight(const PoseID &src_ID, const PoseID &dst_ID, double weight) {

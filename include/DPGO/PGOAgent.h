@@ -79,11 +79,14 @@ class PGOAgentParameters {
   // Parameter settings over robust cost functions
   RobustCostParameters robustCostParams;
 
+  // Number of weight updates for robust optimization
+  int robustOptNumWeightUpdates;
+
   // Warm start iterate during robust optimization
   int robustOptNumResets;
 
   // Number of inner iterations to apply before updating measurement weights during robust optimization
-  unsigned robustOptInnerIters;
+  int robustOptInnerIters;
 
   // Minimum ratio of converged weights before terminating robust optimization
   double robustOptMinConvergenceRatio;
@@ -114,8 +117,9 @@ class PGOAgentParameters {
                      bool accel = false,
                      unsigned restartInt = 30,
                      RobustCostParameters costParams = RobustCostParameters(),
+                     int robust_opt_num_weight_updates = 10,
                      int robust_opt_num_resets = 0,
-                     unsigned robust_opt_inner_iters = 30,
+                     int robust_opt_inner_iters = 30,
                      double robust_opt_min_convergence_ratio = 0.8,
                      unsigned robust_init_min_inliers = 2,
                      unsigned maxIters = 500,
@@ -132,6 +136,7 @@ class PGOAgentParameters {
         acceleration(accel),
         restartInterval(restartInt),
         robustCostParams(costParams),
+        robustOptNumWeightUpdates(robust_opt_num_weight_updates),
         robustOptNumResets(robust_opt_num_resets),
         robustOptInnerIters(robust_opt_inner_iters),
         robustOptMinConvergenceRatio(robust_opt_min_convergence_ratio),
@@ -150,10 +155,12 @@ class PGOAgentParameters {
     os << "Number of robots: " << params.numRobots << std::endl;
     os << "Asynchronous: " << params.asynchronous << std::endl;
     os << "Asynchronous optimization rate: " << params.asynchronousOptimizationRate << std::endl;
-    os << "Local initialization method: " << InitializationMethodToString(params.localInitializationMethod) << std::endl;
+    os << "Local initialization method: " << InitializationMethodToString(params.localInitializationMethod)
+       << std::endl;
     os << "Use multi-robot initialization: " << params.multirobotInitialization << std::endl;
     os << "Use Nesterov acceleration: " << params.acceleration << std::endl;
     os << "Fixed restart interval: " << params.restartInterval << std::endl;
+    os << "Robust optimization num weight updates: " << params.robustOptNumWeightUpdates << std::endl;
     os << "Robust optimization num resets: " << params.robustOptNumResets << std::endl;
     os << "Robust optimization inner iterations: " << params.robustOptInnerIters << std::endl;
     os << "Robust optimization weight convergence min ratio: " << params.robustOptMinConvergenceRatio << std::endl;
@@ -454,6 +461,11 @@ class PGOAgent {
   void setX(const Matrix &Xin);
 
   /**
+   * @brief Reset internal solution to initial guess X = Xinit.
+   */
+  void setXToInitialGuess();
+
+  /**
    * @brief Helper function to get internal solution. Note that this method disregards whether the agent is initialized.
    * @param Mout
    * @return
@@ -522,6 +534,11 @@ class PGOAgent {
   void updateAuxNeighborPoses(unsigned neighborID, const PoseDict &poseDict);
 
   /**
+   * @brief Clear local caches of all neighbors' poses
+   */
+  void clearNeighborPoses();
+
+  /**
    * @brief Perform local PGO using the standard L2 (least-squares) cost function
    * @return trajectory estimate in matrix form T = [R1 t1 ... Rn tn] in an arbitrary frame
    */
@@ -561,7 +578,13 @@ class PGOAgent {
   // Current global iteration counter (this is only meaningful in synchronous mode)
   unsigned mIterationNumber;
 
+  // Number of inner iterations performed for robust optimization
+  int mRobustOptInnerIter;
+
   // Number of times measurement weights are updated
+  int mWeightUpdateCount;
+
+  // Number of times solutions are reset to initial guess
   int mTrajectoryResetCount;
 
   // Logging
