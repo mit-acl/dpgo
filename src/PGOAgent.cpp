@@ -1000,7 +1000,7 @@ bool PGOAgent::shouldUpdateMeasurementWeights() const {
     return false;
 
   // Return true if number of inner iterations exceeds threshold
-  if (mRobustOptInnerIter > mParams.robustOptInnerIters) {
+  if (mRobustOptInnerIter >= mParams.robustOptInnerIters) {
     LOG_IF(INFO, mParams.verbose) << "Exceeds max inner iterations: update weights.";
     return true;
   }
