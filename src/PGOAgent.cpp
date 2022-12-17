@@ -44,6 +44,7 @@ PGOAgent::PGOAgent(unsigned ID, const PGOAgentParameters &params)
     std::cout << params << std::endl;
   }
   if (mID == 0) setLiftingMatrix(fixedStiefelVariable(d, r));
+  mTeamRobotActive.assign(mParams.numRobots, true);
 }
 
 PGOAgent::~PGOAgent() {
@@ -338,6 +339,7 @@ void PGOAgent::reset() {
   neighborPoseDict.clear();
   neighborAuxPoseDict.clear();
   mTeamStatus.clear();
+  mTeamRobotActive.assign(mParams.numRobots, true);
   mRobustCost.reset();
   globalAnchor.reset();
   TLocalInit.reset();
@@ -862,6 +864,8 @@ bool PGOAgent::shouldTerminate() {
 
   // terminate only if all robots meet conditions
   for (size_t robot_id = 0; robot_id < mParams.numRobots; ++robot_id) {
+    if (!isRobotActive(robot_id))
+      continue;
     const auto &it = mTeamStatus.find(robot_id);
     // ready false if robot status not available
     if (it == mTeamStatus.end())
@@ -1006,13 +1010,20 @@ bool PGOAgent::shouldUpdateMeasurementWeights() const {
 
   // Return true if number of inner iterations exceeds threshold
   if (mRobustOptInnerIter >= mParams.robustOptInnerIters) {
-    LOG_IF(INFO, mParams.verbose) << "Exceeds max inner iterations: update weights.";
+    LOG_IF(INFO, mParams.verbose) << "Exceeds max inner iterations. Update weights.";
     return true;
+  }
+
+  if (mWeightUpdateCount >= mParams.robustOptNumWeightUpdates) {
+    LOG_IF(INFO, mParams.verbose) << "Reached maximum weight update steps.";
+    return false;
   }
 
   // Only update if all agents sufficiently converged
   bool should_update = true;
   for (size_t robot_id = 0; robot_id < mParams.numRobots; ++robot_id) {
+    if (!isRobotActive(robot_id))
+      continue;
     const auto &it = mTeamStatus.find(robot_id);
     if (it == mTeamStatus.end()) {
       should_update = false;
@@ -1142,6 +1153,31 @@ bool PGOAgent::setMeasurementWeight(const PoseID &src_ID, const PoseID &dst_ID, 
   }
   LOG(WARNING) << "[setMeasurementWeight] Measurement does not exist!";
   return false;
+}
+
+
+bool PGOAgent::isRobotInitialized(unsigned robot_id) const {
+  if (robot_id == getID())
+    return mState == PGOAgentState::INITIALIZED;
+
+  if (!hasNeighborStatus(robot_id))
+    return false;
+
+  return getNeighborStatus(robot_id).state == PGOAgentState::INITIALIZED;
+}
+
+bool PGOAgent::isRobotActive(unsigned robot_id) const {
+  if (robot_id >= mParams.numRobots)
+    return false;
+  return mTeamRobotActive[robot_id];
+}
+
+void PGOAgent::setRobotActive(unsigned robot_id, bool active) {
+  if (robot_id >= mParams.numRobots) {
+    LOG(ERROR) << "Input robot ID " << robot_id << " bigger than number of robots!";
+    return;
+  }
+  mTeamRobotActive[robot_id] = active;
 }
 
 }  // namespace DPGO

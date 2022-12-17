@@ -596,6 +596,9 @@ class PGOAgent {
   // Store status of peer agents
   std::unordered_map<unsigned, PGOAgentStatus> mTeamStatus;
 
+  // Store if robots are actively participating in optimization
+  std::vector<bool> mTeamRobotActive;
+
   // Request to publish public poses
   bool mPublishPublicPosesRequested = false;
 
@@ -685,6 +688,18 @@ class PGOAgent {
    * @return false if the specified public measurement does not exist
    */
   bool setMeasurementWeight(const PoseID &src_ID, const PoseID &dst_ID, double weight);
+  /**
+   * @brief Return true if the robot is initialized in global frame
+   */
+  bool isRobotInitialized(unsigned robot_id) const;
+  /**
+   * @brief Return true if the robot is currently active
+   */
+  bool isRobotActive(unsigned robot_id) const;
+  /**
+   * @brief Set robot to be active 
+   */
+  void setRobotActive(unsigned robot_id, bool active = true);
 
  private:
   // Stores the auxiliary variables from neighbors (only used in acceleration)
