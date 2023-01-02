@@ -177,7 +177,7 @@ PoseGraph::Statistics PoseGraph::statistics() const {
   double rejectCount = 0;
   // TODO: specify tolerance for rejected and accepted loop closures
   for (const auto &m : private_lcs_) {
-    if (m.isKnownInlier) continue;
+    // if (m.fixedWeight) continue;
     if (m.weight == 1) {
       acceptCount += 1;
     } else if (m.weight == 0) {
@@ -186,7 +186,7 @@ PoseGraph::Statistics PoseGraph::statistics() const {
     totalCount += 1;
   }
   for (const auto &m : shared_lcs_) {
-    if (m.isKnownInlier) continue;
+    // if (m.fixedWeight) continue;
     if (m.weight == 1) {
       acceptCount += 1;
     } else if (m.weight == 0) {

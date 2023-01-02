@@ -152,7 +152,7 @@ TEST(testDPGO, testRobustPGO) {
     m.p2 = j;
     m.kappa = kappa;
     m.tau = tau;
-    m.isKnownInlier = true;
+    m.fixedWeight = true;
     m.R = Tij.rotation();
     m.t = Tij.translation();
     measurements.push_back(m);
@@ -168,7 +168,7 @@ TEST(testDPGO, testRobustPGO) {
   m_inlier.p2 = 3;
   m_inlier.kappa = kappa;
   m_inlier.tau = tau;
-  m_inlier.isKnownInlier = false;
+  m_inlier.fixedWeight = false;
   m_inlier.R = Tij.rotation();
   m_inlier.t = Tij.translation();
   measurements.push_back(m_inlier);
@@ -180,7 +180,7 @@ TEST(testDPGO, testRobustPGO) {
   m_outlier.p2 = 3;
   m_outlier.kappa = kappa;
   m_outlier.tau = tau;
-  m_outlier.isKnownInlier = false;
+  m_outlier.fixedWeight = false;
   m_outlier.R = Eigen::Quaterniond::UnitRandom().toRotationMatrix();
   m_outlier.t = Eigen::Vector3d::Zero();
   measurements.push_back(m_outlier);
@@ -198,7 +198,7 @@ TEST(testDPGO, testRobustPGO) {
   PoseArray T = solveRobustPGO(mutable_measurements, params, &TOdom);
   // Check classification of inlier vs outlier
   for (const auto& m: mutable_measurements) {
-    if (!m.isKnownInlier) {
+    if (!m.fixedWeight) {
       if (m.p1 == 0 && m.p2 == 3)
         CHECK_NEAR(m.weight, 1, 1e-6);
       if (m.p1 == 1 && m.p2 == 3)

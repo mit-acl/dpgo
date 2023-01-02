@@ -45,7 +45,7 @@ void PGOLogger::logMeasurements(std::vector<RelativeSEMeasurement> &measurements
     file << m.t(2) << ",";
     file << m.kappa << ",";
     file << m.tau << ",";
-    file << m.isKnownInlier << ",";
+    file << m.fixedWeight << ",";
     file << m.weight << "\n";
   }
 
@@ -160,7 +160,7 @@ std::vector<RelativeSEMeasurement> PGOLogger::loadMeasurements(const std::string
   double qx, qy, qz, qw;
   double tx, ty, tz;
   double kappa, tau, weight;
-  bool is_known_inlier;
+  bool fixed_weight;
 
   std::string line;
   std::string token;
@@ -206,14 +206,14 @@ std::vector<RelativeSEMeasurement> PGOLogger::loadMeasurements(const std::string
     std::getline(ss, token, ',');
     tau = std::stod(token);
     std::getline(ss, token, ',');
-    is_known_inlier = std::stoi(token);
+    fixed_weight = std::stoi(token);
     std::getline(ss, token, ',');
     weight = std::stod(token);
 
     RelativeSEMeasurement m(robot_src, robot_dst, pose_src, pose_dst,
                             quat.toRotationMatrix(), tVec,
                             kappa, tau);
-    m.isKnownInlier = is_known_inlier;
+    m.fixedWeight = fixed_weight;
     if (load_weight)
       m.weight = weight;
 

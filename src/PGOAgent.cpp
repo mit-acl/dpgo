@@ -1058,7 +1058,7 @@ void PGOAgent::updateMeasurementWeights() {
 
   // Update private loop closures
   for (auto &m : mPoseGraph->privateLoopClosures()) {
-    if (m.isKnownInlier) continue;
+    if (m.fixedWeight) continue;
     auto Y1 = X.rotation(m.p1);
     auto p1 = X.translation(m.p1);
     auto Y2 = X.rotation(m.p2);
@@ -1075,7 +1075,7 @@ void PGOAgent::updateMeasurementWeights() {
   // Update shared loop closures
   // Agent i is only responsible for updating edge weights with agent j, where j > i
   for (auto &m : mPoseGraph->sharedLoopClosures()) {
-    if (m.isKnownInlier) continue;
+    if (m.fixedWeight) continue;
     Matrix Y1, Y2, p1, p2;
     if (m.r1 == getID()) {
       // if (m.r2 < getID()) continue;
@@ -1142,8 +1142,8 @@ bool PGOAgent::setMeasurementWeight(const PoseID &src_ID, const PoseID &dst_ID, 
   RelativeSEMeasurement *m = mPoseGraph->findMeasurement(src_ID, dst_ID);
   if (m) {
     // Check that m is not an known inlier (e.g. odometry)
-    if (m->isKnownInlier) {
-      LOG(WARNING) << "[setMeasurementWeight] Ignore known inlier!";
+    if (m->fixedWeight) {
+      LOG(WARNING) << "[setMeasurementWeight] Attempt to change fixed weight!";
       return false;
     }
 

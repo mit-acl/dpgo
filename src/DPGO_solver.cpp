@@ -366,7 +366,7 @@ PoseArray solveRobustPGO(std::vector<RelativeSEMeasurement> &mutable_measurement
       // Update weight
       for (int i = 0; i < m; ++i) {
         RelativeSEMeasurement &meas = mutable_measurements[i];
-        if (meas.isKnownInlier) continue;
+        if (meas.fixedWeight) continue;
         double rSq = computeMeasurementError(meas,
                                              T.rotation(meas.p1),
                                              T.translation(meas.p1),
@@ -380,7 +380,7 @@ PoseArray solveRobustPGO(std::vector<RelativeSEMeasurement> &mutable_measurement
       int num_outliers = 0;
       int num_undecided = 0;
       for (const auto& meas: mutable_measurements) {
-        if (meas.isKnownInlier) continue;
+        if (meas.fixedWeight) continue;
         if (meas.weight < w_tol) {
           num_outliers++;
         } else if (meas.weight > 1.0 - w_tol) {
