@@ -14,6 +14,9 @@
 #include "RelativeSEMeasurement.h"
 #include <glog/logging.h>
 #include <set>
+#include <map>
+#include <unordered_set>
+#include <unordered_map>
 #include <memory>
 
 namespace DPGO {
@@ -223,6 +226,10 @@ class PoseGraph {
    */
   Statistics statistics() const;
   /**
+   * @brief Check if a measurement exists in the pose graph
+  */
+  bool hasMeasurement(const PoseID &srcID, const PoseID &dstID) const;
+  /**
    * @brief Find and return a writable pointer to the specified measurement within this pose graph
    * @param measurements
    * @param srcID
@@ -316,6 +323,11 @@ class PoseGraph {
    * and my neighbors.
   */ 
   void updatePublicPoseIDs();
+
+ private:
+  // Mapping Edge ID to the corresponding index in the vector of measurements
+  // (either odometry, private loop closures, or public loop closures)  
+  std::unordered_map<EdgeID, size_t, HashEdgeID> edge_id_to_index;
 };
 
 }

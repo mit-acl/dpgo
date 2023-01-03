@@ -24,6 +24,7 @@ PoseGraph::~PoseGraph() {
 void PoseGraph::empty() {
   // Reset this pose graph to be empty
   n_ = 0;
+  edge_id_to_index.clear();
   odometry_.clear();
   private_lcs_.clear();
   shared_lcs_.clear();
@@ -74,7 +75,7 @@ void PoseGraph::addOdometry(const RelativeSEMeasurement &factor) {
   // Check for duplicate inter-robot loop closure
   const PoseID src_id(factor.r1, factor.p1);
   const PoseID dst_id(factor.r2, factor.p2);
-  if (findMeasurement(src_id, dst_id))
+  if (hasMeasurement(src_id, dst_id))
     return;
 
   // Check that this is an odometry measurement
@@ -85,13 +86,15 @@ void PoseGraph::addOdometry(const RelativeSEMeasurement &factor) {
   CHECK(factor.t.rows() == d_ && factor.t.cols() == 1);
   n_ = std::max(n_, (unsigned int) factor.p2 + 1);
   odometry_.push_back(factor);
+  const EdgeID edge_id(src_id, dst_id);
+  edge_id_to_index.emplace(edge_id, odometry_.size() - 1);
 }
 
 void PoseGraph::addPrivateLoopClosure(const RelativeSEMeasurement &factor) {
   // Check for duplicate inter-robot loop closure
   const PoseID src_id(factor.r1, factor.p1);
   const PoseID dst_id(factor.r2, factor.p2);
-  if (findMeasurement(src_id, dst_id))
+  if (hasMeasurement(src_id, dst_id))
     return;
 
   CHECK(factor.r1 == id_);
@@ -101,13 +104,15 @@ void PoseGraph::addPrivateLoopClosure(const RelativeSEMeasurement &factor) {
   // update number of poses
   n_ = std::max(n_, (unsigned int) std::max(factor.p1 + 1, factor.p2 + 1));
   private_lcs_.push_back(factor);
+  const EdgeID edge_id(src_id, dst_id);
+  edge_id_to_index.emplace(edge_id, private_lcs_.size() - 1);
 }
 
 void PoseGraph::addSharedLoopClosure(const RelativeSEMeasurement &factor) {
   // Check for duplicate inter-robot loop closure
   const PoseID src_id(factor.r1, factor.p1);
   const PoseID dst_id(factor.r2, factor.p2);
-  if (findMeasurement(src_id, dst_id))
+  if (hasMeasurement(src_id, dst_id))
     return;
 
   CHECK(factor.R.rows() == d_ && factor.R.cols() == d_);
@@ -127,6 +132,8 @@ void PoseGraph::addSharedLoopClosure(const RelativeSEMeasurement &factor) {
   }
 
   shared_lcs_.push_back(factor);
+  const EdgeID edge_id(src_id, dst_id);
+  edge_id_to_index.emplace(edge_id, shared_lcs_.size() - 1);
 }
 
 std::vector<RelativeSEMeasurement> PoseGraph::sharedLoopClosuresWithRobot(unsigned int neighbor_id) const {
@@ -164,23 +171,32 @@ bool PoseGraph::hasNeighborPose(const PoseID &pose_id) const {
   return nbr_shared_pose_ids_.find(pose_id) != nbr_shared_pose_ids_.end();
 }
 
+bool PoseGraph::hasMeasurement(const PoseID &srcID, const PoseID &dstID) const {
+  const EdgeID edge_id(srcID, dstID);
+  return edge_id_to_index.find(edge_id) != edge_id_to_index.end();
+}
+
 RelativeSEMeasurement *PoseGraph::findMeasurement(const PoseID &srcID, const PoseID &dstID) {
-  for (auto &m : odometry_) {
-    if (m.r1 == srcID.robot_id && m.p1 == srcID.frame_id && dstID.robot_id == m.r2 && dstID.frame_id == m.p2) {
-      return &m;
+  RelativeSEMeasurement *edge = nullptr;
+  if (hasMeasurement(srcID, dstID)) {
+    const EdgeID edge_id(srcID, dstID);
+    size_t index = edge_id_to_index.at(edge_id);
+    if (edge_id.isOdometry()) {
+      edge = &odometry_[index];
+    } else if (edge_id.isPrivateLoopClosure()) {
+      edge = &private_lcs_[index];
+    } else {
+      edge = &shared_lcs_[index];
     }
   }
-  for (auto &m : private_lcs_) {
-    if (m.r1 == srcID.robot_id && m.p1 == srcID.frame_id && dstID.robot_id == m.r2 && dstID.frame_id == m.p2) {
-      return &m;
-    }
+  if (edge) {
+    // Sanity check
+    CHECK_EQ(edge->r1, srcID.robot_id);
+    CHECK_EQ(edge->p1, srcID.frame_id);
+    CHECK_EQ(edge->r2, dstID.robot_id);
+    CHECK_EQ(edge->p2, dstID.frame_id);
   }
-  for (auto &m : shared_lcs_) {
-    if (m.r1 == srcID.robot_id && m.p1 == srcID.frame_id && dstID.robot_id == m.r2 && dstID.frame_id == m.p2) {
-      return &m;
-    }
-  }
-  return nullptr;
+  return edge;
 }
 
 std::vector<RelativeSEMeasurement *> PoseGraph::writableLoopClosures() {
