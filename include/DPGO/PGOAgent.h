@@ -681,13 +681,23 @@ class PGOAgent {
    */
   void updateMeasurementWeights();
   /**
-   * @brief Set weight for a public measurement.
+   * @brief Compute the residual of a measurement (square root of weighted square error)
+   * @param measurement The measurement to evaluate
+   * @param residual The output residual
+   * @return true if computation is successful
+   */
+  bool computeMeasurementResidual(const RelativeSEMeasurement &measurement,
+                                  double *residual) const;
+  /**
+   * @brief Set weight for measurement in the pose graph.
    * @param src_ID
    * @param dst_ID
    * @param weight
+   * @param fixed_weight True if the weight is fixed (i.e. cannot be changed by GNC)
    * @return false if the specified public measurement does not exist
    */
-  bool setMeasurementWeight(const PoseID &src_ID, const PoseID &dst_ID, double weight);
+  bool setMeasurementWeight(const PoseID &src_ID, const PoseID &dst_ID,
+                            double weight, bool fixed_weight = false);
   /**
    * @brief Return true if the robot is initialized in global frame
    */

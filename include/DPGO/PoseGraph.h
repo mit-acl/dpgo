@@ -28,10 +28,15 @@ class PoseGraph {
    */
   class Statistics {
    public:
-    Statistics() : total_loop_closures(0), accept_loop_closures(0), reject_loop_closures(0) {}
+    Statistics()
+        : total_loop_closures(0),
+          accept_loop_closures(0),
+          reject_loop_closures(0),
+          undecided_loop_closures(0) {}
     double total_loop_closures;
     double accept_loop_closures;
     double reject_loop_closures;
+    double undecided_loop_closures;
   };
   /**
    * @brief
@@ -40,6 +45,10 @@ class PoseGraph {
    * @param d
    */
   PoseGraph(unsigned int id, unsigned int r, unsigned int d);
+  /**
+   * @brief Destructor
+  */
+  ~PoseGraph();
   /**
    * @brief Get dimension
    * @return
@@ -71,9 +80,18 @@ class PoseGraph {
    */
   unsigned int numSharedLoopClosures() const { return shared_lcs_.size(); }
   /**
+   * @brief Return the number of all measurements
+   * @return 
+  */
+  unsigned int numMeasurements() const;
+  /**
    * @brief Clear all contents and reset this pose graph to be empty
    */
-  void clear();
+  void empty();
+  /**
+   * @brief Clear all temporary data and only keep measurements
+  */
+  void reset();
   /**
    * @brief Clear all cached neighbor poses 
    */
@@ -89,48 +107,33 @@ class PoseGraph {
    */
   void addMeasurement(const RelativeSEMeasurement &m);
   /**
-   * @brief Add odometry edge. Ignored if the input measurement already exists.
-   * @param factor
-   */
-  void addOdometry(const RelativeSEMeasurement &factor);
-  /**
-   * @brief Add private loop closure. Ignored if the input measurement already exists.
-   * @param factor
-   */
-  void addPrivateLoopClosure(const RelativeSEMeasurement &factor);
-  /**
-   * @brief Add shared loop closure. Ignored if the input measurement already exists.
-   * @param factor
-   */
-  void addSharedLoopClosure(const RelativeSEMeasurement &factor);
-  /**
-   * @brief Return a writable reference to the list of odometry edges
+   * @brief Return a copy of the list of odometry edges
    * @return
    */
-  std::vector<RelativeSEMeasurement> &odometry() { return odometry_; }
+  std::vector<RelativeSEMeasurement> odometry() const { return odometry_; }
   /**
-   * @brief Return a writable reference to the list of private loop closures
+   * @brief Return a copy of the list of private loop closures
    * @return
    */
-  std::vector<RelativeSEMeasurement> &privateLoopClosures() { return private_lcs_; }
+  std::vector<RelativeSEMeasurement> privateLoopClosures() const { return private_lcs_; }
   /**
-   * @brief Return a writable reference to the list of shared loop closures
+   * @brief Return a copy of the list of shared loop closures
    * @return
    */
-  std::vector<RelativeSEMeasurement> &sharedLoopClosures() { return shared_lcs_; }
+  std::vector<RelativeSEMeasurement> sharedLoopClosures() const { return shared_lcs_; }
   /**
-   * @brief Return all inter-robot loop closures with the specified neighbor
+   * @brief Return a copy of all inter-robot loop closures with the specified neighbor
    * @param neighbor_id
    * @return
    */
   std::vector<RelativeSEMeasurement> sharedLoopClosuresWithRobot(unsigned neighbor_id) const;
   /**
-   * @brief Return a vector of all measurements
+   * @brief Return a copy of all measurements
    * @return
    */
   std::vector<RelativeSEMeasurement> measurements() const;
   /**
-   * @brief Return a vector of all LOCAL measurements (i.e., without inter-robot loop closures)
+   * @brief Return a copy of all LOCAL measurements (i.e., without inter-robot loop closures)
    * @return
    */
   std::vector<RelativeSEMeasurement> localMeasurements() const;
@@ -220,13 +223,19 @@ class PoseGraph {
    */
   Statistics statistics() const;
   /**
-   * @brief Find and return the specified measurement within this pose graph
+   * @brief Find and return a writable pointer to the specified measurement within this pose graph
    * @param measurements
    * @param srcID
    * @param dstID
    * @return writable pointer to the desired measurement (nullptr if measurement does not exists)
    */
   RelativeSEMeasurement *findMeasurement(const PoseID &srcID, const PoseID &dstID);
+  /**
+   * @brief Return a vector of writable pointers to all loop closures in the
+   * pose graph (contains both private and inter-robot loop closures)
+   * @return Vector of pointers to all loop closures
+   */
+  std::vector<RelativeSEMeasurement *> writableLoopClosures();
 
  protected:
 
@@ -271,7 +280,21 @@ class PoseGraph {
   double ms_construct_Q_{};
   double ms_construct_G_{};
   double ms_construct_precon_{};
-
+  /**
+   * @brief Add odometry edge. Ignored if the input measurement already exists.
+   * @param factor
+   */
+  void addOdometry(const RelativeSEMeasurement &factor);
+  /**
+   * @brief Add private loop closure. Ignored if the input measurement already exists.
+   * @param factor
+   */
+  void addPrivateLoopClosure(const RelativeSEMeasurement &factor);
+  /**
+   * @brief Add shared loop closure. Ignored if the input measurement already exists.
+   * @param factor
+   */
+  void addSharedLoopClosure(const RelativeSEMeasurement &factor);
   /**
    * @brief Construct the quadratic cost matrix
    * @return

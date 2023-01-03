@@ -39,10 +39,10 @@ PGOAgent::PGOAgent(unsigned ID, const PGOAgentParameters &params)
       mTrajectoryResetCount(0),
       mLogger(params.logDirectory),
       gamma(0), alpha(0), Y(X), V(X), XPrev(X) {
-  LOG(INFO) << "Initializing PGOAgent " << mID;
-  if (mParams.verbose) {
-    std::cout << params << std::endl;
-  }
+  // LOG(INFO) << "Initializing PGOAgent " << mID;
+  // if (mParams.verbose) {
+  //   std::cout << params << std::endl;
+  // }
   if (mID == 0) setLiftingMatrix(fixedStiefelVariable(d, r));
   mTeamRobotActive.assign(mParams.numRobots, true);
 }
@@ -287,16 +287,6 @@ void PGOAgent::iterate(bool doOptimization) {
       // Compute percentage of converged loop closures (i.e., either accepted or rejected)
       const auto stat = mPoseGraph->statistics();
       double ratio = (stat.accept_loop_closures + stat.reject_loop_closures) / stat.total_loop_closures;
-      if (mParams.verbose) {
-        printf("Robot %u :\n "
-               "accepted loop closures: %f\n "
-               "rejected loop closures: %f\n "
-               "undecided loop closures: %f\n",
-               mID,
-               stat.accept_loop_closures,
-               stat.reject_loop_closures,
-               stat.total_loop_closures - stat.reject_loop_closures - stat.accept_loop_closures);
-      }
       if (ratio < mParams.robustOptMinConvergenceRatio) readyToTerminate = false;
       mStatus.readyToTerminate = readyToTerminate;
     }
@@ -347,7 +337,9 @@ void PGOAgent::reset() {
   mPublishPublicPosesRequested = false;
   mPublishAsynchronousRequested = false;
   X = LiftedPoseArray(r, d, 1);
-  mPoseGraph = std::make_shared<PoseGraph>(mID, r, d);
+  
+  // TODO: activate all robots in pose graph again
+  mPoseGraph->reset();
 }
 
 void PGOAgent::startOptimizationLoop() {
@@ -1049,72 +1041,62 @@ bool PGOAgent::shouldUpdateMeasurementWeights() const {
   return should_update;
 }
 
+bool PGOAgent::computeMeasurementResidual(
+    const RelativeSEMeasurement &measurement, double *residual) const {
+  if (mState != PGOAgentState::INITIALIZED) {
+    return false;
+  }
+  CHECK_NOTNULL(residual);
+  Matrix Y1, Y2, p1, p2;
+  // Evaluate private loop closure
+  if (measurement.r1 == measurement.r2) {
+    Y1 = X.rotation(measurement.p1);
+    p1 = X.translation(measurement.p1);
+    Y2 = X.rotation(measurement.p2);
+    p2 = X.translation(measurement.p2);
+  }
+  // Evaluate shared (inter-robot) loop closure
+  else {
+    if (measurement.r1 == getID()) {
+      Y1 = X.rotation(measurement.p1);
+      p1 = X.translation(measurement.p1);
+      const PoseID nbrPoseID(measurement.r2, measurement.p2);
+      auto KVpair = neighborPoseDict.find(nbrPoseID);
+      if (KVpair == neighborPoseDict.end()) {
+        return false;
+      }
+      Y2 = KVpair->second.rotation();
+      p2 = KVpair->second.translation();
+    } else {
+      Y2 = X.rotation(measurement.p2);
+      p2 = X.translation(measurement.p2);
+      const PoseID nbrPoseID(measurement.r1, measurement.p1);
+      auto KVpair = neighborPoseDict.find(nbrPoseID);
+      if (KVpair == neighborPoseDict.end()) {
+        return false;
+      }
+      Y1 = KVpair->second.rotation();
+      p1 = KVpair->second.translation();
+    }
+  }
+  *residual = std::sqrt(computeMeasurementError(measurement, Y1, p1, Y2, p2));
+  return true;
+}
+
 void PGOAgent::updateMeasurementWeights() {
   if (mState != PGOAgentState::INITIALIZED) {
     LOG(WARNING) << "Robot " << getID() << " attempts to update weights but is not initialized.";
     return;
   }
   unique_lock<mutex> lock(mMeasurementsMutex);
-
-  // Update private loop closures
-  for (auto &m : mPoseGraph->privateLoopClosures()) {
-    if (m.fixedWeight) continue;
-    auto Y1 = X.rotation(m.p1);
-    auto p1 = X.translation(m.p1);
-    auto Y2 = X.rotation(m.p2);
-    auto p2 = X.translation(m.p2);
-    double residual = std::sqrt(computeMeasurementError(m, Y1, p1, Y2, p2));
-    double weight = mRobustCost.weight(residual);
-    m.weight = weight;
-    //if (mParams.verbose) {
-    //  printf("Agent %u update edge: (%zu, %zu) -> (%zu, %zu), residual = %f, weight = %f \n",
-    //         getID(), m.r1, m.p1, m.r2, m.p2, residual, weight);
-    //}
-  }
-
-  // Update shared loop closures
-  // Agent i is only responsible for updating edge weights with agent j, where j > i
-  for (auto &m : mPoseGraph->sharedLoopClosures()) {
-    if (m.fixedWeight) continue;
-    Matrix Y1, Y2, p1, p2;
-    if (m.r1 == getID()) {
-      // if (m.r2 < getID()) continue;
-
-      Y1 = X.rotation(m.p1);
-      p1 = X.translation(m.p1);
-      const PoseID nbrPoseID(m.r2, m.p2);
-      auto KVpair = neighborPoseDict.find(nbrPoseID);
-      if (KVpair == neighborPoseDict.end()) {
-        printf("Agent %u cannot update edge: (%zu, %zu) -> (%zu, %zu). \n",
-               getID(), m.r1, m.p1, m.r2, m.p2);
-        continue;
-      }
-      auto X2 = KVpair->second;
-      Y2 = X2.rotation();
-      p2 = X2.translation();
+  double residual = 0;
+  for (auto &m : mPoseGraph->writableLoopClosures()) {
+    if (m->fixedWeight) continue;
+    if (computeMeasurementResidual(*m, &residual)) {
+      m->weight = mRobustCost.weight(residual);
     } else {
-      // if (m.r1 < getID()) continue;
-
-      Y2 = X.rotation(m.p2);
-      p2 = X.translation(m.p2);
-      const PoseID nbrPoseID(m.r1, m.p1);
-      auto KVpair = neighborPoseDict.find(nbrPoseID);
-      if (KVpair == neighborPoseDict.end()) {
-        printf("Agent %u cannot update edge: (%zu, %zu) -> (%zu, %zu). \n",
-               getID(), m.r1, m.p1, m.r2, m.p2);
-        continue;
-      }
-      auto X1 = KVpair->second;
-      Y1 = X1.rotation();
-      p1 = X1.translation();
+      LOG(WARNING) << "Failed to update weight for edge: \n" << *m;
     }
-    double residual = std::sqrt(computeMeasurementError(m, Y1, p1, Y2, p2));
-    double weight = mRobustCost.weight(residual);
-    m.weight = weight;
-    //if (mParams.verbose) {
-    //  printf("Agent %u update edge: (%zu, %zu) -> (%zu, %zu), residual = %f, weight = %f \n",
-    //         getID(), m.r1, m.p1, m.r2, m.p2, residual, weight);
-    //}
   }
   mWeightUpdateCount++;
   mRobustOptInnerIter = 0;
@@ -1138,23 +1120,18 @@ void PGOAgent::updateMeasurementWeights() {
   }
 }
 
-bool PGOAgent::setMeasurementWeight(const PoseID &src_ID, const PoseID &dst_ID, double weight) {
+bool PGOAgent::setMeasurementWeight(const PoseID &src_ID, const PoseID &dst_ID,
+                                    double weight, bool fixed_weight) {
   RelativeSEMeasurement *m = mPoseGraph->findMeasurement(src_ID, dst_ID);
   if (m) {
-    // Check that m is not an known inlier (e.g. odometry)
-    if (m->fixedWeight) {
-      LOG(WARNING) << "[setMeasurementWeight] Attempt to change fixed weight!";
-      return false;
-    }
-
     unique_lock<mutex> lock(mMeasurementsMutex);
     m->weight = weight;
+    m->fixedWeight = fixed_weight;
     return true;
   }
   LOG(WARNING) << "[setMeasurementWeight] Measurement does not exist!";
   return false;
 }
-
 
 bool PGOAgent::isRobotInitialized(unsigned robot_id) const {
   if (robot_id == getID())
@@ -1178,6 +1155,8 @@ void PGOAgent::setRobotActive(unsigned robot_id, bool active) {
     return;
   }
   mTeamRobotActive[robot_id] = active;
+  // TODO: activate or deactivate measurements in pose graph here
+  // instead of removing
 }
 
 }  // namespace DPGO

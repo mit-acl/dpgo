@@ -14,10 +14,14 @@ namespace DPGO {
 PoseGraph::PoseGraph(unsigned int id, unsigned int r, unsigned int d)
     : id_(id), r_(r), d_(d), n_(0) {
   CHECK(r >= d);
-  clear();
+  empty();
 }
 
-void PoseGraph::clear() {
+PoseGraph::~PoseGraph() {
+  empty();
+}
+
+void PoseGraph::empty() {
   // Reset this pose graph to be empty
   n_ = 0;
   odometry_.clear();
@@ -30,14 +34,23 @@ void PoseGraph::clear() {
   clearDataMatrices();
 }
 
+void PoseGraph::reset() {
+  clearNeighborPoses();
+  clearDataMatrices();
+}
+
 void PoseGraph::clearNeighborPoses() {
   neighbor_poses_.clear();
   G_.reset();  // Clearing neighbor poses requires re-computing linear matrix
 }
 
+unsigned int PoseGraph::numMeasurements() const {
+  return numOdometry() + numPrivateLoopClosures() + numSharedLoopClosures();
+}
+
 void PoseGraph::setMeasurements(const std::vector<RelativeSEMeasurement> &measurements) {
   // Reset this pose graph to be empty
-  clear();
+  empty();
   for (const auto &m : measurements)
     addMeasurement(m);
 }
@@ -170,6 +183,17 @@ RelativeSEMeasurement *PoseGraph::findMeasurement(const PoseID &srcID, const Pos
   return nullptr;
 }
 
+std::vector<RelativeSEMeasurement *> PoseGraph::writableLoopClosures() {
+  std::vector<RelativeSEMeasurement *> output;
+  for (auto &m : private_lcs_) {
+    output.push_back(&m);
+  }
+  for (auto &m : shared_lcs_) {
+    output.push_back(&m);
+  }
+  return output;
+}
+
 PoseGraph::Statistics PoseGraph::statistics() const {
   // Currently, this function is only meaningful for GNC_TLS
   double totalCount = 0;
@@ -199,6 +223,7 @@ PoseGraph::Statistics PoseGraph::statistics() const {
   statistics.total_loop_closures = totalCount;
   statistics.accept_loop_closures = acceptCount;
   statistics.reject_loop_closures = rejectCount;
+  statistics.undecided_loop_closures = totalCount - acceptCount - rejectCount;
 
   return statistics;
 }
