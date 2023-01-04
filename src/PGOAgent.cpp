@@ -39,10 +39,6 @@ PGOAgent::PGOAgent(unsigned ID, const PGOAgentParameters &params)
       mTrajectoryResetCount(0),
       mLogger(params.logDirectory),
       gamma(0), alpha(0), Y(X), V(X), XPrev(X) {
-  // LOG(INFO) << "Initializing PGOAgent " << mID;
-  // if (mParams.verbose) {
-  //   std::cout << params << std::endl;
-  // }
   if (mID == 0) setLiftingMatrix(fixedStiefelVariable(d, r));
   mTeamRobotActive.assign(mParams.numRobots, true);
 }
@@ -338,7 +334,7 @@ void PGOAgent::reset() {
   mPublishAsynchronousRequested = false;
   X = LiftedPoseArray(r, d, 1);
   
-  // TODO: activate all robots in pose graph again
+  // This function will activate all robots in pose graph again
   mPoseGraph->reset();
 }
 
@@ -752,20 +748,6 @@ std::vector<unsigned> PGOAgent::getNeighbors() const {
   return v;
 }
 
-void PGOAgent::removeNeighbor(unsigned neighborID) {
-  if (!mPoseGraph->hasNeighbor(neighborID))
-    return;
-  LOG_IF(INFO, mParams.verbose) << "Removing neighbor " << neighborID << ".";
-
-  // Halt insertion of new poses
-  lock_guard<mutex> tLock(mPosesMutex);
-
-  // Halt insertion of new measurements
-  lock_guard<mutex> mLock(mMeasurementsMutex);
-
-  mPoseGraph->removeNeighbor(neighborID);
-}
-
 bool PGOAgent::initializeLocalTrajectory() {
   PoseArray T(dimension(), num_poses());
   switch (mParams.localInitializationMethod) {
@@ -1090,7 +1072,7 @@ void PGOAgent::updateMeasurementWeights() {
   }
   unique_lock<mutex> lock(mMeasurementsMutex);
   double residual = 0;
-  for (auto &m : mPoseGraph->writableLoopClosures()) {
+  for (auto &m : mPoseGraph->activeLoopClosures()) {
     if (m->fixedWeight) continue;
     if (computeMeasurementResidual(*m, &residual)) {
       m->weight = mRobustCost.weight(residual);
@@ -1155,8 +1137,11 @@ void PGOAgent::setRobotActive(unsigned robot_id, bool active) {
     return;
   }
   mTeamRobotActive[robot_id] = active;
-  // TODO: activate or deactivate measurements in pose graph here
-  // instead of removing
+  // If this robot is a neighbor, 
+  // activate or deactivate corresponding measurements 
+  if (mPoseGraph->hasNeighbor(robot_id)) {
+    mPoseGraph->setNeighborActive(robot_id, active);
+  }
 }
 
 }  // namespace DPGO

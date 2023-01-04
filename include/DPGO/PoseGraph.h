@@ -209,17 +209,21 @@ class PoseGraph {
    */
   bool hasNeighbor(unsigned int robot_id) const;
   /**
+   * @brief Check if the input neighbor is active
+   * @return false if the input robot is not a neighbor or is ignored 
+  */
+  bool isNeighborActive(unsigned int neighbor_id) const;
+  /**
+   * @brief Set the input neighbor to be active or inactive.
+   * Does nothing if the input is not a neighbor.
+  */
+  void setNeighborActive(unsigned int neighbor_id, bool active);
+  /**
    * @brief Return true if the given neighbor pose ID is required by me
    * @param pose_id
    * @return
    */
   bool hasNeighborPose(const PoseID &pose_id) const;
-  /**
-   * @brief Remove all measurements and associated info of the specified robot
-   * This method has no effect if the input robot is not a neighbor
-   * @param 
-   */
-  void removeNeighbor(unsigned int robot_id);
   /**
    * @brief Compute statistics for the current pose graph
    * @return
@@ -242,7 +246,11 @@ class PoseGraph {
    * pose graph (contains both private and inter-robot loop closures)
    * @return Vector of pointers to all loop closures
    */
-  std::vector<RelativeSEMeasurement *> writableLoopClosures();
+  std::vector<RelativeSEMeasurement *> allLoopClosures();
+  /**
+   * @brief Return a vector of pointers to all active loop closures
+  */
+  std::vector<RelativeSEMeasurement *> activeLoopClosures();
 
  protected:
 
@@ -269,6 +277,9 @@ class PoseGraph {
 
   // Store the set of neighboring agents
   std::set<unsigned> nbr_robot_ids_;
+
+  // Store the set of deactivated neighbors
+  std::map<unsigned, bool> neighbor_active_;
 
   // Store public poses from neighbors
   PoseDict neighbor_poses_;

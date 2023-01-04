@@ -373,12 +373,6 @@ class PGOAgent {
   std::vector<unsigned> getNeighbors() const;
 
   /**
-   * Remove the specified neighbor.
-   * No effect if the input robot is not a neighbor
-   */
-  void removeNeighbor(unsigned neighborID);
-
-  /**
   Return trajectory estimate of this robot in local frame, with its first pose
   set to identity
   */
