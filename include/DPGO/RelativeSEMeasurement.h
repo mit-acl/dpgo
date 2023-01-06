@@ -43,8 +43,8 @@ struct RelativeSEMeasurement {
   /** Translational measurement precision */
   double tau;
 
-  /** If this measurement is an known inlier */
-  bool isKnownInlier;
+  /** If measurement weight is fixed */
+  bool fixedWeight;
 
   /** Weight between (0,1) used in Graduated Non-Convexity */
   double weight;
@@ -67,7 +67,7 @@ struct RelativeSEMeasurement {
         t(relative_translation),
         kappa(rotational_precision),
         tau(translational_precision),
-        isKnownInlier(false),
+        fixedWeight(false),
         weight(1.0) {}
 
   /** A utility function for streaming this struct to cout */
@@ -81,7 +81,7 @@ struct RelativeSEMeasurement {
     os << "t: " << std::endl << measurement.t << std::endl;
     os << "Kappa: " << measurement.kappa << std::endl;
     os << "Tau: " << measurement.tau << std::endl;
-    os << "Is known inlier: " << measurement.isKnownInlier << std::endl;
+    os << "Fixed weight: " << measurement.fixedWeight << std::endl;
     os << "Weight: " << measurement.weight << std::endl;
 
     return os;

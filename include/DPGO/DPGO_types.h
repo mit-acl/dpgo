@@ -16,6 +16,7 @@
 #include <map>
 #include <memory>
 #include <tuple>
+#include <boost/functional/hash.hpp>
 
 namespace DPGO {
 
@@ -102,15 +103,17 @@ struct ROPTResult {
   ROPTLIB::tCGstatusSet tCGStatus;  // status of truncated conjugate gradient (only used by trust region solver)
 };
 
-// In distributed PGO, each pose is uniquely determined by the robot ID and pose ID
-// typedef std::pair<unsigned, unsigned> PoseID;
-
 // Each pose is uniquely determined by the robot ID and frame ID
 class PoseID {
  public:
   unsigned int robot_id;  // robot ID
   unsigned int frame_id;  // frame ID
   explicit PoseID(unsigned int rid = 0, unsigned int fid = 0) : robot_id(rid), frame_id(fid) {}
+  PoseID(const PoseID &other) : robot_id(other.robot_id), frame_id(other.frame_id) {}
+  bool operator==(const PoseID &other) const
+  { return (robot_id == other.robot_id
+            && frame_id == other.frame_id);
+  }
 };
 // Comparator for PoseID
 struct ComparePoseID {
@@ -121,6 +124,68 @@ struct ComparePoseID {
   }
 };
 
+// Edge measurement (edge) is uniquely determined by an ordered pair of poses
+class EdgeID {
+ public:
+  PoseID src_pose_id;
+  PoseID dst_pose_id;
+  EdgeID(const PoseID &src_id, const PoseID &dst_id)
+      : src_pose_id(src_id), dst_pose_id(dst_id) {}
+  bool operator==(const EdgeID &other) const
+  { return (src_pose_id == other.src_pose_id
+            && dst_pose_id == other.dst_pose_id);
+  }
+  bool isOdometry() const {
+    return (src_pose_id.robot_id == dst_pose_id.robot_id && 
+            src_pose_id.frame_id + 1 == dst_pose_id.frame_id);
+  }
+  bool isPrivateLoopClosure() const {
+    return (src_pose_id.robot_id == dst_pose_id.robot_id && 
+            src_pose_id.frame_id + 1 != dst_pose_id.frame_id);
+  }
+  bool isSharedLoopClosure() const {
+    return src_pose_id.robot_id != dst_pose_id.robot_id;
+  }
+};
+// Comparator for EdgeID
+struct CompareEdgeID {
+  bool operator()(const EdgeID &a, const EdgeID &b) const {
+    // Treat edge ID as an ordered tuple
+    const auto ta = std::make_tuple(a.src_pose_id.robot_id,
+                                    a.dst_pose_id.robot_id,
+                                    a.src_pose_id.frame_id,
+                                    a.dst_pose_id.frame_id);
+    const auto tb = std::make_tuple(b.src_pose_id.robot_id,
+                                    b.dst_pose_id.robot_id,
+                                    b.src_pose_id.frame_id,
+                                    b.dst_pose_id.frame_id);
+    return ta < tb;
+  }
+};
+// Hasher for EdgeID
+struct HashEdgeID
+{
+  std::size_t operator()(const EdgeID& edge_id) const
+  {
+      // Reference: 
+      // https://stackoverflow.com/questions/17016175/c-unordered-map-using-a-custom-class-type-as-the-key 
+      using boost::hash_value;
+      using boost::hash_combine;
+
+      // Start with a hash value of 0    .
+      std::size_t seed = 0;
+
+      // Modify 'seed' by XORing and bit-shifting in
+      // one member of 'Key' after the other:
+      hash_combine(seed, hash_value(edge_id.src_pose_id.robot_id));
+      hash_combine(seed, hash_value(edge_id.dst_pose_id.robot_id));
+      hash_combine(seed, hash_value(edge_id.src_pose_id.frame_id));
+      hash_combine(seed, hash_value(edge_id.dst_pose_id.frame_id));
+
+      // Return the result.
+      return seed;
+  }
+};
 }  // namespace DPGO
 
 #endif

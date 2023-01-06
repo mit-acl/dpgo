@@ -268,31 +268,38 @@ PoseArray chordalInitialization(const std::vector<RelativeSEMeasurement> &measur
   return output;
 }
 
-PoseArray odometryInitialization(const std::vector<RelativeSEMeasurement> &odometry) {
+PoseArray odometryInitialization(
+    const std::vector<RelativeSEMeasurement> &odometry,
+    const PoseArray *partial_trajectory) {
   size_t dimension, num_poses;
   get_dimension_and_num_poses(odometry, dimension, num_poses);
-  size_t d = dimension;
-  size_t n = num_poses;
 
-  Matrix T(d, n * (d + 1));
-  // Initialize first pose to be identity
-  T.block(0, 0, d, d) = Matrix::Identity(d, d);
-  T.block(0, d, d, 1) = Matrix::Zero(d, 1);
-  for (size_t src = 0; src < odometry.size(); ++src) {
-    size_t dst = src + 1;
+  PoseArray T(dimension, num_poses);
+  unsigned int next_index = 0;  // Index of next pose to initialize
+  // Use partial trajectory if provided
+  if (partial_trajectory && partial_trajectory->n() > 0) {
+    CHECK_EQ(partial_trajectory->d(), dimension);
+    while (next_index < partial_trajectory->n() && next_index < num_poses) {
+      T.pose(next_index) = partial_trajectory->pose(next_index);
+      next_index++;
+    }
+  } else {
+    T.pose(0) = Pose::Identity(dimension).getData();
+    next_index = 1;
+  }
+  // Initialize the remaining poses using odometry
+  for (size_t dst = next_index; dst < num_poses; ++dst) {
+    size_t src = dst - 1;
     const RelativeSEMeasurement &m = odometry[src];
     CHECK(m.p1 == src);
     CHECK(m.p2 == dst);
-    Matrix Rsrc = T.block(0, src * (d + 1), d, d);
-    Matrix tsrc = T.block(0, src * (d + 1) + d, d, 1);
-    Matrix Rdst = Rsrc * m.R;
-    Matrix tdst = tsrc + Rsrc * m.t;
-    T.block(0, dst * (d + 1), d, d) = Rdst;
-    T.block(0, dst * (d + 1) + d, d, 1) = tdst;
+    const Matrix Rsrc = T.rotation(src);
+    const Matrix tsrc = T.translation(src);
+    T.rotation(dst) = Rsrc * m.R;
+    T.translation(dst) = tsrc + Rsrc * m.t;
   }
-  PoseArray output(dimension, num_poses);
-  output.setData(T);
-  return output;
+
+  return T;
 }
 
 PoseArray solvePGO(const std::vector<RelativeSEMeasurement> &measurements,
@@ -366,7 +373,7 @@ PoseArray solveRobustPGO(std::vector<RelativeSEMeasurement> &mutable_measurement
       // Update weight
       for (int i = 0; i < m; ++i) {
         RelativeSEMeasurement &meas = mutable_measurements[i];
-        if (meas.isKnownInlier) continue;
+        if (meas.fixedWeight) continue;
         double rSq = computeMeasurementError(meas,
                                              T.rotation(meas.p1),
                                              T.translation(meas.p1),
@@ -380,7 +387,7 @@ PoseArray solveRobustPGO(std::vector<RelativeSEMeasurement> &mutable_measurement
       int num_outliers = 0;
       int num_undecided = 0;
       for (const auto& meas: mutable_measurements) {
-        if (meas.isKnownInlier) continue;
+        if (meas.fixedWeight) continue;
         if (meas.weight < w_tol) {
           num_outliers++;
         } else if (meas.weight > 1.0 - w_tol) {

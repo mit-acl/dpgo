@@ -176,9 +176,9 @@ std::vector<RelativeSEMeasurement> read_g2o_file(const std::string &filename,
       measurement.kappa = I33;
 
       if (i+1 == j) {
-        measurement.isKnownInlier = true;
+        measurement.fixedWeight = true;
       } else {
-        measurement.isKnownInlier = false;
+        measurement.fixedWeight = false;
       }
 
     } else if (token == "EDGE_SE3:QUAT") {
@@ -230,9 +230,9 @@ std::vector<RelativeSEMeasurement> read_g2o_file(const std::string &filename,
       measurement.kappa = 3 / (2 * RotCov.inverse().trace());
 
       if (i+1 == j) {
-        measurement.isKnownInlier = true;
+        measurement.fixedWeight = true;
       } else {
-        measurement.isKnownInlier = false;
+        measurement.fixedWeight = false;
       }
 
     } else if ((token == "VERTEX_SE2") || (token == "VERTEX_SE3:QUAT")) {

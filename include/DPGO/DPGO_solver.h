@@ -89,11 +89,16 @@ void robustSinglePoseAveraging(Matrix &ROpt, Vector &tOpt,
 PoseArray chordalInitialization(const std::vector<RelativeSEMeasurement> &measurements);
 
 /**
- * @brief Initialize local trajectory estimate from odometry
+ * @brief Initialize local trajectory estimate from odometry,
+ * optionally extending a partial trajectory
  * @param odometry A vector of odometry measurement
- * @return trajectory estimate in matrix form T = [R1 t1 ... Rn tn] in an arbitrary frame
+ * @param partial_trajectory Optional pointer to a partial trajectory
+ * @return trajectory estimate in matrix form T = [R1 t1 ... Rn tn] in an
+ * arbitrary frame
  */
-PoseArray odometryInitialization(const std::vector<RelativeSEMeasurement> &odometry);
+PoseArray odometryInitialization(
+    const std::vector<RelativeSEMeasurement> &odometry,
+    const PoseArray *partial_trajectory = nullptr);
 
 /**
  * @brief Perform single-robot pose graph optimization using the L2 cost function
