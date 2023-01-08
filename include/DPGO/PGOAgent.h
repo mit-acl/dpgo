@@ -271,12 +271,24 @@ class PGOAgent {
   void addMeasurement(const RelativeSEMeasurement &factor);
 
   /**
-   * @brief Initialize distributed optimization.
-   * @param TInitPtr an optional trajectory estimate in an arbitrary local frame. If the dimension of number of poses
-   * of the provided initial guess does not match what is expected, this initial guess will be ignored and this function
-   * will perform initialization on its own.
+   * @brief Perform local initialization for this robot.
+   * After this function call, the robot is initialized in an arbitrary local
+   * frame, and initialization in global frame is still needed by calling
+   * initializeInGlobalFrame()
+   * @param TInitPtr an optional trajectory estimate in an arbitrary local
+   * frame. If the dimension of number of poses of the provided initial guess
+   * does not match what is expected, this initial guess will be ignored and
+   * this function will perform initialization on its own.
    */
   void initialize(const PoseArray *TInitPtr = nullptr);
+
+  /**
+   * @brief Initialize this robot's trajectory estimate in the global frame.
+   * This function must be called after initialize().
+   * @param T_world_robot d+1 by d+1 transformation from robot (local) frame to
+   * the world frame
+   */
+  void initializeInGlobalFrame(const Pose &T_world_robot);
 
   /**
    * @brief perform a single iteration
@@ -633,16 +645,6 @@ class PGOAgent {
    * @brief Reset variables used in Nesterov acceleration
    */
   void initializeAcceleration();
-  /**
-   * @brief initialize local trajectory estimate in an arbitrary local frame
-   * @return true if local initialization is successful
-   */
-  bool initializeLocalTrajectory();
-  /**
-   * @brief Initialize this robot's trajectory estimate in the global frame
-   * @param T_world_robot d+1 by d+1 transformation from robot (local) frame to the world frame
-   */
-  void initializeInGlobalFrame(const Pose &T_world_robot);
   /**
    * @brief Compute a robust relative transform estimate between this robot and neighbor robot, using a two-stage method
    * which first perform robust single rotation averaging, and then performs translation averaging on the inlier set.

@@ -213,8 +213,59 @@ void PGOAgent::initialize(const PoseArray *TInitPtr) {
 
   // Initialize trajectory estimate in an arbitrary frame
   if (!initialization_successful) {
-    LOG(INFO) << "Using internal trajectory initialization.";
-    initialization_successful = initializeLocalTrajectory();
+    PoseArray T(dimension(), num_poses());
+    switch (mParams.localInitializationMethod) {
+      case (InitializationMethod::Odometry): {
+        LOG(INFO) << "Computing local odometry initialization.";
+        T = odometryInitialization(mPoseGraph->odometry());
+        break;
+      }
+      case (InitializationMethod::Chordal): {
+        LOG(INFO) << "Computing local chordal initialization.";
+        T = chordalInitialization(mPoseGraph->localMeasurements());
+        break;
+      }
+      case (InitializationMethod::GNC_TLS): {
+        LOG(INFO) << "Computing local GNC_TLS initialization.";
+        solveRobustPGOParams params;
+        params.verbose = mParams.verbose;
+        // Standard L2 PGO params (GNC inner iters)
+        params.opt_params.verbose = false;
+        params.opt_params.gradnorm_tol = 1;
+        params.opt_params.RTR_iterations = 20;
+        // Robust optimization params (GNC outer iters)
+        params.robust_params.costType = RobustCostParameters::Type::GNC_TLS;
+        params.robust_params.GNCMaxNumIters = 10;
+        params.robust_params.GNCBarc = 5.0;
+        params.robust_params.GNCMuStep = 1.4;
+        PoseArray TOdom = odometryInitialization(mPoseGraph->odometry());
+        std::vector<RelativeSEMeasurement> mutable_local_measurements =
+            mPoseGraph->localMeasurements();
+        // Solve for trajectory
+        T = solveRobustPGO(mutable_local_measurements, params, &TOdom);
+        // Reject outlier local loop closures
+        int reject_count = 0;
+        for (const auto &m : mutable_local_measurements) {
+          if (m.weight < 1e-8) {
+            PoseID srcID(m.r1, m.p1);
+            PoseID dstID(m.r2, m.p2);
+            setMeasurementWeight(srcID, dstID, 0);
+            reject_count++;
+          }
+        }
+        LOG(INFO) << "Reject " << reject_count << " local loop closures.";
+        break;
+      }
+    }
+    CHECK_EQ(T.d(), dimension());
+    if (T.n() != num_poses()) {
+      LOG(WARNING)
+          << "Local trajectory initialization has wrong number of poses! "
+          << T.n() << " vs. " << num_poses() << " expected.";
+      initialization_successful = false;
+    }
+    TLocalInit.emplace(T);
+    initialization_successful = true;
   }
 
   if (!initialization_successful) {
@@ -237,6 +288,73 @@ void PGOAgent::initialize(const PoseArray *TInitPtr) {
   // Start optimization thread in asynchronous mode
   if (mParams.asynchronous)
     startOptimizationLoop();
+}
+
+void PGOAgent::initializeInGlobalFrame(const Pose &T_world_robot) {
+  CHECK(YLift);
+  CHECK_EQ(T_world_robot.d(), dimension());
+  checkRotationMatrix(T_world_robot.rotation());
+
+  // Halt optimization
+  bool optimizationHalted = false;
+  if (isOptimizationRunning()) {
+    LOG_IF(INFO, mParams.verbose)
+        << "Robot " << getID() << " halting optimization thread...";
+    optimizationHalted = true;
+    endOptimizationLoop();
+  }
+
+  // Halt insertion of new poses
+  lock_guard<mutex> tLock(mPosesMutex);
+
+  // Halt insertion of new measurements
+  lock_guard<mutex> mLock(mMeasurementsMutex);
+
+  // Clear cache
+  clearNeighborPoses();
+
+  // Apply global transformation to local trajectory estimate
+  auto T = TLocalInit.value();
+  for (size_t i = 0; i < num_poses(); ++i) {
+    Pose T_robot_frame(T.pose(i));
+    Pose T_world_frame = T_world_robot * T_robot_frame;
+    T.pose(i) = T_world_frame.pose();
+  }
+
+  // Lift back to correct relaxation rank
+  X.setData(YLift.value() * T.getData());
+  XInit.emplace(X);
+
+  // Change state for this agent
+  if (mState == PGOAgentState::INITIALIZED) {
+    LOG(INFO) << "Robot " << getID() << " re-initializes in global frame!";
+  } else {
+    LOG(INFO) << "Robot " << getID() << " initializes in global frame!";
+    mState = PGOAgentState::INITIALIZED;
+  }
+
+  // When doing robust optimization,
+  // initialize all active and non-fixed edge weights to 1.0
+  if (mParams.robustCostParams.costType != RobustCostParameters::Type::L2) {
+    for (RelativeSEMeasurement *m : mPoseGraph->activeLoopClosures()) {
+      if (!m->fixedWeight) {
+        m->weight = 1.0;
+      }
+    }
+  }
+
+  // Initialize auxiliary variables
+  if (mParams.acceleration) {
+    initializeAcceleration();
+  }
+
+  // Log initial trajectory
+  if (mParams.logData) {
+    mLogger.logTrajectory(dimension(), num_poses(), T.getData(),
+                          "trajectory_initial.csv");
+  }
+
+  if (optimizationHalted) startOptimizationLoop();
 }
 
 void PGOAgent::iterate(bool doOptimization) {
@@ -513,63 +631,6 @@ bool PGOAgent::computeRobustNeighborTransform(unsigned int neighborID,
   return true;
 }
 
-void PGOAgent::initializeInGlobalFrame(const Pose &T_world_robot) {
-  CHECK(YLift);
-  CHECK_EQ(T_world_robot.d(), dimension());
-  checkRotationMatrix(T_world_robot.rotation());
-
-  // Halt optimization
-  bool optimizationHalted = false;
-  if (isOptimizationRunning()) {
-    LOG_IF(INFO, mParams.verbose) << "Robot " << getID() << " halting optimization thread...";
-    optimizationHalted = true;
-    endOptimizationLoop();
-  }
-
-  // Halt insertion of new poses
-  lock_guard<mutex> tLock(mPosesMutex);
-
-  // Halt insertion of new measurements
-  lock_guard<mutex> mLock(mMeasurementsMutex);
-
-  // Clear cache
-  lock_guard<mutex> nLock(mNeighborPosesMutex);
-  neighborPoseDict.clear();
-  neighborAuxPoseDict.clear();
-
-  // Apply global transformation to local trajectory estimate
-  auto T = TLocalInit.value();
-  for (size_t i = 0; i < num_poses(); ++i) {
-    Pose T_robot_frame(T.pose(i));
-    Pose T_world_frame = T_world_robot * T_robot_frame;
-    T.pose(i) = T_world_frame.pose();
-  }
-
-  // Lift back to correct relaxation rank
-  X.setData(YLift.value() * T.getData());
-  XInit.emplace(X);
-
-  // Change state for this agent
-  if (mState == PGOAgentState::INITIALIZED) {
-    LOG(INFO) << "Robot " << getID() << " re-initializes in global frame!";
-  } else {
-    LOG(INFO) << "Robot " << getID() << " initializes in global frame!";
-    mState = PGOAgentState::INITIALIZED;
-  }
-
-  // Initialize auxiliary variables
-  if (mParams.acceleration) {
-    initializeAcceleration();
-  }
-
-  // Log initial trajectory
-  if (mParams.logData) {
-    mLogger.logTrajectory(dimension(), num_poses(), T.getData(), "trajectory_initial.csv");
-  }
-
-  if (optimizationHalted) startOptimizationLoop();
-}
-
 void PGOAgent::updateNeighborPoses(unsigned neighborID, const PoseDict &poseDict) {
   CHECK(neighborID != mID);
   if (!YLift)
@@ -746,57 +807,6 @@ std::vector<unsigned> PGOAgent::getNeighbors() const {
   std::vector<unsigned> v(neighborRobotIDs.size());
   std::copy(neighborRobotIDs.begin(), neighborRobotIDs.end(), v.begin());
   return v;
-}
-
-bool PGOAgent::initializeLocalTrajectory() {
-  PoseArray T(dimension(), num_poses());
-  switch (mParams.localInitializationMethod) {
-    case (InitializationMethod::Odometry): {
-      T = odometryInitialization(mPoseGraph->odometry());
-      break;
-    }
-    case (InitializationMethod::Chordal): {
-      T = chordalInitialization(mPoseGraph->localMeasurements());
-      break;
-    }
-    case (InitializationMethod::GNC_TLS): {
-      solveRobustPGOParams params;
-      params.verbose = mParams.verbose;
-      // Standard L2 PGO params (GNC inner iters)
-      params.opt_params.verbose = false;
-      params.opt_params.gradnorm_tol = 1;
-      params.opt_params.RTR_iterations = 20;
-      // Robust optimization params (GNC outer iters)
-      params.robust_params.costType = RobustCostParameters::Type::GNC_TLS;
-      params.robust_params.GNCMaxNumIters = 10;
-      params.robust_params.GNCBarc = 5.0;
-      params.robust_params.GNCMuStep = 1.4;
-      PoseArray TOdom = odometryInitialization(mPoseGraph->odometry());
-      std::vector<RelativeSEMeasurement> mutable_local_measurements = mPoseGraph->localMeasurements();
-      // Solve for trajectory
-      T = solveRobustPGO(mutable_local_measurements, params, &TOdom);
-      // Reject outlier local loop closures
-      int reject_count = 0;
-      for (const auto &m : mutable_local_measurements) {
-        if (m.weight < 1e-8) {
-          PoseID srcID(m.r1, m.p1);
-          PoseID dstID(m.r2, m.p2);
-          setMeasurementWeight(srcID, dstID, 0);
-          reject_count++;
-        }
-      }
-      LOG(INFO) << "Reject " << reject_count << " local loop closures.";
-      break;
-    }
-  }
-  CHECK_EQ(T.d(), dimension());
-  if (T.n() != num_poses()) {
-    LOG(WARNING) << "Local trajectory initialization has wrong number of poses! "
-                 << T.n() << " vs. " << num_poses() << " expected.";
-    return false;
-  }
-  TLocalInit.emplace(T);
-  return true;
 }
 
 Matrix PGOAgent::localPoseGraphOptimization() {
