@@ -269,6 +269,10 @@ class PoseGraph {
    * @brief Return a vector of pointers to all active loop closures
   */
   std::vector<RelativeSEMeasurement *> activeLoopClosures();
+  /**
+   * @brief Return a vector of pointers to all inactive loop closures
+  */
+  std::vector<RelativeSEMeasurement *> inactiveLoopClosures(); 
 
  protected:
 

@@ -171,7 +171,11 @@ void PGOAgent::setLiftingMatrix(const Matrix &M) {
 }
 
 void PGOAgent::addMeasurement(const RelativeSEMeasurement &factor) {
-  CHECK_EQ(mState, PGOAgentState::WAIT_FOR_DATA);
+  if (mState != PGOAgentState::WAIT_FOR_DATA) {
+    LOG(WARNING)
+        << "Robot state is not WAIT_FOR_DATA. Ignore new measurements!";
+    return;
+  }
   lock_guard<mutex> mLock(mMeasurementsMutex);
   mPoseGraph->addMeasurement(factor);
 }

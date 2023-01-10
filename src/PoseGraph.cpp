@@ -273,6 +273,19 @@ std::vector<RelativeSEMeasurement *> PoseGraph::activeLoopClosures() {
   return output;
 }
 
+std::vector<RelativeSEMeasurement *> PoseGraph::inactiveLoopClosures() {
+  std::vector<RelativeSEMeasurement *> output;
+  for (auto &m : shared_lcs_) {
+    if (m.r1 == id_ && !isNeighborActive(m.r2)) {
+      output.push_back(&m);
+    }
+    else if(m.r2 == id_ && !isNeighborActive(m.r1)) {
+      output.push_back(&m);
+    }
+  }
+  return output;
+}
+
 PoseGraph::Statistics PoseGraph::statistics() const {
   // Currently, this function is only meaningful for GNC_TLS
   double totalCount = 0;
