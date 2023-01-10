@@ -178,6 +178,7 @@ class LiftedPose : public LiftedPoseArray {
 class Pose : public LiftedPose {
  public:
   // Constructor
+  Pose() : Pose(3) {}
   explicit Pose(unsigned int d) : LiftedPose(d, d) {}
   /**
    * @brief Constructor from Eigen matrix

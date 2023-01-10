@@ -193,6 +193,12 @@ class PoseGraph {
    */
   PoseSet neighborPublicPoseIDs() const { return nbr_shared_pose_ids_; }
   /**
+   * @brief Get the set of Pose IDs that active neighbors need to share with me.
+   * A neighbor is active if it is actively participating in distributed
+   * optimization with this robot.
+  */
+  PoseSet activeNeighborPublicPoseIDs() const;
+  /**
    * @brief Get the set of neighbor robot IDs that share inter-robot loop closures with me
    * @return
    */
@@ -202,6 +208,18 @@ class PoseGraph {
    * @return
    */
   size_t numNeighbors() const { return nbr_robot_ids_.size(); }
+  /**
+   * @brief Return the IDs of active neighbors.
+   * A neighbor is active if it is actively participating in distributed
+   * optimization with this robot.
+   */
+  std::set<unsigned> activeNeighborIDs() const;
+  /**
+   * @brief Return the number of active neighbors.
+   * A neighbor is active if it is actively participating in distributed
+   * optimization with this robot.
+  */
+  size_t numActiveNeighbors() const;
   /**
    * @brief Return true if the input robot is a neighbor (i.e., share inter-robot loop closure)
    * @param robot_id
@@ -223,7 +241,7 @@ class PoseGraph {
    * @param pose_id
    * @return
    */
-  bool hasNeighborPose(const PoseID &pose_id) const;
+  bool requireNeighborPose(const PoseID &pose_id) const;
   /**
    * @brief Compute statistics for the current pose graph
    * @return

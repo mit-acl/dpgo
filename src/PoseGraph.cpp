@@ -190,7 +190,7 @@ void PoseGraph::setNeighborActive(unsigned int neighbor_id, bool active) {
   neighbor_active_[neighbor_id] = active;
 }
 
-bool PoseGraph::hasNeighborPose(const PoseID &pose_id) const {
+bool PoseGraph::requireNeighborPose(const PoseID &pose_id) const {
   return nbr_shared_pose_ids_.find(pose_id) != nbr_shared_pose_ids_.end();
 }
 
@@ -229,6 +229,30 @@ std::vector<RelativeSEMeasurement *> PoseGraph::allLoopClosures() {
   }
   for (auto &m : shared_lcs_) {
     output.push_back(&m);
+  }
+  return output;
+}
+
+std::set<unsigned> PoseGraph::activeNeighborIDs() const {
+  std::set<unsigned> output;
+  for (unsigned neighbor_id : nbr_robot_ids_) {
+    if (isNeighborActive(neighbor_id)) {
+      output.emplace(neighbor_id);
+    }
+  }
+  return output;
+}
+
+size_t PoseGraph::numActiveNeighbors() const {
+  return activeNeighborIDs().size();
+}
+
+PoseSet PoseGraph::activeNeighborPublicPoseIDs() const {
+  PoseSet output;
+  for (const auto &pose_id : nbr_shared_pose_ids_) {
+    if (isNeighborActive(pose_id.robot_id)) {
+      output.emplace(pose_id);
+    }
   }
   return output;
 }

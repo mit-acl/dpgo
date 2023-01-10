@@ -368,12 +368,6 @@ class PGOAgent {
   }
 
   /**
-   * Get vector of pose indices needed from the neighbor agent
-   */
-  std::vector<unsigned> getNeighborPublicPoses(
-      const unsigned &neighborID) const;
-
-  /**
    * Return true if the input robot is a neighbor 
    * (i.e., has inter-robot loop closure with this robot)
    */
@@ -545,6 +539,11 @@ class PGOAgent {
   void clearNeighborPoses();
 
   /**
+   * @brief Clear local caches of all active neighbors' poses
+  */
+  void clearActiveNeighborPoses();
+
+  /**
    * @brief Perform local PGO using the standard L2 (least-squares) cost function
    * @return trajectory estimate in matrix form T = [R1 t1 ... Rn tn] in an arbitrary frame
    */
@@ -667,6 +666,12 @@ class PGOAgent {
    * @brief Spawn a separate thread that optimizes the local pose graph in a loop
    */
   void runOptimizationLoop();
+  /**
+   * @brief Initialize robust optimization.
+   * This function sets all active loop closure weights to one
+   * in preparation for GNC.
+  */
+  void initializeRobustOptimization();
   /**
    * @brief Return true if should update loop closure weights
    * @return bool
