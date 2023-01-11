@@ -711,6 +711,10 @@ class PGOAgent {
    * @brief Set robot to be active 
    */
   void setRobotActive(unsigned robot_id, bool active = true);
+  /**
+   * @brief Return the number of currently active robots
+  */
+  size_t numActiveRobots() const;
 
  private:
   // Stores the auxiliary variables from neighbors (only used in acceleration)

@@ -806,7 +806,6 @@ Matrix PGOAgent::localPoseGraphOptimization() {
 }
 
 bool PGOAgent::getLiftingMatrix(Matrix &M) const {
-  CHECK(mID == 0);
   if (YLift.has_value()) {
     M = YLift.value();
     return true;
@@ -975,10 +974,6 @@ bool PGOAgent::updateX(bool doOptimization, bool acceleration) {
 bool PGOAgent::shouldUpdateMeasurementWeights() const {
   // No need to update weight if using L2 cost
   if (mParams.robustCostParams.costType == RobustCostParameters::Type::L2)
-    return false;
-
-  // Only agent 0 decides
-  if (mID != 0)
     return false;
 
   // Return true if number of inner iterations exceeds threshold
@@ -1155,6 +1150,16 @@ void PGOAgent::setRobotActive(unsigned robot_id, bool active) {
   if (mPoseGraph->hasNeighbor(robot_id)) {
     mPoseGraph->setNeighborActive(robot_id, active);
   }
+}
+
+size_t PGOAgent::numActiveRobots() const {
+  size_t num_active = 0;
+  for (unsigned robot_id = 0; robot_id < mParams.numRobots; ++robot_id) {
+    if (isRobotActive(robot_id)) {
+      num_active++;
+    }
+  }
+  return num_active;
 }
 
 }  // namespace DPGO
