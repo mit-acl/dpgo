@@ -273,6 +273,10 @@ class PoseGraph {
    * @brief Return a vector of pointers to all inactive loop closures
   */
   std::vector<RelativeSEMeasurement *> inactiveLoopClosures(); 
+  /**
+   * @brief Set to true to use measurements with inactive neighbors
+  */
+  void useInactiveNeighbors(bool use = true);
 
  protected:
 
@@ -360,7 +364,10 @@ class PoseGraph {
  private:
   // Mapping Edge ID to the corresponding index in the vector of measurements
   // (either odometry, private loop closures, or public loop closures)  
-  std::unordered_map<EdgeID, size_t, HashEdgeID> edge_id_to_index;
+  std::unordered_map<EdgeID, size_t, HashEdgeID> edge_id_to_index_;
+
+  // Use measurements with inactive neighbors when constructing data matrices
+  bool use_inactive_neighbors_;
 };
 
 }
