@@ -391,16 +391,20 @@ bool PoseGraph::constructQ() {
       // First pose belongs to this robot
       // Hence, this is an outgoing edge in the pose graph
       CHECK(m.r2 != id_);
-      // Skip if the other robot is currently ignored
-      if (!use_inactive_neighbors_ && !isNeighborActive(m.r2)) {
-        continue;
-      }
-      // Skip if the other robot's public pose is missing
       const PoseID nID(m.r2, m.p2);
-      if (neighbor_poses_.find(nID) == neighbor_poses_.end()) {
-        LOG(WARNING) << "Missing neighbor pose "
+      bool has_neighbor_pose = (neighbor_poses_.find(nID) != neighbor_poses_.end());
+      if (isNeighborActive(m.r2)) {
+        // Measurement with active neighbor
+        if (!has_neighbor_pose) {
+          LOG(WARNING) << "Missing active neighbor pose "
                      << nID.robot_id << ", " << nID.frame_id;
-        return false;
+          return false;
+        }
+      } else {
+        // Measurement with inactive neighbor
+        if (!use_inactive_neighbors_ || !has_neighbor_pose) {
+          continue;
+        }
       }
       // Modify quadratic cost
       int idx = (int) m.p1;
@@ -411,16 +415,20 @@ bool PoseGraph::constructQ() {
       // Second pose belongs to this robot
       // Hence, this is an incoming edge in the pose graph
       CHECK(m.r2 == id_);
-      // Skip if the other robot is currently ignored
-      if (!use_inactive_neighbors_ && !isNeighborActive(m.r1)) {
-        continue;
-      }
-      // Skip if the other robot's public pose is missing
       const PoseID nID(m.r1, m.p1);
-      if (neighbor_poses_.find(nID) == neighbor_poses_.end()) {
-        LOG(WARNING) << "Missing neighbor pose "
+      bool has_neighbor_pose = (neighbor_poses_.find(nID) != neighbor_poses_.end());
+      if (isNeighborActive(m.r1)) {
+        // Measurement with active neighbor
+        if (!has_neighbor_pose) {
+          LOG(WARNING) << "Missing active neighbor pose "
                      << nID.robot_id << ", " << nID.frame_id;
-        return false;
+          return false;
+        }
+      } else {
+        // Measurement with inactive neighbor
+        if (!use_inactive_neighbors_ || !has_neighbor_pose) {
+          continue;
+        }
       }
       // Modify quadratic cost
       int idx = (int) m.p2;
@@ -473,17 +481,21 @@ bool PoseGraph::constructG() {
       // First pose belongs to this robot
       // Hence, this is an outgoing edge in the pose graph
       CHECK(m.r2 != id_);
-      // Skip if the other robot is currently ignored
-      if (!use_inactive_neighbors_ && !isNeighborActive(m.r2)) {
-        continue;
-      }
-      // Read neighbor's pose
       const PoseID nID(m.r2, m.p2);
       auto pair = neighbor_poses_.find(nID);
-      if (pair == neighbor_poses_.end()) {
-        LOG(WARNING) << "Missing neighbor pose "
+      bool has_neighbor_pose = (pair != neighbor_poses_.end());
+      if (isNeighborActive(m.r2)) {
+        // Measurement with active neighbor
+        if (!has_neighbor_pose) {
+          LOG(WARNING) << "Missing active neighbor pose "
                      << nID.robot_id << ", " << nID.frame_id;
-        return false;
+          return false;
+        }
+      } else {
+        // Measurement with inactive neighbor
+        if (!use_inactive_neighbors_ || !has_neighbor_pose) {
+          continue;
+        }
       }
       Matrix Xj = pair->second.pose();
       int idx = (int) m.p1;
@@ -494,17 +506,21 @@ bool PoseGraph::constructG() {
       // Second pose belongs to this robot
       // Hence, this is an incoming edge in the pose graph
       CHECK(m.r2 == id_);
-      // Skip if the other robot is currently ignored
-      if (!use_inactive_neighbors_ && !isNeighborActive(m.r1)) {
-        continue;
-      }
-      // Read neighbor's pose
       const PoseID nID(m.r1, m.p1);
       auto pair = neighbor_poses_.find(nID);
-      if (pair == neighbor_poses_.end()) {
-        LOG(WARNING) << "Missing neighbor pose "
+      bool has_neighbor_pose = (pair != neighbor_poses_.end());
+      if (isNeighborActive(m.r1)) {
+        // Measurement with active neighbor
+        if (!has_neighbor_pose) {
+          LOG(WARNING) << "Missing active neighbor pose "
                      << nID.robot_id << ", " << nID.frame_id;
-        return false;
+          return false;
+        }
+      } else {
+        // Measurement with inactive neighbor
+        if (!use_inactive_neighbors_ || !has_neighbor_pose) {
+          continue;
+        }
       }
       Matrix Xi = pair->second.pose();
       int idx = (int) m.p2;
