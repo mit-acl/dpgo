@@ -12,7 +12,10 @@
 namespace DPGO {
 
 PoseGraph::PoseGraph(unsigned int id, unsigned int r, unsigned int d)
-    : id_(id), r_(r), d_(d), n_(0), use_inactive_neighbors_(false) {
+    : id_(id), r_(r), d_(d), n_(0), 
+    use_inactive_neighbors_(false),
+    prior_kappa_(10000),
+    prior_tau_(100) {
   CHECK(r >= d);
   empty();
 }
@@ -34,11 +37,13 @@ void PoseGraph::empty() {
   neighbor_active_.clear();
   clearNeighborPoses();
   clearDataMatrices();
+  clearPriors();
 }
 
 void PoseGraph::reset() {
   clearNeighborPoses();
   clearDataMatrices();
+  clearPriors();
   for (const auto neighbor_id: nbr_robot_ids_) {
     neighbor_active_[neighbor_id] = true;
   }
@@ -162,6 +167,17 @@ std::vector<RelativeSEMeasurement> PoseGraph::localMeasurements() const {
   std::vector<RelativeSEMeasurement> measurements = odometry_;
   measurements.insert(measurements.end(), private_lcs_.begin(), private_lcs_.end());
   return measurements;
+}
+
+void PoseGraph::clearPriors() {
+  priors_.clear();
+}
+
+void PoseGraph::setPrior(unsigned index, const LiftedPose &Xi) {
+  CHECK_LT(index, n());
+  CHECK_EQ(d(), Xi.d());
+  CHECK_EQ(r(), Xi.r());
+  priors_[index] = Xi;
 }
 
 void PoseGraph::setNeighborPoses(const PoseDict &pose_dict) {
@@ -371,8 +387,8 @@ bool PoseGraph::constructQ() {
   Matrix Omega = Matrix::Zero(d_ + 1, d_ + 1);
 
   // Shared (inter-robot) measurements only affect the diagonal blocks
-  Matrix QSharedDiag(d_ + 1, (d_ + 1) * n_);
-  QSharedDiag.setZero();
+  Matrix QDiagRow(d_ + 1, (d_ + 1) * n_);
+  QDiagRow.setZero();
 
   // Go through shared loop closures
   for (const auto &m : shared_lcs_) {
@@ -409,7 +425,7 @@ bool PoseGraph::constructQ() {
       // Modify quadratic cost
       int idx = (int) m.p1;
       Matrix W = T * Omega * T.transpose();
-      QSharedDiag.block(0, idx * (d_ + 1), d_ + 1, d_ + 1) += W;
+      QDiagRow.block(0, idx * (d_ + 1), d_ + 1, d_ + 1) += W;
 
     } else {
       // Second pose belongs to this robot
@@ -432,11 +448,21 @@ bool PoseGraph::constructQ() {
       }
       // Modify quadratic cost
       int idx = (int) m.p2;
-      QSharedDiag.block(0, idx * (d_ + 1), d_ + 1, d_ + 1) += Omega;
+      QDiagRow.block(0, idx * (d_ + 1), d_ + 1, d_ + 1) += Omega;
     }
   }
 
-  // Convert QSharedDiag to a sparse matrix
+  // Go through priors
+  for (const auto &it : priors_) {
+    unsigned idx = it.first;
+    for (unsigned row = 0; row < d_; ++row) {
+      Omega(row, row) = prior_kappa_;
+    }
+    Omega(d_, d_) = prior_tau_;
+    QDiagRow.block(0, idx * (d_ + 1), d_ + 1, d_ + 1) += Omega;
+  }
+
+  // Convert to a sparse matrix
   std::vector<Eigen::Triplet<double>> tripletList;
   tripletList.reserve((d_ + 1) * (d_ + 1) * n_);
   for (unsigned idx = 0; idx < n_; ++idx) {
@@ -444,15 +470,15 @@ bool PoseGraph::constructQ() {
     unsigned col_base = row_base;
     for (unsigned r = 0; r < d_ + 1; ++r) {
       for (unsigned c = 0; c < d_ + 1; ++c) {
-        double val = QSharedDiag(r, col_base + c);
+        double val = QDiagRow(r, col_base + c);
         tripletList.emplace_back(row_base + r, col_base + c, val);
       }
     }
   }
-  SparseMatrix QShared(QLocal.rows(), QLocal.cols());
-  QShared.setFromTriplets(tripletList.begin(), tripletList.end());
+  SparseMatrix QDiag(QLocal.rows(), QLocal.cols());
+  QDiag.setFromTriplets(tripletList.begin(), tripletList.end());
 
-  Q_.emplace(QLocal + QShared);
+  Q_.emplace(QLocal + QDiag);
   ms_construct_Q_ = timer_.toc();
   // LOG(INFO) << "Robot " << id_ << " construct Q ms: " << ms_construct_Q_;
   return true;
@@ -463,15 +489,16 @@ bool PoseGraph::constructG() {
   unsigned d = d_;
   Matrix G(r_, (d_ + 1) * n_);
   G.setZero();
+  Matrix T = Matrix::Zero(d + 1, d + 1);
+  Matrix Omega = Matrix::Zero(d + 1, d + 1);
+  // Go through shared measurements
   for (const auto &m : shared_lcs_) {
     // Construct relative SE matrix in homogeneous form
-    Matrix T = Matrix::Zero(d + 1, d + 1);
     T.block(0, 0, d, d) = m.R;
     T.block(0, d, d, 1) = m.t;
     T(d, d) = 1;
 
     // Construct aggregate weight matrix
-    Matrix Omega = Matrix::Zero(d + 1, d + 1);
     for (unsigned row = 0; row < d; ++row) {
       Omega(row, row) = m.weight * m.kappa;
     }
@@ -528,6 +555,17 @@ bool PoseGraph::constructG() {
       Matrix L = -Xi * T * Omega;
       G.block(0, idx * (d_ + 1), r_, d_ + 1) += L;
     }
+  }
+  // Go through priors
+  for (const auto &it : priors_) {
+    unsigned idx = it.first;
+    const Matrix &P = it.second.getData();
+    for (unsigned row = 0; row < d_; ++row) {
+      Omega(row, row) = prior_kappa_;
+    }
+    Omega(d_, d_) = prior_tau_;
+    Matrix L = - P * Omega;
+    G.block(0, idx * (d_ + 1), r_, d_ + 1) += L;
   }
   G_.emplace(G);
   ms_construct_G_ = timer_.toc();

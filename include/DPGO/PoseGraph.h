@@ -141,6 +141,16 @@ class PoseGraph {
    */
   std::vector<RelativeSEMeasurement> localMeasurements() const;
   /**
+   * @brief Clear all priors
+  */
+  void clearPriors();
+  /**
+   * @brief Add a prior term
+   * @param index The index of the local variable
+   * @param Xi Corresponding prior term
+  */
+  void setPrior(unsigned index, const LiftedPose &Xi);
+  /**
    * @brief Set neighbor poses
    * @param pose_dict
    */
@@ -368,6 +378,13 @@ class PoseGraph {
 
   // Use measurements with inactive neighbors when constructing data matrices
   bool use_inactive_neighbors_;
+
+  // Weights for prior terms (TODO: expose as parameter)
+  double prior_kappa_;
+  double prior_tau_;
+
+  // Priors
+  std::map<unsigned, LiftedPose> priors_;
 };
 
 }
