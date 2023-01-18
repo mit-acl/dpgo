@@ -583,6 +583,9 @@ class PGOAgent {
   // Current global iteration counter (this is only meaningful in synchronous mode)
   unsigned mIterationNumber;
 
+  // Iteration number of the latest weight update
+  unsigned mLatestWeightUpdateIteration;
+
   // Number of inner iterations performed for robust optimization
   int mRobustOptInnerIter;
 

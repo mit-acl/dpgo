@@ -34,6 +34,7 @@ PGOAgent::PGOAgent(unsigned ID, const PGOAgentParameters &params)
       mPoseGraph(std::make_shared<PoseGraph>(mID, r, d)),
       mInstanceNumber(0),
       mIterationNumber(0),
+      mLatestWeightUpdateIteration(0),
       mRobustOptInnerIter(0),
       mWeightUpdateCount(0),
       mTrajectoryResetCount(0),
@@ -432,6 +433,7 @@ void PGOAgent::reset() {
 
   mInstanceNumber++;
   mIterationNumber = 0;
+  mLatestWeightUpdateIteration = 0;
   mRobustOptInnerIter = 0;
   mWeightUpdateCount = 0;
   mTrajectoryResetCount = 0;
@@ -999,6 +1001,11 @@ bool PGOAgent::shouldUpdateMeasurementWeights() const {
     }
     const auto &robot_status = it->second;
     CHECK_EQ(robot_status.agentID, robot_id);
+    // return false if robot status is outdated
+    if (robot_status.iterationNumber < mLatestWeightUpdateIteration) {
+      should_update = false;
+      break;
+    }
     if (robot_status.state != PGOAgentState::INITIALIZED) {
       should_update = false;
       break;
@@ -1089,10 +1096,13 @@ void PGOAgent::updateMeasurementWeights() {
     }
   }
   mWeightUpdateCount++;
+  mLatestWeightUpdateIteration = iteration_number();
   mRobustOptInnerIter = 0;
   mPoseGraph->clearDataMatrices();
   mRobustCost.update();
   mTeamStatus.clear();
+  mStatus.readyToTerminate = false;
+  mStatus.relativeChange = 0;
 
   // Reset trajectory estimate to initial guess
   // after the first round of GNC variable update
