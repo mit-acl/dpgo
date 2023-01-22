@@ -318,7 +318,13 @@ PoseGraph::Statistics PoseGraph::statistics() const {
     totalCount += 1;
   }
   for (const auto &m : shared_lcs_) {
-    // if (m.fixedWeight) continue;
+    // Skip loop closures with inactive neighbors
+    if (m.r1 == id_ && !isNeighborActive(m.r2)) {
+      continue;
+    }
+    if (m.r2 == id_ && !isNeighborActive(m.r1)) {
+      continue;
+    }
     if (m.weight == 1) {
       acceptCount += 1;
     } else if (m.weight == 0) {

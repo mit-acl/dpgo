@@ -253,7 +253,8 @@ class PoseGraph {
    */
   bool requireNeighborPose(const PoseID &pose_id) const;
   /**
-   * @brief Compute statistics for the current pose graph
+   * @brief Compute number of accepted, rejected, and undecided loop closures
+   * Note that loop closures with inactive neighbors are not included
    * @return
    */
   Statistics statistics() const;

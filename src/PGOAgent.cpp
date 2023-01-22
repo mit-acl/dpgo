@@ -355,7 +355,7 @@ void PGOAgent::initializeInGlobalFrame(const Pose &T_world_robot) {
   if (optimizationHalted) startOptimizationLoop();
 }
 
-void PGOAgent::iterate(bool doOptimization) {
+bool PGOAgent::iterate(bool doOptimization) {
   mIterationNumber++;
   if (mParams.robustCostParams.costType != RobustCostParameters::Type::L2) {
     mRobustOptInnerIter++;
@@ -408,7 +408,9 @@ void PGOAgent::iterate(bool doOptimization) {
       mPublishPublicPosesRequested = true;
 
     mPublishAsynchronousRequested = true;
+    return success;
   }
+  return true;
 }
 
 void PGOAgent::reset() {
@@ -940,6 +942,7 @@ bool PGOAgent::updateX(bool doOptimization, bool acceleration) {
   // Skip optimization if cannot construct data matrices for some reason
   if (!mPoseGraph->constructDataMatrices()) {
     LOG(WARNING) << "Robot " << getID() << " cannot construct data matrices... Skip optimization.";
+    mLocalOptResult = ROPTResult(false);
     return false;
   }
 

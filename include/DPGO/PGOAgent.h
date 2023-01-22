@@ -293,8 +293,9 @@ class PGOAgent {
   /**
    * @brief perform a single iteration
    * @param doOptimization: if true, this robot is selected to perform local optimization at this iteration
+   * @return true if iteration is successful
    */
-  void iterate(bool doOptimization = true);
+  bool iterate(bool doOptimization = true);
 
   /**
   Reset this agent to have empty pose graph
