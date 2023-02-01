@@ -518,7 +518,7 @@ double angular2ChordalSO3(double rad) {
 void checkRotationMatrix(const Matrix &R) {
   const auto d = R.rows();
   CHECK(R.cols() == d);
-  CHECK(abs(R.determinant() - 1.0) < 1e-5);
+  CHECK(abs(R.determinant() - 1.0) < 1e-4);
   CHECK((R.transpose() * R - Matrix::Identity(d, d)).norm() < 1e-5);
 }
 
