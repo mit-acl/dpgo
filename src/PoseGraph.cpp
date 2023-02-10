@@ -14,8 +14,8 @@ namespace DPGO {
 PoseGraph::PoseGraph(unsigned int id, unsigned int r, unsigned int d)
     : id_(id), r_(r), d_(d), n_(0), 
     use_inactive_neighbors_(false),
-    prior_kappa_(10000),
-    prior_tau_(100) {
+    prior_kappa_(1000000),
+    prior_tau_(10000) {
   CHECK(r >= d);
   empty();
 }
