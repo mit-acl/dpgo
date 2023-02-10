@@ -719,6 +719,11 @@ class PGOAgent {
    * @brief Return the number of currently active robots
   */
   size_t numActiveRobots() const;
+  /**
+   * @brief Add a prior to the first pose of this robot
+  */
+  bool anchorFirstPose();
+  bool anchorFirstPose(const LiftedPose &prior);
 
  private:
   // Stores the auxiliary variables from neighbors (only used in acceleration)

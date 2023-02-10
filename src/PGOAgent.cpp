@@ -341,6 +341,14 @@ void PGOAgent::initializeInGlobalFrame(const Pose &T_world_robot) {
     initializeRobustOptimization();
   }
 
+  // For robot 0, anchor its first pose to fix the global frame
+  if (getID() == 0) {
+    LiftedPose prior(relaxation_rank(), dimension());
+    prior.rotation() = YLift.value();
+    prior.translation() = Vector::Zero(r);
+    anchorFirstPose(prior);
+  }
+
   // Initialize auxiliary variables
   if (mParams.acceleration) {
     initializeAcceleration();
@@ -1173,6 +1181,24 @@ size_t PGOAgent::numActiveRobots() const {
     }
   }
   return num_active;
+}
+
+bool PGOAgent::anchorFirstPose() {
+  if (num_poses() > 0) {
+    LiftedPose prior(relaxation_rank(), dimension());
+    prior.setData(X.pose(0));
+    mPoseGraph->setPrior(0, prior);
+  } else {
+    return false;
+  }
+  return true;
+}
+
+bool PGOAgent::anchorFirstPose(const LiftedPose &prior) {
+  CHECK_EQ(prior.d(), dimension());
+  CHECK_EQ(prior.r(), relaxation_rank());
+  mPoseGraph->setPrior(0, prior);
+  return true;
 }
 
 }  // namespace DPGO
