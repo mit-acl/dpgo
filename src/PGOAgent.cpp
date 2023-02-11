@@ -989,15 +989,15 @@ bool PGOAgent::shouldUpdateMeasurementWeights() const {
   if (mParams.robustCostParams.costType == RobustCostParameters::Type::L2)
     return false;
 
+  if (mWeightUpdateCount >= mParams.robustOptNumWeightUpdates) {
+    LOG_IF(INFO, mParams.verbose) << "Reached maximum weight update steps.";
+    return false;
+  }
+
   // Return true if number of inner iterations exceeds threshold
   if (mRobustOptInnerIter >= mParams.robustOptInnerIters) {
     LOG_IF(INFO, mParams.verbose) << "Exceeds max inner iterations. Update weights.";
     return true;
-  }
-
-  if (mWeightUpdateCount >= mParams.robustOptNumWeightUpdates) {
-    LOG_IF(INFO, mParams.verbose) << "Reached maximum weight update steps.";
-    return false;
   }
 
   // Only update if all agents sufficiently converged
