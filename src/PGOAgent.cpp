@@ -342,12 +342,12 @@ void PGOAgent::initializeInGlobalFrame(const Pose &T_world_robot) {
   }
 
   // For robot 0, anchor its first pose to fix the global frame
-  if (getID() == 0) {
-    LiftedPose prior(relaxation_rank(), dimension());
-    prior.rotation() = YLift.value();
-    prior.translation() = Vector::Zero(r);
-    anchorFirstPose(prior);
-  }
+  // if (getID() == 0) {
+  //   LiftedPose prior(relaxation_rank(), dimension());
+  //   prior.rotation() = YLift.value();
+  //   prior.translation() = Vector::Zero(r);
+  //   anchorFirstPose(prior);
+  // }
 
   // Initialize auxiliary variables
   if (mParams.acceleration) {
