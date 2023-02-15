@@ -272,13 +272,15 @@ class PGOAgent {
 
   /**
    * @brief Perform local initialization for this robot.
-   * After this function call, the robot is initialized in an arbitrary local
-   * frame, and initialization in global frame is still needed by calling
-   * initializeInGlobalFrame()
+   * After this function call, the robot is initialized in its LOCAL frame 
+   * where its first pose is set to identity.
+   * Initialization in global frame is still needed by calling
+   * initializeInGlobalFrame().
    * @param TInitPtr an optional trajectory estimate in an arbitrary local
    * frame. If the dimension of number of poses of the provided initial guess
    * does not match what is expected, this initial guess will be ignored and
-   * this function will perform initialization on its own.
+   * this function will instead use the built in local initialization method
+   * (e.g., odometry)
    */
   void initialize(const PoseArray *TInitPtr = nullptr);
 
@@ -286,7 +288,8 @@ class PGOAgent {
    * @brief Initialize this robot's trajectory estimate in the global frame.
    * This function must be called after initialize().
    * @param T_world_robot d+1 by d+1 transformation from robot (local) frame to
-   * the world frame
+   * the world frame. By convention, the robot local frame is one in which the first pose
+   * of this robot is set to identity
    */
   void initializeInGlobalFrame(const Pose &T_world_robot);
 

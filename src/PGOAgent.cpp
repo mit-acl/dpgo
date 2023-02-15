@@ -278,6 +278,16 @@ void PGOAgent::initialize(const PoseArray *TInitPtr) {
     return;
   }
 
+  // Transform the local trajectory so that the first pose is identity
+  PoseArray T_transformed(dimension(), num_poses());
+  Pose Tw0(TLocalInit.value().pose(0));
+  for (size_t i = 0; i < num_poses(); ++i) {
+    Pose Twi(TLocalInit.value().pose(i));
+    Pose T0i = Tw0.inverse() * Twi;
+    T_transformed.pose(i) = T0i.pose();
+  }
+  TLocalInit.emplace(T_transformed);
+
   // Update dimension for internal iterate
   X = LiftedPoseArray(relaxation_rank(), dimension(), num_poses());
 
