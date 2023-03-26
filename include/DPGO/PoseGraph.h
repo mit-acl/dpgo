@@ -141,6 +141,16 @@ class PoseGraph {
    */
   std::vector<RelativeSEMeasurement> localMeasurements() const;
   /**
+   * @brief Clear all priors
+  */
+  void clearPriors();
+  /**
+   * @brief Add a prior term
+   * @param index The index of the local variable
+   * @param Xi Corresponding prior term
+  */
+  void setPrior(unsigned index, const LiftedPose &Xi);
+  /**
    * @brief Set neighbor poses
    * @param pose_dict
    */
@@ -193,6 +203,12 @@ class PoseGraph {
    */
   PoseSet neighborPublicPoseIDs() const { return nbr_shared_pose_ids_; }
   /**
+   * @brief Get the set of Pose IDs that active neighbors need to share with me.
+   * A neighbor is active if it is actively participating in distributed
+   * optimization with this robot.
+  */
+  PoseSet activeNeighborPublicPoseIDs() const;
+  /**
    * @brief Get the set of neighbor robot IDs that share inter-robot loop closures with me
    * @return
    */
@@ -202,6 +218,18 @@ class PoseGraph {
    * @return
    */
   size_t numNeighbors() const { return nbr_robot_ids_.size(); }
+  /**
+   * @brief Return the IDs of active neighbors.
+   * A neighbor is active if it is actively participating in distributed
+   * optimization with this robot.
+   */
+  std::set<unsigned> activeNeighborIDs() const;
+  /**
+   * @brief Return the number of active neighbors.
+   * A neighbor is active if it is actively participating in distributed
+   * optimization with this robot.
+  */
+  size_t numActiveNeighbors() const;
   /**
    * @brief Return true if the input robot is a neighbor (i.e., share inter-robot loop closure)
    * @param robot_id
@@ -223,9 +251,10 @@ class PoseGraph {
    * @param pose_id
    * @return
    */
-  bool hasNeighborPose(const PoseID &pose_id) const;
+  bool requireNeighborPose(const PoseID &pose_id) const;
   /**
-   * @brief Compute statistics for the current pose graph
+   * @brief Compute number of accepted, rejected, and undecided loop closures
+   * Note that loop closures with inactive neighbors are not included
    * @return
    */
   Statistics statistics() const;
@@ -251,6 +280,14 @@ class PoseGraph {
    * @brief Return a vector of pointers to all active loop closures
   */
   std::vector<RelativeSEMeasurement *> activeLoopClosures();
+  /**
+   * @brief Return a vector of pointers to all inactive loop closures
+  */
+  std::vector<RelativeSEMeasurement *> inactiveLoopClosures(); 
+  /**
+   * @brief Set to true to use measurements with inactive neighbors
+  */
+  void useInactiveNeighbors(bool use = true);
 
  protected:
 
@@ -338,7 +375,17 @@ class PoseGraph {
  private:
   // Mapping Edge ID to the corresponding index in the vector of measurements
   // (either odometry, private loop closures, or public loop closures)  
-  std::unordered_map<EdgeID, size_t, HashEdgeID> edge_id_to_index;
+  std::unordered_map<EdgeID, size_t, HashEdgeID> edge_id_to_index_;
+
+  // Use measurements with inactive neighbors when constructing data matrices
+  bool use_inactive_neighbors_;
+
+  // Weights for prior terms (TODO: expose as parameter)
+  double prior_kappa_;
+  double prior_tau_;
+
+  // Priors
+  std::map<unsigned, LiftedPose> priors_;
 };
 
 }

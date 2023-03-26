@@ -271,18 +271,34 @@ class PGOAgent {
   void addMeasurement(const RelativeSEMeasurement &factor);
 
   /**
-   * @brief Initialize distributed optimization.
-   * @param TInitPtr an optional trajectory estimate in an arbitrary local frame. If the dimension of number of poses
-   * of the provided initial guess does not match what is expected, this initial guess will be ignored and this function
-   * will perform initialization on its own.
+   * @brief Perform local initialization for this robot.
+   * After this function call, the robot is initialized in its LOCAL frame 
+   * where its first pose is set to identity.
+   * Initialization in global frame is still needed by calling
+   * initializeInGlobalFrame().
+   * @param TInitPtr an optional trajectory estimate in an arbitrary local
+   * frame. If the dimension of number of poses of the provided initial guess
+   * does not match what is expected, this initial guess will be ignored and
+   * this function will instead use the built in local initialization method
+   * (e.g., odometry)
    */
   void initialize(const PoseArray *TInitPtr = nullptr);
 
   /**
+   * @brief Initialize this robot's trajectory estimate in the global frame.
+   * This function must be called after initialize().
+   * @param T_world_robot d+1 by d+1 transformation from robot (local) frame to
+   * the world frame. By convention, the robot local frame is one in which the first pose
+   * of this robot is set to identity
+   */
+  void initializeInGlobalFrame(const Pose &T_world_robot);
+
+  /**
    * @brief perform a single iteration
    * @param doOptimization: if true, this robot is selected to perform local optimization at this iteration
+   * @return true if iteration is successful
    */
-  void iterate(bool doOptimization = true);
+  bool iterate(bool doOptimization = true);
 
   /**
   Reset this agent to have empty pose graph
@@ -354,12 +370,6 @@ class PGOAgent {
   inline void setNeighborStatus(const PGOAgentStatus &status) {
     mTeamStatus[status.agentID] = status;
   }
-
-  /**
-   * Get vector of pose indices needed from the neighbor agent
-   */
-  std::vector<unsigned> getNeighborPublicPoses(
-      const unsigned &neighborID) const;
 
   /**
    * Return true if the input robot is a neighbor 
@@ -533,6 +543,11 @@ class PGOAgent {
   void clearNeighborPoses();
 
   /**
+   * @brief Clear local caches of all active neighbors' poses
+  */
+  void clearActiveNeighborPoses();
+
+  /**
    * @brief Perform local PGO using the standard L2 (least-squares) cost function
    * @return trajectory estimate in matrix form T = [R1 t1 ... Rn tn] in an arbitrary frame
    */
@@ -571,6 +586,9 @@ class PGOAgent {
 
   // Current global iteration counter (this is only meaningful in synchronous mode)
   unsigned mIterationNumber;
+
+  // Iteration number of the latest weight update
+  unsigned mLatestWeightUpdateIteration;
 
   // Number of inner iterations performed for robust optimization
   int mRobustOptInnerIter;
@@ -634,16 +652,6 @@ class PGOAgent {
    */
   void initializeAcceleration();
   /**
-   * @brief initialize local trajectory estimate in an arbitrary local frame
-   * @return true if local initialization is successful
-   */
-  bool initializeLocalTrajectory();
-  /**
-   * @brief Initialize this robot's trajectory estimate in the global frame
-   * @param T_world_robot d+1 by d+1 transformation from robot (local) frame to the world frame
-   */
-  void initializeInGlobalFrame(const Pose &T_world_robot);
-  /**
    * @brief Compute a robust relative transform estimate between this robot and neighbor robot, using a two-stage method
    * which first perform robust single rotation averaging, and then performs translation averaging on the inlier set.
    * @param neighborID
@@ -665,6 +673,12 @@ class PGOAgent {
    * @brief Spawn a separate thread that optimizes the local pose graph in a loop
    */
   void runOptimizationLoop();
+  /**
+   * @brief Initialize robust optimization.
+   * This function sets all active loop closure weights to one
+   * in preparation for GNC.
+  */
+  void initializeRobustOptimization();
   /**
    * @brief Return true if should update loop closure weights
    * @return bool
@@ -704,6 +718,15 @@ class PGOAgent {
    * @brief Set robot to be active 
    */
   void setRobotActive(unsigned robot_id, bool active = true);
+  /**
+   * @brief Return the number of currently active robots
+  */
+  size_t numActiveRobots() const;
+  /**
+   * @brief Add a prior to the first pose of this robot
+  */
+  bool anchorFirstPose();
+  bool anchorFirstPose(const LiftedPose &prior);
 
  private:
   // Stores the auxiliary variables from neighbors (only used in acceleration)

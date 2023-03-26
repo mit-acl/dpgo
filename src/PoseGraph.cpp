@@ -12,7 +12,10 @@
 namespace DPGO {
 
 PoseGraph::PoseGraph(unsigned int id, unsigned int r, unsigned int d)
-    : id_(id), r_(r), d_(d), n_(0) {
+    : id_(id), r_(r), d_(d), n_(0), 
+    use_inactive_neighbors_(false),
+    prior_kappa_(10000),
+    prior_tau_(100) {
   CHECK(r >= d);
   empty();
 }
@@ -24,7 +27,7 @@ PoseGraph::~PoseGraph() {
 void PoseGraph::empty() {
   // Reset this pose graph to be empty
   n_ = 0;
-  edge_id_to_index.clear();
+  edge_id_to_index_.clear();
   odometry_.clear();
   private_lcs_.clear();
   shared_lcs_.clear();
@@ -34,11 +37,13 @@ void PoseGraph::empty() {
   neighbor_active_.clear();
   clearNeighborPoses();
   clearDataMatrices();
+  clearPriors();
 }
 
 void PoseGraph::reset() {
   clearNeighborPoses();
   clearDataMatrices();
+  clearPriors();
   for (const auto neighbor_id: nbr_robot_ids_) {
     neighbor_active_[neighbor_id] = true;
   }
@@ -91,7 +96,7 @@ void PoseGraph::addOdometry(const RelativeSEMeasurement &factor) {
   n_ = std::max(n_, (unsigned int) factor.p2 + 1);
   odometry_.push_back(factor);
   const EdgeID edge_id(src_id, dst_id);
-  edge_id_to_index.emplace(edge_id, odometry_.size() - 1);
+  edge_id_to_index_.emplace(edge_id, odometry_.size() - 1);
 }
 
 void PoseGraph::addPrivateLoopClosure(const RelativeSEMeasurement &factor) {
@@ -109,7 +114,7 @@ void PoseGraph::addPrivateLoopClosure(const RelativeSEMeasurement &factor) {
   n_ = std::max(n_, (unsigned int) std::max(factor.p1 + 1, factor.p2 + 1));
   private_lcs_.push_back(factor);
   const EdgeID edge_id(src_id, dst_id);
-  edge_id_to_index.emplace(edge_id, private_lcs_.size() - 1);
+  edge_id_to_index_.emplace(edge_id, private_lcs_.size() - 1);
 }
 
 void PoseGraph::addSharedLoopClosure(const RelativeSEMeasurement &factor) {
@@ -139,7 +144,7 @@ void PoseGraph::addSharedLoopClosure(const RelativeSEMeasurement &factor) {
 
   shared_lcs_.push_back(factor);
   const EdgeID edge_id(src_id, dst_id);
-  edge_id_to_index.emplace(edge_id, shared_lcs_.size() - 1);
+  edge_id_to_index_.emplace(edge_id, shared_lcs_.size() - 1);
 }
 
 std::vector<RelativeSEMeasurement> PoseGraph::sharedLoopClosuresWithRobot(unsigned int neighbor_id) const {
@@ -162,6 +167,17 @@ std::vector<RelativeSEMeasurement> PoseGraph::localMeasurements() const {
   std::vector<RelativeSEMeasurement> measurements = odometry_;
   measurements.insert(measurements.end(), private_lcs_.begin(), private_lcs_.end());
   return measurements;
+}
+
+void PoseGraph::clearPriors() {
+  priors_.clear();
+}
+
+void PoseGraph::setPrior(unsigned index, const LiftedPose &Xi) {
+  CHECK_LT(index, n());
+  CHECK_EQ(d(), Xi.d());
+  CHECK_EQ(r(), Xi.r());
+  priors_[index] = Xi;
 }
 
 void PoseGraph::setNeighborPoses(const PoseDict &pose_dict) {
@@ -190,20 +206,20 @@ void PoseGraph::setNeighborActive(unsigned int neighbor_id, bool active) {
   neighbor_active_[neighbor_id] = active;
 }
 
-bool PoseGraph::hasNeighborPose(const PoseID &pose_id) const {
+bool PoseGraph::requireNeighborPose(const PoseID &pose_id) const {
   return nbr_shared_pose_ids_.find(pose_id) != nbr_shared_pose_ids_.end();
 }
 
 bool PoseGraph::hasMeasurement(const PoseID &srcID, const PoseID &dstID) const {
   const EdgeID edge_id(srcID, dstID);
-  return edge_id_to_index.find(edge_id) != edge_id_to_index.end();
+  return edge_id_to_index_.find(edge_id) != edge_id_to_index_.end();
 }
 
 RelativeSEMeasurement *PoseGraph::findMeasurement(const PoseID &srcID, const PoseID &dstID) {
   RelativeSEMeasurement *edge = nullptr;
   if (hasMeasurement(srcID, dstID)) {
     const EdgeID edge_id(srcID, dstID);
-    size_t index = edge_id_to_index.at(edge_id);
+    size_t index = edge_id_to_index_.at(edge_id);
     if (edge_id.isOdometry()) {
       edge = &odometry_[index];
     } else if (edge_id.isPrivateLoopClosure()) {
@@ -233,6 +249,30 @@ std::vector<RelativeSEMeasurement *> PoseGraph::allLoopClosures() {
   return output;
 }
 
+std::set<unsigned> PoseGraph::activeNeighborIDs() const {
+  std::set<unsigned> output;
+  for (unsigned neighbor_id : nbr_robot_ids_) {
+    if (isNeighborActive(neighbor_id)) {
+      output.emplace(neighbor_id);
+    }
+  }
+  return output;
+}
+
+size_t PoseGraph::numActiveNeighbors() const {
+  return activeNeighborIDs().size();
+}
+
+PoseSet PoseGraph::activeNeighborPublicPoseIDs() const {
+  PoseSet output;
+  for (const auto &pose_id : nbr_shared_pose_ids_) {
+    if (isNeighborActive(pose_id.robot_id)) {
+      output.emplace(pose_id);
+    }
+  }
+  return output;
+}
+
 std::vector<RelativeSEMeasurement *> PoseGraph::activeLoopClosures() {
   std::vector<RelativeSEMeasurement *> output;
   for (auto &m : private_lcs_) {
@@ -243,6 +283,19 @@ std::vector<RelativeSEMeasurement *> PoseGraph::activeLoopClosures() {
       output.push_back(&m);
     }
     else if(m.r2 == id_ && isNeighborActive(m.r1)) {
+      output.push_back(&m);
+    }
+  }
+  return output;
+}
+
+std::vector<RelativeSEMeasurement *> PoseGraph::inactiveLoopClosures() {
+  std::vector<RelativeSEMeasurement *> output;
+  for (auto &m : shared_lcs_) {
+    if (m.r1 == id_ && !isNeighborActive(m.r2)) {
+      output.push_back(&m);
+    }
+    else if(m.r2 == id_ && !isNeighborActive(m.r1)) {
       output.push_back(&m);
     }
   }
@@ -265,7 +318,13 @@ PoseGraph::Statistics PoseGraph::statistics() const {
     totalCount += 1;
   }
   for (const auto &m : shared_lcs_) {
-    // if (m.fixedWeight) continue;
+    // Skip loop closures with inactive neighbors
+    if (m.r1 == id_ && !isNeighborActive(m.r2)) {
+      continue;
+    }
+    if (m.r2 == id_ && !isNeighborActive(m.r1)) {
+      continue;
+    }
     if (m.weight == 1) {
       acceptCount += 1;
     } else if (m.weight == 0) {
@@ -334,8 +393,8 @@ bool PoseGraph::constructQ() {
   Matrix Omega = Matrix::Zero(d_ + 1, d_ + 1);
 
   // Shared (inter-robot) measurements only affect the diagonal blocks
-  Matrix QSharedDiag(d_ + 1, (d_ + 1) * n_);
-  QSharedDiag.setZero();
+  Matrix QDiagRow(d_ + 1, (d_ + 1) * n_);
+  QDiagRow.setZero();
 
   // Go through shared loop closures
   for (const auto &m : shared_lcs_) {
@@ -354,30 +413,62 @@ bool PoseGraph::constructQ() {
       // First pose belongs to this robot
       // Hence, this is an outgoing edge in the pose graph
       CHECK(m.r2 != id_);
-      // Skip if the other robot is currently ignored
-      if (!isNeighborActive(m.r2)) {
-        continue;
+      const PoseID nID(m.r2, m.p2);
+      bool has_neighbor_pose = (neighbor_poses_.find(nID) != neighbor_poses_.end());
+      if (isNeighborActive(m.r2)) {
+        // Measurement with active neighbor
+        if (!has_neighbor_pose) {
+          LOG(WARNING) << "Missing active neighbor pose "
+                     << nID.robot_id << ", " << nID.frame_id;
+          return false;
+        }
+      } else {
+        // Measurement with inactive neighbor
+        if (!use_inactive_neighbors_ || !has_neighbor_pose) {
+          continue;
+        }
       }
       // Modify quadratic cost
       int idx = (int) m.p1;
       Matrix W = T * Omega * T.transpose();
-      QSharedDiag.block(0, idx * (d_ + 1), d_ + 1, d_ + 1) += W;
+      QDiagRow.block(0, idx * (d_ + 1), d_ + 1, d_ + 1) += W;
 
     } else {
       // Second pose belongs to this robot
       // Hence, this is an incoming edge in the pose graph
       CHECK(m.r2 == id_);
-      // Skip if the other robot is currently ignored
-      if (!isNeighborActive(m.r1)) {
-        continue;
+      const PoseID nID(m.r1, m.p1);
+      bool has_neighbor_pose = (neighbor_poses_.find(nID) != neighbor_poses_.end());
+      if (isNeighborActive(m.r1)) {
+        // Measurement with active neighbor
+        if (!has_neighbor_pose) {
+          LOG(WARNING) << "Missing active neighbor pose "
+                     << nID.robot_id << ", " << nID.frame_id;
+          return false;
+        }
+      } else {
+        // Measurement with inactive neighbor
+        if (!use_inactive_neighbors_ || !has_neighbor_pose) {
+          continue;
+        }
       }
       // Modify quadratic cost
       int idx = (int) m.p2;
-      QSharedDiag.block(0, idx * (d_ + 1), d_ + 1, d_ + 1) += Omega;
+      QDiagRow.block(0, idx * (d_ + 1), d_ + 1, d_ + 1) += Omega;
     }
   }
 
-  // Convert QSharedDiag to a sparse matrix
+  // Go through priors
+  for (const auto &it : priors_) {
+    unsigned idx = it.first;
+    for (unsigned row = 0; row < d_; ++row) {
+      Omega(row, row) = prior_kappa_;
+    }
+    Omega(d_, d_) = prior_tau_;
+    QDiagRow.block(0, idx * (d_ + 1), d_ + 1, d_ + 1) += Omega;
+  }
+
+  // Convert to a sparse matrix
   std::vector<Eigen::Triplet<double>> tripletList;
   tripletList.reserve((d_ + 1) * (d_ + 1) * n_);
   for (unsigned idx = 0; idx < n_; ++idx) {
@@ -385,15 +476,15 @@ bool PoseGraph::constructQ() {
     unsigned col_base = row_base;
     for (unsigned r = 0; r < d_ + 1; ++r) {
       for (unsigned c = 0; c < d_ + 1; ++c) {
-        double val = QSharedDiag(r, col_base + c);
+        double val = QDiagRow(r, col_base + c);
         tripletList.emplace_back(row_base + r, col_base + c, val);
       }
     }
   }
-  SparseMatrix QShared(QLocal.rows(), QLocal.cols());
-  QShared.setFromTriplets(tripletList.begin(), tripletList.end());
+  SparseMatrix QDiag(QLocal.rows(), QLocal.cols());
+  QDiag.setFromTriplets(tripletList.begin(), tripletList.end());
 
-  Q_.emplace(QLocal + QShared);
+  Q_.emplace(QLocal + QDiag);
   ms_construct_Q_ = timer_.toc();
   // LOG(INFO) << "Robot " << id_ << " construct Q ms: " << ms_construct_Q_;
   return true;
@@ -404,15 +495,16 @@ bool PoseGraph::constructG() {
   unsigned d = d_;
   Matrix G(r_, (d_ + 1) * n_);
   G.setZero();
+  Matrix T = Matrix::Zero(d + 1, d + 1);
+  Matrix Omega = Matrix::Zero(d + 1, d + 1);
+  // Go through shared measurements
   for (const auto &m : shared_lcs_) {
     // Construct relative SE matrix in homogeneous form
-    Matrix T = Matrix::Zero(d + 1, d + 1);
     T.block(0, 0, d, d) = m.R;
     T.block(0, d, d, 1) = m.t;
     T(d, d) = 1;
 
     // Construct aggregate weight matrix
-    Matrix Omega = Matrix::Zero(d + 1, d + 1);
     for (unsigned row = 0; row < d; ++row) {
       Omega(row, row) = m.weight * m.kappa;
     }
@@ -422,17 +514,21 @@ bool PoseGraph::constructG() {
       // First pose belongs to this robot
       // Hence, this is an outgoing edge in the pose graph
       CHECK(m.r2 != id_);
-      // Skip if the other robot is currently ignored
-      if (!isNeighborActive(m.r2)) {
-        continue;
-      }
-      // Read neighbor's pose
       const PoseID nID(m.r2, m.p2);
       auto pair = neighbor_poses_.find(nID);
-      if (pair == neighbor_poses_.end()) {
-        LOG(WARNING) << "Robot " << id_ << " cannot find neighbor pose "
+      bool has_neighbor_pose = (pair != neighbor_poses_.end());
+      if (isNeighborActive(m.r2)) {
+        // Measurement with active neighbor
+        if (!has_neighbor_pose) {
+          LOG(WARNING) << "Missing active neighbor pose "
                      << nID.robot_id << ", " << nID.frame_id;
-        return false;
+          return false;
+        }
+      } else {
+        // Measurement with inactive neighbor
+        if (!use_inactive_neighbors_ || !has_neighbor_pose) {
+          continue;
+        }
       }
       Matrix Xj = pair->second.pose();
       int idx = (int) m.p1;
@@ -443,17 +539,21 @@ bool PoseGraph::constructG() {
       // Second pose belongs to this robot
       // Hence, this is an incoming edge in the pose graph
       CHECK(m.r2 == id_);
-      // Skip if the other robot is currently ignored
-      if (!isNeighborActive(m.r1)) {
-        continue;
-      }
-      // Read neighbor's pose
       const PoseID nID(m.r1, m.p1);
       auto pair = neighbor_poses_.find(nID);
-      if (pair == neighbor_poses_.end()) {
-        LOG(WARNING) << "Robot " << id_ << " cannot find neighbor pose "
+      bool has_neighbor_pose = (pair != neighbor_poses_.end());
+      if (isNeighborActive(m.r1)) {
+        // Measurement with active neighbor
+        if (!has_neighbor_pose) {
+          LOG(WARNING) << "Missing active neighbor pose "
                      << nID.robot_id << ", " << nID.frame_id;
-        return false;
+          return false;
+        }
+      } else {
+        // Measurement with inactive neighbor
+        if (!use_inactive_neighbors_ || !has_neighbor_pose) {
+          continue;
+        }
       }
       Matrix Xi = pair->second.pose();
       int idx = (int) m.p2;
@@ -461,6 +561,17 @@ bool PoseGraph::constructG() {
       Matrix L = -Xi * T * Omega;
       G.block(0, idx * (d_ + 1), r_, d_ + 1) += L;
     }
+  }
+  // Go through priors
+  for (const auto &it : priors_) {
+    unsigned idx = it.first;
+    const Matrix &P = it.second.getData();
+    for (unsigned row = 0; row < d_; ++row) {
+      Omega(row, row) = prior_kappa_;
+    }
+    Omega(d_, d_) = prior_tau_;
+    Matrix L = - P * Omega;
+    G.block(0, idx * (d_ + 1), r_, d_ + 1) += L;
   }
   G_.emplace(G);
   ms_construct_G_ = timer_.toc();
@@ -516,6 +627,11 @@ void PoseGraph::updatePublicPoseIDs() {
       nbr_shared_pose_ids_.emplace(m.r1, m.p1);
     }
   }
+}
+
+void PoseGraph::useInactiveNeighbors(bool use) {
+  use_inactive_neighbors_ = use;
+  clearDataMatrices();
 }
 
 }

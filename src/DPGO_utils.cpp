@@ -518,13 +518,23 @@ double angular2ChordalSO3(double rad) {
 void checkRotationMatrix(const Matrix &R) {
   const auto d = R.rows();
   CHECK(R.cols() == d);
-  CHECK(abs(R.determinant() - 1.0) < 1e-5);
-  CHECK((R.transpose() * R - Matrix::Identity(d, d)).norm() < 1e-5);
+  double err_det = abs(R.determinant() - 1.0);
+  double err_norm = (R.transpose() * R - Matrix::Identity(d, d)).norm();
+  if (err_det > 1e-5 || err_norm > 1e-5) {
+    LOG(WARNING)
+        << "[checkRotationMatrix] Invalid rotation: err_det="
+        << err_det << ", err_norm=" << err_norm;
+  }
 }
 
 void checkStiefelMatrix(const Matrix &Y) {
   const auto d = Y.cols();
-  CHECK((Y.transpose() * Y - Matrix::Identity(d, d)).norm() < 1e-5);
+  double err_norm = (Y.transpose() * Y - Matrix::Identity(d, d)).norm();
+  if (err_norm > 1e-5) {
+    LOG(WARNING)
+        << "[checkStiefelMatrix] Invalid Stiefel: err_norm="
+        << err_norm;
+  }
 }
 
 }  // namespace DPGO
