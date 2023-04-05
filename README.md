@@ -25,6 +25,8 @@ cmake ../
 make
 ```
 
+## Running a minimal example
+
 The built executables are located in directory build/bin. For a minimal demo of distributed PGO on one of the benchmark datasets, inside the build directory run:
 ```
 ./bin/multi-robot-example 5 ../data/smallGrid3D.g2o
@@ -35,13 +37,13 @@ Optionally, run the unit tests by,
 ./bin/testDPGO
 ```
 
-## ROS Support
+## More Examples in ROS
 
-A ROS wrapper of dpgo is provided: [dpgo_ros](https://github.com/mit-acl/dpgo_ros). If you want to use dpgo with ROS, please follow instructions in the [README](https://github.com/mit-acl/dpgo_ros). 
+A ROS wrapper of dpgo is provided: [dpgo_ros](https://github.com/mit-acl/dpgo_ros). For more examples of dpgo (including the use of *robust* optimization on real-world datasets with outlier measurements), checkout the [README](https://github.com/mit-acl/dpgo_ros).
 
 ## Usage in multi-robot collaborative SLAM
 
-DPGO is integrated with [Kimera-Multi](https://github.com/MIT-SPARK/Kimera-Multi), a robust and fully distributed system for multi-robot collaborative SLAM. Check out the full system as well as the accompanying [datasets](https://github.com/MIT-SPARK/Kimera-Multi-Data)!
+DPGO is currently used as the distributed back-end in [Kimera-Multi](https://github.com/MIT-SPARK/Kimera-Multi), which is a robust and fully distributed system for multi-robot collaborative SLAM. Check out the [full system](https://github.com/MIT-SPARK/Kimera-Multi) as well as the accompanying [datasets](https://github.com/MIT-SPARK/Kimera-Multi-Data)!
 
 ## Citations
 
