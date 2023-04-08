@@ -39,7 +39,7 @@ Optionally, run the unit tests by,
 
 ## More Examples in ROS
 
-A ROS wrapper of dpgo is provided: [dpgo_ros](https://github.com/mit-acl/dpgo_ros). For more examples of dpgo (including the use of *robust* optimization on real-world datasets with outlier measurements), checkout the [README](https://github.com/mit-acl/dpgo_ros).
+A ROS wrapper of dpgo is provided: [dpgo_ros](https://github.com/mit-acl/dpgo_ros). The ROS extension also provides examples for using the complete set of features implemented in dpgo. These include running the asynchronous version, speeding up convergence with Nesterov acceleration, and using robust optimization on real-world datasets to reject outlier measurements. To try out these examples, please checkout the [README](https://github.com/mit-acl/dpgo_ros).
 
 ## Usage in multi-robot collaborative SLAM
 
