@@ -55,6 +55,7 @@ class ROptParameters {
       verbose(false),
       gradnorm_tol(1e-2),
       RGD_stepsize(1e-3),
+      RGD_use_preconditioner(true),
       RTR_iterations(3),
       RTR_tCG_iterations(50),
       RTR_initial_radius(100) {}
@@ -63,6 +64,7 @@ class ROptParameters {
   bool verbose;
   double gradnorm_tol;
   double RGD_stepsize;
+  bool RGD_use_preconditioner; 
   int RTR_iterations;
   int RTR_tCG_iterations; // Maximum number of tCG iterations
   double RTR_initial_radius;
@@ -75,6 +77,7 @@ class ROptParameters {
     os << "Method: " << ROptMethodToString(params.method) << std::endl;
     os << "Gradient norm tol: " << params.gradnorm_tol << std::endl;
     os << "RGD stepsize: " << params.RGD_stepsize << std::endl;
+    os << "RGD use preconditioner: " << params.RGD_use_preconditioner << std::endl;
     os << "RTR iterations: " << params.RTR_iterations << std::endl;
     os << "RTR tCG iterations: " << params.RTR_tCG_iterations << std::endl;
     os << "RTR initial radius: " << params.RTR_initial_radius << std::endl;

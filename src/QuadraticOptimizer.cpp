@@ -125,8 +125,10 @@ Matrix QuadraticOptimizer::gradientDescent(const Matrix &Yinit) {
   M.getManifold()->Projection(VarInit.var(), RGrad.vec(), RGrad.vec());
 
   // Preconditioning
-  // problem->PreConditioner(VarInit.var(), RGrad.vec(), RGrad.vec());
-
+  if (params_.RGD_use_preconditioner) {
+    problem_->PreConditioner(VarInit.var(), RGrad.vec(), RGrad.vec());
+  }
+  
   // Update
   M.getManifold()->ScaleTimesVector(VarInit.var(), -params_.RGD_stepsize, RGrad.vec(), RGrad.vec());
   M.getManifold()->Retraction(VarInit.var(), RGrad.vec(), VarNext.var());
