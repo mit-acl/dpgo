@@ -47,7 +47,7 @@ DPGO is currently used as the distributed back-end in [Kimera-Multi](https://git
 
 ## Citations
 
-If you are using this library, please cite the following papers:
+If you are using the dpgo library, please cite the following papers. For the basic dpgo library,
 ```
 @ARTICLE{Tian2021Distributed,
   author={Tian, Yulun and Khosoussi, Kasra and Rosen, David M. and How, Jonathan P.},
@@ -58,7 +58,9 @@ If you are using this library, please cite the following papers:
   number={6},
   pages={2137-2156},
   doi={10.1109/TRO.2021.3072346}}
-
+```
+In addition, the extension to asynchronous optimization is described in,
+```
 @ARTICLE{Tian2020Asynchronous,
   author={Tian, Yulun and Koppel, Alec and Bedi, Amrit Singh and How, Jonathan P.},
   journal={IEEE Robotics and Automation Letters}, 
@@ -69,7 +71,17 @@ If you are using this library, please cite the following papers:
   pages={5819-5826},
   doi={10.1109/LRA.2020.3010216}}
 ```
-
-
-
+Lastly, the extension to outlier-robust optimization is described in,
+```
+@ARTICLE{tian22tro_kimeramulti,
+  author={Tian, Yulun and Chang, Yun and Herrera Arias, Fernando and Nieto-Granda, Carlos and How, Jonathan P. and Carlone, Luca},
+  journal={IEEE Transactions on Robotics}, 
+  title={Kimera-Multi: Robust, Distributed, Dense Metric-Semantic SLAM for Multi-Robot Systems}, 
+  year={2022},
+  volume={38},
+  number={4},
+  pages={2022-2038},
+  doi={10.1109/TRO.2021.3137751}
+}
+```
 
