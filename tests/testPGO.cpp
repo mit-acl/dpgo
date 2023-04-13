@@ -3,6 +3,7 @@
 #include <DPGO/DPGO_robust.h>
 #include <DPGO/PoseGraph.h>
 #include <DPGO/manifold/LiftedSEManifold.h>
+#include <DPGO/QuadraticOptimizer.h>
 #include <iostream>
 #include <random>
 
@@ -125,6 +126,69 @@ TEST(testDPGO, testRobustSinglePoseAveraging) {
     }
   }
 }
+
+
+TEST(testDPGO, testPrior) {
+  size_t dimension = 3;
+  size_t num_poses = 2;
+  size_t robot_id = 0;
+  
+  // Odometry measurement
+  RelativeSEMeasurement m;
+  m.r1 = 0;
+  m.p1 = 0;
+  m.r2 = 0;
+  m.p2 = 1;
+  m.R = Eigen::Matrix3d::Identity();
+  m.t = Eigen::Vector3d::Zero();
+  m.kappa = 10000;
+  m.tau = 100;
+  m.weight = 1;
+  m.fixedWeight = true;
+  std::vector<RelativeSEMeasurement> measurements;
+  measurements.push_back(m);
+
+  PoseArray T(dimension, num_poses);
+  T = odometryInitialization(measurements);
+
+  // Form pose graph and add a prior
+  auto pose_graph = std::make_shared<PoseGraph>(robot_id, dimension, dimension);
+  pose_graph->setMeasurements(measurements);
+  Matrix prior_rotation(dimension, dimension);
+  prior_rotation << 0.7236,    0.1817,    0.6658,
+              -0.6100,    0.6198,    0.4938,
+              -0.3230,   -0.7634,    0.5594;
+  prior_rotation = projectToRotationGroup(prior_rotation);
+  Pose prior(dimension);
+  prior.rotation() = prior_rotation;
+  pose_graph->setPrior(1, prior);
+  QuadraticProblem problem(pose_graph);
+
+  // The odometry initial guess does not respect the prior
+  double error0 = (T.pose(0) - prior.pose()).norm();
+  double error1 = (T.pose(1) - prior.pose()).norm();
+  ASSERT_GT(error0, 1e-6);
+  ASSERT_GT(error1, 1e-6);
+
+  // Initialize optimizer object
+  ROptParameters params;
+  params.verbose = false;
+  params.RTR_iterations = 50;
+  params.RTR_tCG_iterations = 500;
+  params.gradnorm_tol = 1e-5;
+  QuadraticOptimizer optimizer(&problem, params);
+
+  // Optimize!
+  auto Topt_mat = optimizer.optimize(T.getData());
+  T.setData(Topt_mat);
+  
+  // After optimization, the solution should be fixed on the prior
+  error0 = (T.pose(0) - prior.pose()).norm();
+  error1 = (T.pose(1) - prior.pose()).norm();
+  ASSERT_LT(error0, 1e-6);
+  ASSERT_LT(error1, 1e-6);
+}
+
 
 TEST(testDPGO, testRobustPGO) {
   int d = 3;
