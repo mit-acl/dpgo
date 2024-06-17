@@ -291,8 +291,8 @@ PoseArray odometryInitialization(
   for (size_t dst = next_index; dst < num_poses; ++dst) {
     size_t src = dst - 1;
     const RelativeSEMeasurement &m = odometry[src];
-    CHECK(m.p1 == src);
-    CHECK(m.p2 == dst);
+    CHECK(m.p1 == src) << ": [odometryInitialization] Error: Odometry measurements are discontinuous at pose: " << src;
+    CHECK(m.p2 == dst) << ": [odometryInitialization] Error: Odometry measurements are discontinuous at pose: " << dst;
     const Matrix Rsrc = T.rotation(src);
     const Matrix tsrc = T.translation(src);
     T.rotation(dst) = Rsrc * m.R;

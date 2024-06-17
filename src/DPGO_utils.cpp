@@ -113,10 +113,10 @@ Cartan-Sync: https://bitbucket.org/jesusbriales/cartan-sync/src
 std::vector<RelativeSEMeasurement> read_g2o_file(const std::string &filename,
                                                  size_t &num_poses) {
   // Preallocate output vector
-  std::vector<DPGO::RelativeSEMeasurement> measurements;
+  std::vector<RelativeSEMeasurement> measurements;
 
   // A single measurement, whose values we will fill in
-  DPGO::RelativeSEMeasurement measurement;
+  RelativeSEMeasurement measurement;
   measurement.weight = 1.0;
 
   // A string used to contain the contents of a single line
@@ -128,13 +128,13 @@ std::vector<RelativeSEMeasurement> read_g2o_file(const std::string &filename,
   // Preallocate various useful quantities
   double dx, dy, dz, dtheta, dqx, dqy, dqz, dqw, I11, I12, I13, I14, I15, I16,
       I22, I23, I24, I25, I26, I33, I34, I35, I36, I44, I45, I46, I55, I56, I66;
-
   size_t i, j;
 
   // Open the file for reading
   std::ifstream infile(filename);
 
-  num_poses = 0;
+  // Create Pose ID set
+  std::set<size_t> pose_ids;
 
   while (std::getline(infile, line)) {
     // Construct a stream from the string
@@ -172,7 +172,6 @@ std::vector<RelativeSEMeasurement> read_g2o_file(const std::string &filename,
       Eigen::Matrix2d TranCov;
       TranCov << I11, I12, I12, I22;
       measurement.tau = 2 / TranCov.inverse().trace();
-
       measurement.kappa = I33;
 
       if (i+1 == j) {
@@ -224,7 +223,6 @@ std::vector<RelativeSEMeasurement> read_g2o_file(const std::string &filename,
 
       // Compute and store the optimal (information-divergence-minimizing value
       // of the parameter kappa
-
       Eigen::Matrix3d RotCov;
       RotCov << I44, I45, I46, I45, I55, I56, I46, I56, I66;
       measurement.kappa = 3 / (2 * RotCov.inverse().trace());
@@ -238,20 +236,48 @@ std::vector<RelativeSEMeasurement> read_g2o_file(const std::string &filename,
     } else if ((token == "VERTEX_SE2") || (token == "VERTEX_SE3:QUAT")) {
       // This is just initialization information, so do nothing
       continue;
+    } else if ((token == "FIX")) {
+      LOG(WARNING) << "[read_g2o_file] FIX ID_SET is not supported. Skipping line...";
+      continue;
     } else {
-      LOG(FATAL) << "Error: unrecognized type: " << token << "!";
+      LOG(FATAL) << "[read_g2o_file] Unrecognized type: " << token << "!";
     }
 
-    // Update maximum value of poses found so far
-    size_t max_pair = std::max<double>(measurement.p1, measurement.p2);
+    // Update pose IDs
+    pose_ids.emplace(measurement.p1);
+    pose_ids.emplace(measurement.p2);
 
-    num_poses = ((max_pair > num_poses) ? max_pair : num_poses);
     measurements.push_back(measurement);
   }  // while
 
   infile.close();
 
-  num_poses++;  // Account for the use of zero-based indexing
+  // Get first pose ID
+  const size_t first_pose_id = *pose_ids.begin();
+
+  // Check for consecutive sequencing of pose IDs
+  size_t prev_pose_id = first_pose_id - 1;
+  for (const size_t& pose_id : pose_ids) {
+    if (pose_id != prev_pose_id + 1) {
+      LOG(FATAL) << "[read_g2o_file] Invalid pose ID sequencing: [" << prev_pose_id << "," << pose_id << "]. "
+                 << "The set of pose IDs must be consecutive!";
+    }
+    prev_pose_id = pose_id;
+  }
+
+  // Reindex Pose IDs from zero if necessary
+  if (first_pose_id != 0) {
+    LOG(WARNING) << "[read_g2o_file] Invalid first pose ID: " << first_pose_id << ". "
+                 << "Pose IDs will be re-indexed starting from zero.";
+
+    // Decrement all pose IDs by the first pose ID
+    for (RelativeSEMeasurement& measurement : measurements) {
+      measurement.p1 -= first_pose_id;
+      measurement.p2 -= first_pose_id;
+    }
+  }
+
+  num_poses = pose_ids.size();
 
   return measurements;
 }
